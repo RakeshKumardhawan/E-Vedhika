@@ -1368,7 +1368,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
 function PostForm({ addToast, onCancel, currentUserProfile, editingPost }: { addToast: (s:string) => void, onCancel: () => void, currentUserProfile: UserProfile | null, editingPost: Post | null }) {
   const [loading, setLoading] = useState(false);
   const [media, setMedia] = useState<{ url: string, type: string } | null>(
-    editingPost ? { url: editingPost.mediaUrl || "", type: editingPost.mediaType || "" } : null
+    editingPost ? (editingPost.mediaUrl ? { url: editingPost.mediaUrl, type: editingPost.mediaType || 'image/jpeg' } : null) : null
   );
 
   const onSubmit = async (e: any) => {
@@ -1411,38 +1411,83 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost }: { add
   };
 
   return (
-    <motion.form initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} onSubmit={onSubmit} className="bg-white p-6 rounded-3xl shadow-xl border-2 border-accent" style={{ borderColor: '#fbbf24' }}>
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-black text-primary uppercase">{editingPost ? 'Edit Update' : 'New Update'}</h3>
-        <button type="button" onClick={onCancel} className="text-slate-400"><X /></button>
-      </div>
-      <input name="title" required defaultValue={editingPost?.title} placeholder="Header..." className="text-lg font-bold" />
-      <select name="category" defaultValue={editingPost?.category || "General"} className="bg-slate-50 font-bold text-xs uppercase letter-spacing-1">
-         <option value="Daily reports">📊 Daily Reports</option>
-         <option value="Updates">📢 Updates</option>
-         <option value="Election">🗳️ Election</option>
-         <option value="General">📌 General</option>
-      </select>
-      <textarea name="content" required defaultValue={editingPost?.content} placeholder="Write details (Markdown allowed)..." rows={4} />
-      
-      <div className="py-4 border-2 border-dashed rounded-xl text-center mb-4 cursor-pointer relative bg-slate-50 overflow-hidden">
-         {media?.url ? (
-           <div className="space-y-2">
-             <div className="text-[10px] font-black text-green-600 uppercase">✓ Media Attached</div>
-             <button type="button" onClick={() => setMedia(null)} className="text-[10px] text-red-500 font-bold underline">Remove</button>
-           </div>
-         ) : <div className="text-xs font-bold text-slate-400">Add Image/Video</div>}
-         <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*,video/*" onChange={async (e) => {
-           const f = e.target.files?.[0];
-           if (f) {
-             const reader = new FileReader();
-             reader.onload = (ev) => setMedia({ url: ev.target?.result as string, type: f.type });
-             reader.readAsDataURL(f);
-           }
-         }} />
+    <motion.form 
+      initial={{ opacity: 0, scale: 0.95 }} 
+      animate={{ opacity: 1, scale: 1 }} 
+      onSubmit={onSubmit} 
+      className="bg-white p-6 rounded-3xl shadow-xl border-2 border-accent mb-8" 
+      style={{ borderColor: '#fbbf24' }}
+    >
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="font-black text-primary uppercase text-lg flex items-center gap-2">
+          {editingPost ? <Edit3 size={20} className="text-primary" /> : <PlusCircle size={20} className="text-primary" />}
+          {editingPost ? 'Edit Update' : 'New Update'}
+        </h3>
+        <button type="button" onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X /></button>
       </div>
 
-      <button disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-colors">
+      <div className="space-y-4">
+        <div>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Title / Header</label>
+          <input name="title" required defaultValue={editingPost?.title} placeholder="Enter catchy title..." className="w-full text-lg font-black text-primary p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none transition-all" />
+        </div>
+
+        <div>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Category</label>
+          <select name="category" defaultValue={editingPost?.category || "General"} className="w-full bg-slate-50 font-bold text-xs uppercase p-3 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none cursor-pointer">
+             <option value="Daily reports">📊 Daily Reports</option>
+             <option value="Updates">📢 Updates</option>
+             <option value="Election">🗳️ Election</option>
+             <option value="General">📌 General</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Content Details</label>
+          <textarea name="content" required defaultValue={editingPost?.content} placeholder="Write details here (Markdown supported)..." rows={5} className="w-full bg-slate-50 p-3 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none text-sm font-medium leading-relaxed" />
+        </div>
+        
+        <div>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Media Content</label>
+          <div className="py-8 border-2 border-dashed rounded-2xl text-center cursor-pointer relative bg-slate-50 overflow-hidden transition-all hover:bg-slate-100 hover:border-primary/20 group">
+             {media?.url ? (
+               <div className="space-y-3 px-4">
+                 <div className="relative inline-block">
+                    {media.type.startsWith('video') ? (
+                      <video src={media.url} className="h-32 w-full object-cover rounded-xl border shadow-sm" />
+                    ) : (
+                      <img src={media.url} className="h-32 w-full object-cover rounded-xl border shadow-sm" />
+                    )}
+                    <button 
+                      type="button" 
+                      onClick={(e) => { e.stopPropagation(); setMedia(null); }} 
+                      className="absolute -top-2 -right-2 bg-danger text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform"
+                    >
+                      <Trash2 size={16} strokeWidth={2.5} />
+                    </button>
+                 </div>
+                 <p className="text-[11px] font-black text-success uppercase">✓ Media Attached</p>
+                 <p className="text-[10px] text-slate-400 font-bold">Click to replace or use button to remove</p>
+               </div>
+             ) : (
+               <div className="space-y-2 py-4">
+                 <Camera size={32} className="mx-auto text-slate-300 group-hover:text-primary transition-colors" />
+                 <div className="text-xs font-black text-slate-400 group-hover:text-primary transition-colors">Add Image or Video</div>
+               </div>
+             )}
+             <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*,video/*" onChange={async (e) => {
+               const f = e.target.files?.[0];
+               if (f) {
+                 const reader = new FileReader();
+                 reader.onload = (ev) => setMedia({ url: ev.target?.result as string, type: f.type });
+                 reader.readAsDataURL(f);
+               }
+             }} />
+          </div>
+        </div>
+      </div>
+
+      <button disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-all active:scale-95 mt-6 disabled:opacity-50">
         {loading ? (editingPost ? 'SAVING...' : 'PUBLISHING...') : (editingPost ? 'SAVE CHANGES' : 'PUBLISH NOW')}
       </button>
     </motion.form>
