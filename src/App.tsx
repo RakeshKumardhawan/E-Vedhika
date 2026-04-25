@@ -10,7 +10,8 @@ import {
   AlertTriangle, Send, LogOut, ChevronDown, ChevronUp, Search,
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
   Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, Sparkles, MessageSquare,
-  Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock
+  Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock,
+  Users, AlertOctagon, CheckCircle2, ClipboardList, Zap, Clock
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'motion/react';
@@ -189,12 +190,14 @@ interface Notification {
 const APP_STYLES = `
 :root {
   --primary: #0d3b66;
+  --primary-light: #1e4d7a;
   --accent: #fbbf24;
-  --success: #16a34a;
-  --danger: #dc2626;
-  --info: #0ea5e9;
+  --accent-dark: #b48a1d;
+  --success: #059669;
+  --danger: #e11d48;
+  --info: #0284c7;
   --bg-light: #f8fafc;
-  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   --header-height: 65px;
   --nav-bar-height: 50px;
 }
@@ -202,13 +205,15 @@ const APP_STYLES = `
 .brand-title {
   font-size: 28px;
   margin: 0;
-  letter-spacing: 2px;
+  letter-spacing: 2.5px;
+  font-weight: 900;
   text-transform: uppercase;
-  background: linear-gradient(135deg, #facc15 0%, #fff 30%, #38bdf8 50%, #fff 70%, #facc15 100%);
+  background: linear-gradient(135deg, #fbbf24 0%, #fff 50%, #fbbf24 100%);
   background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: shineText 5s linear infinite;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
 
 @keyframes shineText { 
@@ -221,13 +226,13 @@ const APP_STYLES = `
   padding: 8px 4%; 
   display: flex; 
   align-items: center; 
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 2px solid #e2e8f0;
 }
 
 .latest-text span { 
   display: inline-block; 
   white-space: nowrap; 
-  animation: scrollLeft 25s linear infinite; 
+  animation: scrollLeft 30s linear infinite; 
 }
 
 @keyframes scrollLeft { 
@@ -237,7 +242,7 @@ const APP_STYLES = `
 
 .sidebar {
   width: 0;
-  transition: width 0.3s ease;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
@@ -246,27 +251,29 @@ const APP_STYLES = `
 }
 
 .side-btn { 
-  display: flex; align-items: center; width: 100%; padding: 12px 15px; 
-  background: transparent; color: #64748b; border-radius: 10px; cursor: pointer; 
-  transition: all 0.2s ease; border: none; text-align: left; gap: 10px;
+  display: flex; align-items: center; width: 100%; padding: 14px 16px; 
+  background: transparent; color: #475569; border-radius: 12px; cursor: pointer; 
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); border: none; text-align: left; gap: 12px;
 }
 
 .active-tab { 
-  background: #f1f5f9 !important; 
+  background: #eef2ff !important; 
   color: var(--primary) !important; 
-  font-weight: 700 !important;
+  font-weight: 800 !important;
+  box-shadow: inset 0 0 0 1px rgba(13, 59, 102, 0.1);
 }
 
 .lock-screen { 
-  position: fixed; inset: 0; background: rgba(13, 59, 102, 0.98); 
+  position: fixed; inset: 0; background: rgba(13, 59, 102, 0.99); 
   z-index: 10000; display: flex; flex-direction: column; 
-  align-items: center; justify-content: center; backdrop-filter: blur(8px); 
+  align-items: center; justify-content: center; backdrop-filter: blur(12px); 
 }
 
 .pin-input { 
-  background: #fff; border: 2px solid var(--accent); border-radius: 12px; 
-  padding: 15px; font-size: 24px; font-weight: 900; width: 200px; 
-  text-align: center; letter-spacing: 8px; outline: none; 
+  background: #fff; border: 3px solid var(--accent); border-radius: 16px; 
+  padding: 18px; font-size: 28px; font-weight: 900; width: 220px; 
+  text-align: center; letter-spacing: 12px; outline: none; 
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
 }
 
 .line-clamp-3 {
@@ -278,60 +285,67 @@ const APP_STYLES = `
 
 .mana-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 15px;
-  margin-top: 15px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
 }
 
 .mana-card {
-  background: #f8fafc;
+  background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: 20px;
+  padding: 24px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.02);
 }
 
 .mana-card:hover {
-  background: #f1f5f9;
-  transform: translateY(-2px);
-  border-color: var(--primary);
+  background: #f8fafc;
+  transform: translateY(-4px);
+  border-color: var(--accent);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.08);
 }
 
 .mana-card h4 {
-  margin: 10px 0 0 0;
-  font-size: 13px;
+  margin: 12px 0 0 0;
+  font-size: 14px;
+  font-weight: 800;
   color: var(--primary);
 }
 
 .post-tag {
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 10px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .post-action-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: none;
   border: none;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 600;
-  transition: opacity 0.2s;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  color: #64748b;
 }
 
 .post-action-btn:hover {
-  opacity: 0.7;
+  color: var(--primary);
+  opacity: 0.9;
 }
 
-.table-responsive { width: 100%; overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+.table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; min-width: 600px; }
+th { background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+th, td { padding: 16px; border-bottom: 1px solid #f1f5f9; text-align: left; }
 `;
 
 function cleanStringData(val: any) {
@@ -574,12 +588,12 @@ export default function App() {
 
         <div className="flex items-center gap-4 relative">
           <div 
-            className="relative cursor-pointer p-2 hover:bg-white/10 rounded-full transition-colors"
+            className="relative cursor-pointer p-2 hover:bg-white/15 rounded-full transition-all active:scale-95"
             onClick={() => setShowNotifications(!showNotifications)}
           >
-            <Bell size={24} className="text-white" />
+            <Bell size={24} className="text-white" strokeWidth={2.5} />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 bg-red-600 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-[#0d3b66]">
+              <span className="absolute top-1 right-1 bg-danger text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-[#0d3b66] shadow-sm">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -591,10 +605,12 @@ export default function App() {
                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="absolute top-[50px] right-0 w-[320px] bg-white rounded-2xl shadow-2xl border border-slate-200 z-[1005] overflow-hidden"
+                className="absolute top-[55px] right-0 w-[340px] bg-white rounded-[24px] shadow-2xl border border-slate-200 z-[1005] overflow-hidden"
               >
-                <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
-                  <h3 className="font-black text-primary">Notifications</h3>
+                <div className="p-5 border-b bg-slate-50/50 flex justify-between items-center">
+                  <h3 className="font-black text-primary flex items-center gap-2">
+                    <Bell size={18} className="text-primary" /> Notifications
+                  </h3>
                   {unreadCount > 0 && (
                     <button 
                       onClick={async () => {
@@ -604,32 +620,34 @@ export default function App() {
                         });
                         await Promise.all(batch);
                       }}
-                      className="text-[10px] font-bold text-primary hover:underline"
+                      className="text-[11px] font-black text-primary hover:text-primary-light transition-colors underline decoration-2 underline-offset-4"
                     >
                       Mark all as read
                     </button>
                   )}
                 </div>
-                <div className="max-h-[400px] overflow-y-auto">
+                <div className="max-h-[450px] overflow-y-auto custom-scrollbar">
                   {notifications.length === 0 ? (
-                    <div className="p-10 text-center text-slate-400 text-sm">No notifications yet</div>
+                    <div className="p-12 text-center text-slate-400">
+                      <div className="mb-4 opacity-20"><Bell size={48} className="mx-auto" /></div>
+                      <p className="text-sm font-bold">No notifications yet</p>
+                    </div>
                   ) : (
                     notifications.map(n => (
                       <div 
                         key={n.id} 
-                        className={`p-4 border-b hover:bg-slate-50 transition-colors cursor-pointer ${!n.read ? 'bg-blue-50/50' : ''}`}
+                        className={`p-5 border-b hover:bg-slate-50 transition-colors cursor-pointer ${!n.read ? 'bg-blue-50/30' : ''}`}
                         onClick={async () => {
                           if (!n.read) await updateDoc(doc(db, 'notifications', n.id), { read: true });
                           setShowNotifications(false);
-                          // Handle link if needed
                         }}
                       >
-                        <div className="flex gap-3">
-                          <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${n.read ? 'bg-slate-200' : 'bg-primary'}`}></div>
+                        <div className="flex gap-4">
+                          <div className={`w-2.5 h-2.5 mt-1.5 rounded-full flex-shrink-0 ${n.read ? 'bg-slate-200' : 'bg-accent shadow-[0_0_8px_rgba(251,191,36,0.5)]'}`}></div>
                           <div>
-                            <p className="text-xs font-black text-primary mb-1">{n.title}</p>
-                            <p className="text-[11px] text-slate-600 leading-normal">{n.message}</p>
-                            <p className="text-[9px] text-slate-400 mt-2 font-bold uppercase">{new Date(n.time).toLocaleString()}</p>
+                            <p className="text-[13px] font-black text-primary leading-tight mb-1">{n.title}</p>
+                            <p className="text-[12px] text-slate-600 leading-relaxed font-medium">{n.message}</p>
+                            <p className="text-[10px] text-slate-500 mt-2 font-bold uppercase tracking-wider">{new Date(n.time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</p>
                           </div>
                         </div>
                       </div>
@@ -642,11 +660,13 @@ export default function App() {
         </div>
       </header>
 
-      <div className="latest-bar h-8 overflow-hidden bg-white border-b flex items-center">
-        <div className="bg-red-600 text-white text-[10px] font-black px-3 h-full flex items-center z-10">NEWS</div>
+      <div className="latest-bar h-10 overflow-hidden bg-white border-b-2 flex items-center">
+        <div className="bg-danger text-white text-[10px] font-black px-4 h-full flex items-center z-10 shadow-[4px_0_10px_rgba(225,29,72,0.2)]">FLASH</div>
         <div className="latest-text flex-1">
-          <span className="text-xs font-bold text-primary">
-            {updates.length > 0 ? updates.join(' 🔥 ') : 'Welcome to E-Vedhika Portal... Stay tuned for daily updates...'}
+          <span className="text-[13px] font-bold text-primary">
+            {updates.length > 0 
+              ? updates.map(u => u.text).join('  •  ') 
+              : 'Welcome to E-Vedhika Portal... Stay tuned for daily updates and official daily status reports from Mandals and GPs...'}
           </span>
         </div>
       </div>
@@ -690,7 +710,7 @@ export default function App() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search updates..." 
-                  className="pl-12 pr-4 py-4 rounded-2xl border-none shadow-sm focus:ring-2 ring-primary"
+                  className="pl-12 pr-4 py-4 rounded-2xl border-none shadow-sm focus:ring-2 ring-primary text-primary font-medium"
                 />
               </div>
 
@@ -841,9 +861,17 @@ function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addT
         <button onClick={lockSession} className="bg-slate-100 p-2 rounded-xl"><Lock size={18} /></button>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
         {['dash', 'users', 'reports', 'updates', 'trash', 'logs', 'alerts', 'settings'].map(t => (
-          <button key={t} onClick={() => setActiveSubTab(t)} className={`px-4 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap ${activeSubTab === t ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>
+          <button 
+            key={t} 
+            onClick={() => setActiveSubTab(t)} 
+            className={`px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap ${
+              activeSubTab === t 
+                ? 'bg-primary text-white shadow-[0_4px_12px_rgba(13,59,102,0.3)]' 
+                : 'bg-white text-slate-500 border border-slate-200 hover:border-primary/30 hover:text-primary'
+            }`}
+          >
             {t}
           </button>
         ))}
@@ -1092,12 +1120,23 @@ function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addT
 }
 
 function StatCard({ label, val, color }: { label: string, val: number, color: string }) {
-  const colors: any = { blue: '#f0f9ff', red: '#fef2f2', green: '#f0fdf4', amber: '#fffbeb' };
-  const text: any = { blue: '#0369a1', red: '#991b1b', green: '#166534', amber: '#92400e' };
+  const themes: any = { 
+    blue: { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af', icon: Users },
+    red: { bg: '#fff1f2', border: '#fecdd3', text: '#9f1239', icon: AlertOctagon },
+    green: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534', icon: CheckCircle2 },
+    amber: { bg: '#fffbeb', border: '#fde68a', text: '#92400e', icon: ClipboardList },
+    purple: { bg: '#faf5ff', border: '#e9d5ff', text: '#6b21a8', icon: Zap }
+  };
+  const theme = themes[color] || themes.blue;
+  const Icon = theme.icon;
+
   return (
-    <div className="p-4 rounded-2xl border" style={{ background: colors[color] }}>
-      <div className="text-[10px] font-bold uppercase opacity-60" style={{ color: text[color] }}>{label}</div>
-      <div className="text-2xl font-black" style={{ color: text[color] }}>{val}</div>
+    <div className="p-5 rounded-2xl border-2 shadow-sm transition-all hover:shadow-md group" style={{ background: theme.bg, borderColor: theme.border }}>
+      <div className="flex justify-between items-start mb-2">
+        <div className="text-[11px] font-black uppercase tracking-wider" style={{ color: theme.text }}>{label}</div>
+        <Icon size={16} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: theme.text }} />
+      </div>
+      <div className="text-3xl font-black" style={{ color: theme.text }}>{val}</div>
     </div>
   );
 }
@@ -1214,34 +1253,25 @@ function DSRAnalyzer({ addToast }: { addToast: (s:string) => void }) {
       </div>
 
       {data.length > 0 && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-blue-50 p-4 rounded-2xl text-center">
-              <div className="text-[10px] font-black text-blue-800">TOTAL</div>
-              <div className="text-xl font-black text-blue-900">{stats.total}</div>
-            </div>
-            <div className="bg-green-50 p-4 rounded-2xl text-center">
-              <div className="text-[10px] font-black text-green-800">PRESENT</div>
-              <div className="text-xl font-black text-green-900">{stats.present}</div>
-            </div>
-            <div className="bg-amber-50 p-4 rounded-2xl text-center">
-              <div className="text-[10px] font-black text-amber-800">ENTRIES</div>
-              <div className="text-xl font-black text-amber-900">{stats.dsr}</div>
-            </div>
+        <div className="space-y-6">
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard label="Total" val={stats.total} color="blue" />
+            <StatCard label="Present" val={stats.present} color="green" />
+            <StatCard label="Entries" val={stats.dsr} color="amber" />
           </div>
 
-          <div className="table-responsive bg-white rounded-2xl border">
+          <div className="table-responsive bg-white rounded-2xl border shadow-sm">
             <table className="text-[12px]">
               <thead className="bg-slate-50">
                 <tr><th>Mandal</th><th>Gram Panchayat</th><th>Att</th><th>DSR</th></tr>
               </thead>
               <tbody>
                 {data.map((row, i) => (
-                  <tr key={i}>
+                  <tr key={i} className="hover:bg-slate-50 transition-colors">
                     <td>{row.mandal}</td>
-                    <td className="font-bold">{row.gp}</td>
-                    <td className={row.att === 'P' ? 'text-green-600' : 'text-red-600'}>{row.att}</td>
-                    <td>{row.dsr}</td>
+                    <td className="font-bold text-primary">{row.gp}</td>
+                    <td className={row.att === 'P' ? 'text-success font-black' : 'text-danger font-black'}>{row.att}</td>
+                    <td className="text-lg">{row.dsr}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1289,20 +1319,20 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
       <div className="p-6 space-y-4">
         <div className="flex justify-between items-start">
            <div className="flex gap-2">
-              <span className="post-tag bg-primary text-white" style={{ background: '#0d3b66' }}>{post.category}</span>
-              {isAdmin && post.uid === auth.currentUser?.uid && <span className="post-tag bg-green-100 text-green-700 border border-green-200">✓ Official</span>}
+              <span className="post-tag bg-primary-light text-white shadow-sm font-black px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider">{post.category}</span>
+              {isAdmin && post.uid === auth.currentUser?.uid && <span className="post-tag bg-green-100 text-green-700 border border-green-200 font-extrabold px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider">✓ Official</span>}
            </div>
            {isOwner && (
              <div className="flex gap-1">
-                <button onClick={() => onEdit(post)} className="p-2 text-primary"><Edit3 size={16}/></button>
-                <button onClick={deletePost} className="p-2 text-red-500"><Trash2 size={16}/></button>
+                <button onClick={() => onEdit(post)} className="p-2 text-primary bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors"><Edit3 size={16} strokeWidth={2.5}/></button>
+                <button onClick={deletePost} className="p-2 text-danger bg-red-50 hover:bg-red-100 rounded-xl transition-colors"><Trash2 size={16} strokeWidth={2.5}/></button>
              </div>
            )}
         </div>
         
-        <h3 className="text-xl font-bold">{post.title}</h3>
-        <div className="text-[11px] text-slate-400 flex items-center gap-2 font-bold">
-           <User size={12} /> {post.userName || 'Member'} • {new Date(post.time).toLocaleDateString()}
+        <h3 className="text-xl font-black text-primary leading-tight">{post.title}</h3>
+        <div className="text-[11px] text-slate-500 flex items-center gap-2 font-bold bg-slate-50 p-2 px-3 rounded-xl border border-slate-100">
+           <User size={14} className="text-primary" strokeWidth={3} /> <span className="text-primary font-black uppercase tracking-tight">{post.userName || 'Member'}</span> <span className="opacity-30 mx-1">•</span> {new Date(post.time).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
         </div>
 
         <div className={`text-slate-600 text-sm leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
@@ -1317,12 +1347,18 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
 
         <div className="pt-4 border-t flex justify-between items-center">
            <div className="flex gap-4">
-              <button onClick={handleLike} className="post-action-btn" style={{ color: post.likedBy?.includes(auth.currentUser?.uid || "") ? '#ef4444' : '#64748b' }}>
-                <Heart size={18} fill={post.likedBy?.includes(auth.currentUser?.uid || "") ? '#ef4444' : 'none'} /> {post.likes}
+              <button onClick={handleLike} className="post-action-btn group" style={{ color: post.likedBy?.includes(auth.currentUser?.uid || "") ? '#e11d48' : '#475569' }}>
+                <Heart size={20} fill={post.likedBy?.includes(auth.currentUser?.uid || "") ? '#e11d48' : 'none'} className="transition-transform group-active:scale-125" /> 
+                <span className="font-black">{post.likes}</span>
               </button>
-              <div className="post-action-btn text-slate-400"><Eye size={18} /> {post.views}</div>
+              <div className="post-action-btn text-slate-500 cursor-default">
+                <Eye size={20} strokeWidth={2.5}/> 
+                <span className="font-black">{post.views}</span>
+              </div>
            </div>
-           <button onClick={() => { navigator.clipboard.writeText(window.location.href); addToast("Link copied!"); }} className="text-primary"><Share2 size={18} /></button>
+           <button onClick={() => { navigator.clipboard.writeText(window.location.href); addToast("Link copied!"); }} className="text-primary p-2 hover:bg-slate-50 rounded-full transition-colors">
+             <Share2 size={20} strokeWidth={2.5} />
+           </button>
         </div>
       </div>
     </motion.div>
@@ -1406,7 +1442,7 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost }: { add
          }} />
       </div>
 
-      <button disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg" style={{ background: '#0d3b66' }}>
+      <button disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-colors">
         {loading ? (editingPost ? 'SAVING...' : 'PUBLISHING...') : (editingPost ? 'SAVE CHANGES' : 'PUBLISH NOW')}
       </button>
     </motion.form>
@@ -1415,9 +1451,9 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost }: { add
 
 function MenuButton({ label, active, onClick, icon: Icon }: { label: string, active: boolean, onClick: () => void, icon: any }) {
   return (
-    <button onClick={onClick} className={`side-btn ${active ? 'active-tab' : ''}`}>
-      <Icon size={18} className={active ? 'text-primary' : 'text-slate-400'} />
-      <span className="text-sm">{label}</span>
+    <button onClick={onClick} className={`side-btn ${active ? 'active-tab' : 'hover:bg-slate-50'}`}>
+      <Icon size={20} className={active ? 'text-primary' : 'text-slate-500'} strokeWidth={active ? 2.5 : 2} />
+      <span className="text-sm tracking-tight">{label}</span>
     </button>
   );
 }
@@ -1511,24 +1547,25 @@ function SmartAssistant({ systemInstruction, placeholder, title, icon: Icon }: {
   };
 
   return (
-    <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl space-y-4">
-      <div className="flex items-center gap-3 font-bold text-accent" style={{ color: '#fbbf24' }}>
-        <Icon size={20} /> {title}
+    <div className="bg-slate-900 text-white p-6 rounded-[32px] shadow-2xl space-y-6 relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-accent opacity-5 blur-3xl rounded-full -mr-16 -mt-16"></div>
+      <div className="flex items-center gap-3 font-black text-accent text-lg" style={{ color: '#fbbf24' }}>
+        <Icon size={24} strokeWidth={2.5} /> {title}
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 relative z-10">
         <input 
           value={queryVal} 
           onChange={e => setQueryVal(e.target.value)} 
           onKeyDown={e => e.key === 'Enter' && ask()}
           placeholder={placeholder} 
-          className="bg-slate-800 border-none text-white text-sm placeholder:text-slate-500 mb-0" 
+          className="bg-slate-800 border-2 border-slate-700/50 text-white text-sm placeholder:text-slate-500 mb-0 focus:border-accent transition-colors" 
         />
-        <button onClick={ask} disabled={loading} className="bg-accent text-slate-900 px-4 rounded-xl font-black" style={{ background: '#fbbf24' }}>
-          {loading ? '...' : <Send size={18} />}
+        <button onClick={ask} disabled={loading} className="bg-accent text-slate-900 px-6 rounded-2xl font-black flex items-center justify-center transition-all active:scale-95 shadow-[0_0_20px_rgba(251,191,36,0.3)]" style={{ background: '#fbbf24' }}>
+          {loading ? <RefreshCw className="animate-spin" size={20} /> : <Send size={20} />}
         </button>
       </div>
       {answer && (
-        <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="text-xs text-slate-300 leading-relaxed pt-2 border-t border-slate-800">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-[13px] text-slate-200 leading-relaxed pt-4 border-t border-white/10">
            <ReactMarkdown>{answer}</ReactMarkdown>
         </motion.div>
       )}
