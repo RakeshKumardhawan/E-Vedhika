@@ -1,0 +1,9 @@
+{
+  "name": "E-Vedhika Portal",
+  "description": "A comprehensive community portal for reporting problems and getting updates on schemes, elections and daily reports.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

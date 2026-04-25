@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() {
+      return request.resource.data;
+    }
+    function existing() {
+      return resource.data;
+    }
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email.lower() == 'rakeshkumardhawan123@gmail.com' && request.auth.token.email_verified == true)
+      );
+    }
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // --- Validation Helpers ---
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['username', 'time']) &&
+             data.username is string && data.username.size() <= 100 &&
+             data.time is int;
+    }
+    function isValidPost(data) {
+      return data.keys().hasAll(['title', 'content', 'uid', 'time']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.content is string && data.content.size() <= 5000 &&
+             data.uid == request.auth.uid &&
+             data.time == request.time.toMillis();
+    }
+    function isValidProblemReport(data) {
+      return data.keys().hasAll(['title', 'desc', 'uid', 'time']) &&
+             data.uid == request.auth.uid &&
+             data.title is string &&
+             data.desc is string;
+    }
+    function isValidNotification(data) {
+      return data.keys().hasAll(['uid', 'title', 'message', 'read', 'time']) &&
+             data.uid is string &&
+             data.title is string &&
+             data.message is string &&
+             data.read is bool &&
+             data.time is int;
+    }
+
+    // --- Profile Rules ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming());
+      allow update: if (isOwner(userId) || isAdmin()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['username', 'village', 'office', 'bio', 'time'])
+      );
+    }
+
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow write: if false; 
+    }
+
+    match /security_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isValidId(logId);
+    }
+
+    // --- Post Rules ---
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(postId) && isValidPost(incoming());
+      allow update: if isSignedIn() && (
+        (isOwner(existing().uid) && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'category', 'subCategory', 'mediaUrl', 'status'])) || 
+        isAdmin() ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'likedBy', 'views', 'comments']))
+      );
+      allow delete: if isAdmin() || isOwner(existing().uid);
+    }
+
+    // --- Chat Rules ---
+    match /chat/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(messageId) && incoming().uid == request.auth.uid;
+    }
+
+    // --- Problem Rules ---
+    match /problems/{problemId} {
+      allow read: if isAdmin() || isOwner(existing().uid);
+      allow create: if isSignedIn() && isValidId(problemId) && isValidProblemReport(incoming());
+      allow update: if isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reply']);
+    }
+
+    // --- Suggestion Rules ---
+    match /suggestions/{suggestionId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(suggestionId); 
+      allow update, delete: if isAdmin();
+    }
+
+    // --- Update/Request Rules ---
+    match /updates/{updateId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(updateId);
+    }
+    match /requests/{requestId} {
+      allow read: if isAdmin() || isOwner(existing().uid);
+      allow create: if isSignedIn() && isValidId(requestId);
+    }
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && (isAdmin() || isOwner(existing().uid) || existing().uid == 'all');
+      allow create: if isAdmin() && isValidId(notificationId) && isValidNotification(incoming());
+      allow update: if isSignedIn() && (
+        (isOwner(existing().uid) && incoming().diff(existing()).affectedKeys().hasOnly(['read'])) ||
+        (existing().uid == 'all' && incoming().diff(existing()).affectedKeys().hasOnly(['read'])) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+  }
+}

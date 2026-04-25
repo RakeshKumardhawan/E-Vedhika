@@ -1,0 +1,104 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Public user profile information linked to UID.",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "village": { "type": "string" },
+        "office": { "type": "string" },
+        "bio": { "type": "string" },
+        "time": { "type": "integer" }
+      }
+    },
+    "Post": {
+      "title": "Community Post",
+      "description": "A post shared in the community feed.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string" },
+        "subCategory": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "mediaType": { "type": "string" },
+        "likes": { "type": "integer" },
+        "likedBy": { "type": "array" },
+        "views": { "type": "integer" },
+        "comments": { "type": "array" },
+        "time": { "type": "integer" },
+        "uid": { "type": "string" },
+        "userName": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "SecurityLog": {
+      "title": "Security Log",
+      "description": "Audit trail for admin actions.",
+      "type": "object",
+      "properties": {
+        "admin": { "type": "string" },
+        "action": { "type": "string" },
+        "time": { "type": "integer" },
+        "uid": { "type": "string" }
+      }
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User specific notifications.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "read": { "type": "boolean" },
+        "time": { "type": "integer" },
+        "link": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Public user profiles."
+    },
+    "/admins/{userId}": {
+      "schema": "object",
+      "description": "Admin privileges map."
+    },
+    "/security_logs/{logId}": {
+      "schema": "SecurityLog",
+      "description": "Admin activity history."
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Feed updates."
+    },
+    "/chat/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Live chat messages."
+    },
+    "/problems/{problemId}": {
+      "schema": "ProblemReport",
+      "description": "User reported issues."
+    },
+    "/suggestions/{suggestionId}": {
+      "schema": "Suggestion",
+      "description": "Public feedback."
+    },
+    "/updates/{updateId}": {
+      "schema": "FlashUpdate",
+      "description": "Announcement bar content."
+    },
+    "/requests/{requestId}": {
+      "schema": "object",
+      "description": "Service requests."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications."
+    }
+  }
+}
