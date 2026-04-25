@@ -129,6 +129,8 @@ interface UserProfile {
   village?: string;
   office?: string;
   bio?: string;
+  role?: string;
+  email?: string;
   time: number;
 }
 
@@ -164,6 +166,12 @@ interface RequestData {
   msg: string;
   time: number;
   uid: string;
+}
+
+interface Update {
+  id: string;
+  text: string;
+  time: number;
 }
 
 interface Notification {
@@ -340,7 +348,7 @@ export default function App() {
   const [currentFilter, setCurrentFilter] = useState('All');
   const [posts, setPosts] = useState<Post[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [updates, setUpdates] = useState<string[]>([]);
+  const [updates, setUpdates] = useState<Update[]>([]);
   const [requests, setRequests] = useState<RequestData[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [problemsGlobal, setProblemsGlobal] = useState<ProblemReport[]>([]);
@@ -349,6 +357,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
   const [showPostForm, setShowPostForm] = useState(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   
@@ -377,8 +386,8 @@ export default function App() {
 
     // Public Listeners
     const unsubUpdates = onSnapshot(collection(db, 'updates'), (snap) => {
-      const uArr: string[] = [];
-      snap.forEach(d => uArr.push((d.data() as any).text));
+      const uArr: Update[] = [];
+      snap.forEach(d => uArr.push({ id: d.id, ...(d.data() as any) } as Update));
       setUpdates(uArr);
     }, (err) => handleFirestoreError(err, OperationType.GET, 'updates'));
 
@@ -687,7 +696,7 @@ export default function App() {
 
               {user && !user.isAnonymous && (
                 <button 
-                  onClick={() => setShowPostForm(!showPostForm)}
+                  onClick={() => { setEditingPost(null); setShowPostForm(!showPostForm); }}
                   className="w-full h-[55px] bg-primary text-white rounded-2xl font-black flex items-center justify-center gap-3 shadow-lg"
                   style={{ background: '#0d3b66' }}
                 >
@@ -695,11 +704,11 @@ export default function App() {
                 </button>
               )}
 
-              {showPostForm && <PostForm addToast={addToast} onCancel={() => setShowPostForm(false)} currentUserProfile={userProfile} />}
+              {(showPostForm || editingPost) && <PostForm addToast={addToast} onCancel={() => { setShowPostForm(false); setEditingPost(null); }} currentUserProfile={userProfile} editingPost={editingPost} />}
 
               <div className="space-y-6">
                 {filteredPosts.map(post => (
-                  <PostCard key={post.id} post={post} isExpanded={expandedPosts.has(post.id)} toggleExpansion={() => togglePostExpansion(post.id)} addToast={addToast} isAdmin={isAdmin} />
+                  <PostCard key={post.id} post={post} isExpanded={expandedPosts.has(post.id)} toggleExpansion={() => togglePostExpansion(post.id)} addToast={addToast} isAdmin={isAdmin} onEdit={(p) => { setEditingPost(p); setShowPostForm(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
                 ))}
               </div>
             </div>
@@ -746,7 +755,7 @@ export default function App() {
                   />
                 </div>
               ) : (
-                <AdminSection addToast={addToast} lockSession={() => setAdminLocked(true)} />
+                <AdminSection addToast={addToast} lockSession={() => setAdminLocked(true)} updates={updates} problemsGlobal={problemsGlobal} />
               )}
             </>
           )}
@@ -756,7 +765,7 @@ export default function App() {
   );
 }
 
-function AdminSection({ addToast, lockSession }: { addToast: (s: string) => void, lockSession: () => void }) {
+function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addToast: (s: string) => void, lockSession: () => void, updates: Update[], problemsGlobal: ProblemReport[] }) {
   const [activeSubTab, setActiveSubTab] = useState('dash');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [allProblems, setAllProblems] = useState<ProblemReport[]>([]);
@@ -801,7 +810,6 @@ function AdminSection({ addToast, lockSession }: { addToast: (s: string) => void
     try {
       await updateDoc(doc(db, 'problems', problem.id), { status: 'solved', resolvedAt: Date.now() });
       
-      // Send notification to user
       await addDoc(collection(db, 'notifications'), {
         uid: problem.uid,
         title: "Issue Resolved",
@@ -818,6 +826,14 @@ function AdminSection({ addToast, lockSession }: { addToast: (s: string) => void
     }
   };
 
+  const deleteUser = async (id: string) => {
+    if (!window.confirm("Delete this user?")) return;
+    try {
+      await deleteDoc(doc(db, 'users', id));
+      addToast("User deleted");
+    } catch (err) { handleFirestoreError(err, OperationType.DELETE, `users/${id}`); }
+  };
+
   return (
     <div className="bg-white p-6 rounded-3xl shadow-sm border space-y-6">
       <div className="flex justify-between items-center">
@@ -826,8 +842,8 @@ function AdminSection({ addToast, lockSession }: { addToast: (s: string) => void
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2">
-        {['dash', 'users', 'reports', 'logs', 'alerts'].map(t => (
-          <button key={t} onClick={() => setActiveSubTab(t)} className={`px-4 py-2 rounded-xl text-xs font-bold uppercase ${activeSubTab === t ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>
+        {['dash', 'users', 'reports', 'updates', 'trash', 'logs', 'alerts', 'settings'].map(t => (
+          <button key={t} onClick={() => setActiveSubTab(t)} className={`px-4 py-2 rounded-xl text-xs font-bold uppercase whitespace-nowrap ${activeSubTab === t ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}>
             {t}
           </button>
         ))}
@@ -836,13 +852,15 @@ function AdminSection({ addToast, lockSession }: { addToast: (s: string) => void
       {activeSubTab === 'dash' && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="Users" val={users.length} color="blue" />
-            <StatCard label="Pending" val={allProblems.filter(p => p.status === 'pending').length} color="red" />
-            <StatCard label="Resolved" val={allProblems.filter(p => p.status === 'solved').length} color="green" />
-            <StatCard label="Reports" val={allProblems.length} color="amber" />
+             <StatCard label="Total Users" val={users.length} color="blue" />
+             <StatCard label="Active Problems" val={allProblems.filter(p => p.status === 'pending').length} color="amber" />
+             <StatCard label="Flash Updates" val={updates.length} color="purple" />
+             <StatCard label="Resolved" val={allProblems.filter(p => p.status === 'solved').length} color="green" />
           </div>
-          <div className="w-full h-[300px] min-h-[300px]">
-             <ResponsiveContainer width="100%" height="100%" debounce={1}>
+          
+          <div className="w-full h-[300px] min-h-[300px] bg-white p-4 rounded-2xl shadow-sm border">
+             <h3 className="text-xs font-black text-slate-400 uppercase mb-4">Issues Trend</h3>
+             <ResponsiveContainer width="100%" height="80%" debounce={1}>
                 <BarChart data={[
                   { name: 'Pending', count: allProblems.filter(p => p.status === 'pending').length },
                   { name: 'Solved', count: allProblems.filter(p => p.status === 'solved').length }
@@ -850,7 +868,7 @@ function AdminSection({ addToast, lockSession }: { addToast: (s: string) => void
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
                   <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                  <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                  <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'}} />
                   <Bar dataKey="count" fill="#0d3b66" radius={[4, 4, 0, 0]} barSize={40} />
                 </BarChart>
              </ResponsiveContainer>
@@ -859,29 +877,141 @@ function AdminSection({ addToast, lockSession }: { addToast: (s: string) => void
       )}
 
       {activeSubTab === 'users' && (
-        <div className="table-responsive">
+        <div className="space-y-4">
           {permissionError ? (
             <div className="p-10 text-center text-slate-400 font-bold">{permissionError}</div>
           ) : (
-            <table className="text-sm">
-              <thead>
-                <tr className="bg-slate-50">
-                  <th>Username</th>
-                  <th>Village</th>
-                  <th>UID</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.id}>
-                    <td className="font-bold">{u.username}</td>
-                    <td>{u.village || 'N/A'}</td>
-                    <td className="text-[10px] text-slate-400">{u.id}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            users.map(u => (
+              <div key={u.id} className="bg-white p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-primary">{u.username}</h4>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                      u.role === 'admin' ? 'bg-red-100 text-red-600' : 
+                      u.role === 'stateunion' ? 'bg-amber-100 text-amber-600' :
+                      'bg-slate-100 text-slate-500'
+                    }`}>
+                      {u.role || 'user'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">{u.email || 'No email'}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Village: {u.village || 'N/A'} | Office: {u.office || 'N/A'}</p>
+                </div>
+                <div className="flex gap-2 w-full md:w-auto">
+                  <select 
+                    value={u.role || 'user'}
+                    onChange={async (e) => {
+                      try {
+                        await updateDoc(doc(db, 'users', u.id), { role: e.target.value });
+                        addToast("Role Updated");
+                      } catch (err) { handleFirestoreError(err, OperationType.WRITE, `users/${u.id}`); }
+                    }}
+                    className="bg-slate-50 border text-[10px] font-bold rounded-lg px-2 py-1.5 focus:outline-none"
+                  >
+                    <option value="user">USER</option>
+                    <option value="stateunion">STATE UNION</option>
+                    <option value="editor">EDITOR</option>
+                    <option value="admin">ADMIN</option>
+                    <option value="suspended">SUSPENDED</option>
+                  </select>
+                  <button 
+                    onClick={() => deleteUser(u.id)}
+                    className="bg-red-50 text-red-500 p-2 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))
           )}
+        </div>
+      )}
+
+      {activeSubTab === 'updates' && (
+        <div className="space-y-4">
+          <form 
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const f = e.target as any;
+              const text = f.text.value;
+              if(!text) return;
+              try {
+                await addDoc(collection(db, 'updates'), { text, time: Date.now() });
+                f.reset();
+                addToast("Update Published");
+              } catch (err) { handleFirestoreError(err, OperationType.WRITE, 'updates'); }
+            }}
+            className="bg-white p-4 rounded-2xl shadow-sm border space-y-3"
+          >
+            <h3 className="text-xs font-black text-slate-400 uppercase">Publish Flash Update</h3>
+            <div className="flex gap-2">
+              <input name="text" placeholder="Type hot update news..." className="flex-1 rounded-xl border p-3 text-sm" />
+              <button className="bg-primary text-white px-6 rounded-xl font-black text-sm">POST</button>
+            </div>
+          </form>
+
+          <div className="space-y-2">
+            {updates.map(u => (
+              <div key={u.id} className="bg-white p-3 rounded-xl border flex justify-between items-center group">
+                <p className="text-xs font-medium text-slate-700">{u.text}</p>
+                <button 
+                  onClick={async () => {
+                    await deleteDoc(doc(db, 'updates', u.id));
+                    addToast("Deleted");
+                  }}
+                  className="opacity-0 group-hover:opacity-100 text-red-500 p-2"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'trash' && (
+        <div className="space-y-4 text-center py-10">
+          <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+            <Trash2 size={32} />
+          </div>
+          <p className="text-slate-400 text-sm font-medium">Recycle Bin is currently empty.</p>
+        </div>
+      )}
+
+      {activeSubTab === 'settings' && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-6">
+            <div className="flex justify-between items-center pb-4 border-b">
+              <div>
+                <h4 className="font-black text-primary">Maintenance Mode</h4>
+                <p className="text-xs text-slate-400">Lock the site for everyone except admins</p>
+              </div>
+              <button className="bg-slate-200 w-12 h-6 rounded-full relative">
+                 <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full"></span>
+              </button>
+            </div>
+
+            <div className="space-y-2">
+               <label className="text-[10px] font-black text-slate-400 uppercase">Admin Access PIN</label>
+               <input type="password" placeholder="••••" className="w-full rounded-xl border p-3 text-center text-xl font-black tracking-widest" defaultValue="1234" maxLength={4} />
+            </div>
+
+            <div className="space-y-2">
+               <label className="text-[10px] font-black text-slate-400 uppercase">Contact Information</label>
+               <input placeholder="support@evedhika.org" className="w-full rounded-xl border p-3 text-sm" />
+            </div>
+
+            <button className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg">SAVE CONFIGURATION</button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+             <button className="bg-green-600 text-white p-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg hover:bg-green-700">
+               <Download size={16} /> DOWNLOAD BACKUP
+             </button>
+             <button className="bg-amber-600 text-white p-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg hover:bg-amber-700">
+               <Upload size={16} /> RESTORE BACKUP
+             </button>
+          </div>
         </div>
       )}
 
@@ -1123,7 +1253,7 @@ function DSRAnalyzer({ addToast }: { addToast: (s:string) => void }) {
   );
 }
 
-function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin }: { post: Post, isExpanded: boolean, toggleExpansion: () => void, addToast: (s:string) => void, isAdmin: boolean }) {
+function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit }: { post: Post, isExpanded: boolean, toggleExpansion: () => void, addToast: (s:string) => void, isAdmin: boolean, onEdit: (p: Post) => void }) {
   const isOwner = auth.currentUser?.uid === post.uid || isAdmin;
 
   const handleLike = async () => {
@@ -1164,6 +1294,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin }: { po
            </div>
            {isOwner && (
              <div className="flex gap-1">
+                <button onClick={() => onEdit(post)} className="p-2 text-primary"><Edit3 size={16}/></button>
                 <button onClick={deletePost} className="p-2 text-red-500"><Trash2 size={16}/></button>
              </div>
            )}
@@ -1198,9 +1329,11 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin }: { po
   );
 }
 
-function PostForm({ addToast, onCancel, currentUserProfile }: { addToast: (s:string) => void, onCancel: () => void, currentUserProfile: UserProfile | null }) {
+function PostForm({ addToast, onCancel, currentUserProfile, editingPost }: { addToast: (s:string) => void, onCancel: () => void, currentUserProfile: UserProfile | null, editingPost: Post | null }) {
   const [loading, setLoading] = useState(false);
-  const [media, setMedia] = useState<{ url: string, type: string } | null>(null);
+  const [media, setMedia] = useState<{ url: string, type: string } | null>(
+    editingPost ? { url: editingPost.mediaUrl || "", type: editingPost.mediaType || "" } : null
+  );
 
   const onSubmit = async (e: any) => {
     e.preventDefault();
@@ -1208,19 +1341,31 @@ function PostForm({ addToast, onCancel, currentUserProfile }: { addToast: (s:str
     setLoading(true);
     const f = e.target;
     try {
-      await addDoc(collection(db, 'posts'), {
+      const postData = {
         title: f.title.value,
         content: f.content.value,
         category: f.category.value,
         mediaUrl: media?.url || "",
         mediaType: media?.type || "",
-        likes: 0, likedBy: [], views: 0, comments: [],
-        time: Date.now(),
-        uid: auth.currentUser.uid,
-        userName: currentUserProfile?.username || "Portal User",
-        status: 'Approved'
-      });
-      addToast("Update Published!");
+      };
+
+      if (editingPost) {
+        await updateDoc(doc(db, 'posts', editingPost.id), {
+          ...postData,
+          updatedAt: Date.now()
+        });
+        addToast("Update Saved!");
+      } else {
+        await addDoc(collection(db, 'posts'), {
+          ...postData,
+          likes: 0, likedBy: [], views: 0, comments: [],
+          time: Date.now(),
+          uid: auth.currentUser.uid,
+          userName: currentUserProfile?.username || "Portal User",
+          status: 'Approved'
+        });
+        addToast("Update Published!");
+      }
       onCancel();
     } catch (err: any) { 
       handleFirestoreError(err, OperationType.WRITE, 'posts');
@@ -1232,20 +1377,25 @@ function PostForm({ addToast, onCancel, currentUserProfile }: { addToast: (s:str
   return (
     <motion.form initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} onSubmit={onSubmit} className="bg-white p-6 rounded-3xl shadow-xl border-2 border-accent" style={{ borderColor: '#fbbf24' }}>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="font-black text-primary">NEW UPDATE</h3>
+        <h3 className="font-black text-primary uppercase">{editingPost ? 'Edit Update' : 'New Update'}</h3>
         <button type="button" onClick={onCancel} className="text-slate-400"><X /></button>
       </div>
-      <input name="title" required placeholder="Header..." className="text-lg font-bold" />
-      <select name="category" className="bg-slate-50 font-bold text-xs uppercase letter-spacing-1">
+      <input name="title" required defaultValue={editingPost?.title} placeholder="Header..." className="text-lg font-bold" />
+      <select name="category" defaultValue={editingPost?.category || "General"} className="bg-slate-50 font-bold text-xs uppercase letter-spacing-1">
          <option value="Daily reports">📊 Daily Reports</option>
          <option value="Updates">📢 Updates</option>
          <option value="Election">🗳️ Election</option>
          <option value="General">📌 General</option>
       </select>
-      <textarea name="content" required placeholder="Write details (Markdown allowed)..." rows={4} />
+      <textarea name="content" required defaultValue={editingPost?.content} placeholder="Write details (Markdown allowed)..." rows={4} />
       
       <div className="py-4 border-2 border-dashed rounded-xl text-center mb-4 cursor-pointer relative bg-slate-50 overflow-hidden">
-         {media ? <div className="text-xs font-bold text-green-600">✓ Media Loaded</div> : <div className="text-xs font-bold text-slate-400">Add Image/Video</div>}
+         {media?.url ? (
+           <div className="space-y-2">
+             <div className="text-[10px] font-black text-green-600 uppercase">✓ Media Attached</div>
+             <button type="button" onClick={() => setMedia(null)} className="text-[10px] text-red-500 font-bold underline">Remove</button>
+           </div>
+         ) : <div className="text-xs font-bold text-slate-400">Add Image/Video</div>}
          <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*,video/*" onChange={async (e) => {
            const f = e.target.files?.[0];
            if (f) {
@@ -1257,7 +1407,7 @@ function PostForm({ addToast, onCancel, currentUserProfile }: { addToast: (s:str
       </div>
 
       <button disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg" style={{ background: '#0d3b66' }}>
-        {loading ? 'PUBLISHING...' : 'PUBLISH NOW'}
+        {loading ? (editingPost ? 'SAVING...' : 'PUBLISHING...') : (editingPost ? 'SAVE CHANGES' : 'PUBLISH NOW')}
       </button>
     </motion.form>
   );
