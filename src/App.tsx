@@ -346,6 +346,30 @@ const APP_STYLES = `
 table { width: 100%; border-collapse: collapse; min-width: 600px; }
 th { background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
 th, td { padding: 16px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
+
+.flash-pulse {
+  animation: flashGlow 2s infinite ease-in-out;
+}
+
+@keyframes flashGlow {
+  0%, 100% { box-shadow: 4px 0 10px rgba(225,29,72,0.2); }
+  50% { box-shadow: 4px 0 20px rgba(225,29,72,0.4); }
+}
 `;
 
 function cleanStringData(val: any) {
@@ -661,7 +685,7 @@ export default function App() {
       </header>
 
       <div className="latest-bar h-10 overflow-hidden bg-white border-b-2 flex items-center">
-        <div className="bg-danger text-white text-[10px] font-black px-4 h-full flex items-center z-10 shadow-[4px_0_10px_rgba(225,29,72,0.2)]">FLASH</div>
+        <div className="bg-danger text-white text-[10px] font-black px-4 h-full flex items-center z-10 flash-pulse">FLASH</div>
         <div className="latest-text flex-1">
           <span className="text-[13px] font-bold text-primary">
             {updates.length > 0 
@@ -673,14 +697,22 @@ export default function App() {
 
       <div className={`flex flex-1 ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <aside className="sidebar bg-white border-r flex-shrink-0 sticky top-[97px] h-[calc(100vh-97px)]">
-          <div className="w-[250px] p-4 space-y-2">
+          <motion.div 
+            initial="closed"
+            animate={sidebarOpen ? "open" : "closed"}
+            variants={{
+              open: { opacity: 1, x: 0, transition: { staggerChildren: 0.05, delayChildren: 0.1 } },
+              closed: { opacity: 0, x: -20 }
+            }}
+            className="w-[250px] p-4 space-y-2"
+          >
             <MenuButton label="Home" icon={Home} active={currentTab === 'home' && currentFilter === 'All'} onClick={() => { setCurrentTab('home'); setCurrentFilter('All'); setSidebarOpen(false); }} />
             <MenuButton label="Mana Panchayath" icon={LayoutDashboard} active={currentTab === 'workspace'} onClick={() => { setCurrentTab('workspace'); setSidebarOpen(false); }} />
             <MenuButton label="Live Chat" icon={MessageSquare} active={currentTab === 'chat'} onClick={() => { setCurrentTab('chat'); setSidebarOpen(false); }} />
             <MenuButton label="Knowledge Hub" icon={Book} active={currentTab === 'repo'} onClick={() => { setCurrentTab('repo'); setSidebarOpen(false); }} />
             <MenuButton label="Suggestions" icon={Lightbulb} active={currentTab === 'suggestions'} onClick={() => { setCurrentTab('suggestions'); setSidebarOpen(false); }} />
             {isAdmin && <MenuButton label="Admin Console" icon={ShieldAlert} active={currentTab === 'admin'} onClick={() => { setCurrentTab('admin'); setSidebarOpen(false); }} />}
-          </div>
+          </motion.div>
         </aside>
 
         <main className="flex-1 p-6 max-w-5xl mx-auto w-full">
@@ -727,9 +759,30 @@ export default function App() {
               {(showPostForm || editingPost) && <PostForm addToast={addToast} onCancel={() => { setShowPostForm(false); setEditingPost(null); }} currentUserProfile={userProfile} editingPost={editingPost} />}
 
               <div className="space-y-6">
-                {filteredPosts.map(post => (
-                  <PostCard key={post.id} post={post} isExpanded={expandedPosts.has(post.id)} toggleExpansion={() => togglePostExpansion(post.id)} addToast={addToast} isAdmin={isAdmin} onEdit={(p) => { setEditingPost(p); setShowPostForm(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
-                ))}
+                <AnimatePresence mode="popLayout">
+                  {filteredPosts.map((post, index) => (
+                    <motion.div
+                      key={post.id}
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <PostCard 
+                        post={post} 
+                        isExpanded={expandedPosts.has(post.id)} 
+                        toggleExpansion={() => togglePostExpansion(post.id)} 
+                        addToast={addToast} 
+                        isAdmin={isAdmin} 
+                        onEdit={(p) => { 
+                          setEditingPost(p); 
+                          setShowPostForm(false); 
+                          window.scrollTo({ top: 0, behavior: 'smooth' }); 
+                        }} 
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             </div>
           )}
@@ -879,12 +932,16 @@ function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addT
 
       {activeSubTab === 'dash' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <StatCard label="Total Users" val={users.length} color="blue" />
-             <StatCard label="Active Problems" val={allProblems.filter(p => p.status === 'pending').length} color="amber" />
-             <StatCard label="Flash Updates" val={updates.length} color="purple" />
-             <StatCard label="Resolved" val={allProblems.filter(p => p.status === 'solved').length} color="green" />
-          </div>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+      >
+         <StatCard label="Total Users" val={users.length} color="blue" />
+         <StatCard label="Active Problems" val={allProblems.filter(p => p.status === 'pending').length} color="amber" />
+         <StatCard label="Flash Updates" val={updates.length} color="purple" />
+         <StatCard label="Resolved" val={allProblems.filter(p => p.status === 'solved').length} color="green" />
+      </motion.div>
           
           <div className="w-full h-[300px] min-h-[300px] bg-white p-4 rounded-2xl shadow-sm border">
              <h3 className="text-xs font-black text-slate-400 uppercase mb-4">Issues Trend</h3>
@@ -1121,23 +1178,28 @@ function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addT
 
 function StatCard({ label, val, color }: { label: string, val: number, color: string }) {
   const themes: any = { 
-    blue: { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af', icon: Users },
-    red: { bg: '#fff1f2', border: '#fecdd3', text: '#9f1239', icon: AlertOctagon },
-    green: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534', icon: CheckCircle2 },
-    amber: { bg: '#fffbeb', border: '#fde68a', text: '#92400e', icon: ClipboardList },
-    purple: { bg: '#faf5ff', border: '#e9d5ff', text: '#6b21a8', icon: Zap }
+    blue: { bg: '#ffffff', border: '#e2e8f0', text: '#000000', icon: Users },
+    red: { bg: '#ffffff', border: '#e2e8f0', text: '#000000', icon: AlertOctagon },
+    green: { bg: '#ffffff', border: '#e2e8f0', text: '#000000', icon: CheckCircle2 },
+    amber: { bg: '#ffffff', border: '#e2e8f0', text: '#000000', icon: ClipboardList },
+    purple: { bg: '#ffffff', border: '#e2e8f0', text: '#000000', icon: Zap }
   };
   const theme = themes[color] || themes.blue;
   const Icon = theme.icon;
 
   return (
-    <div className="p-5 rounded-2xl border-2 shadow-sm transition-all hover:shadow-md group" style={{ background: theme.bg, borderColor: theme.border }}>
+    <motion.div 
+      whileHover={{ scale: 1.02, translateY: -5 }}
+      whileTap={{ scale: 0.98 }}
+      className="p-5 rounded-2xl border-2 shadow-sm transition-all hover:shadow-md group cursor-pointer" 
+      style={{ background: theme.bg, borderColor: theme.border }}
+    >
       <div className="flex justify-between items-start mb-2">
         <div className="text-[11px] font-black uppercase tracking-wider" style={{ color: theme.text }}>{label}</div>
         <Icon size={16} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: theme.text }} />
       </div>
       <div className="text-3xl font-black" style={{ color: theme.text }}>{val}</div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1201,10 +1263,15 @@ function TrainingCenter() {
 
 function ToolCard({ icon: Icon, title, onClick }: { icon: any, title: string, onClick: () => void }) {
   return (
-    <div onClick={onClick} className="mana-card">
+    <motion.div 
+      whileHover={{ scale: 1.05, translateY: -5 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick} 
+      className="mana-card"
+    >
       <Icon size={32} className="mx-auto text-primary" />
       <h4 className="font-bold mt-3">{title}</h4>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1496,10 +1563,19 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost }: { add
 
 function MenuButton({ label, active, onClick, icon: Icon }: { label: string, active: boolean, onClick: () => void, icon: any }) {
   return (
-    <button onClick={onClick} className={`side-btn ${active ? 'active-tab' : 'hover:bg-slate-50'}`}>
+    <motion.button 
+      variants={{
+        open: { opacity: 1, x: 0 },
+        closed: { opacity: 0, x: -20 }
+      }}
+      whileHover={{ x: 5 }}
+      whileTap={{ scale: 0.97 }}
+      onClick={onClick} 
+      className={`side-btn ${active ? 'active-tab' : 'hover:bg-slate-50'}`}
+    >
       <Icon size={20} className={active ? 'text-primary' : 'text-slate-500'} strokeWidth={active ? 2.5 : 2} />
       <span className="text-sm tracking-tight">{label}</span>
-    </button>
+    </motion.button>
   );
 }
 
@@ -1524,14 +1600,21 @@ function ChatSection({ messages, user, addToast }: { messages: ChatMessage[], us
   return (
     <div className="bg-white rounded-3xl border shadow-sm flex flex-col h-[600px] overflow-hidden">
       <div className="p-4 border-b bg-slate-50 font-black text-primary flex items-center gap-3"><MessageCircle size={20}/> LIVE FEED</div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8fafc]">
-        {messages.map(m => (
-          <div key={m.id} className={`flex ${m.uid === user?.uid ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] p-3 rounded-2xl text-sm font-medium shadow-sm ${m.uid === user?.uid ? 'bg-primary text-white rounded-tr-none' : 'bg-white border rounded-tl-none'}`} style={m.uid === user?.uid ? { background: '#0d3b66' } : {}}>
-              {m.msg}
-            </div>
-          </div>
-        ))}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8fafc] custom-scrollbar">
+        <AnimatePresence initial={false}>
+          {messages.map(m => (
+            <motion.div 
+              key={m.id} 
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className={`flex ${m.uid === user?.uid ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={`max-w-[80%] p-3 rounded-2xl text-sm font-medium shadow-sm ${m.uid === user?.uid ? 'bg-primary text-white rounded-tr-none' : 'bg-white border rounded-tl-none'}`} style={m.uid === user?.uid ? { background: '#0d3b66' } : {}}>
+                {m.msg}
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
         <div ref={scrollRef} />
       </div>
       <div className="p-4 border-t flex gap-2">
