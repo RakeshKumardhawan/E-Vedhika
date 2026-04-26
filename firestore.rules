@@ -22,14 +22,24 @@ service cloud.firestore {
     function existing() {
       return resource.data;
     }
+    function getUserRole() {
+      let roleDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return roleDoc == null ? 'user' : roleDoc.data.get('role', 'user');
+    }
     function isAdmin() {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        (request.auth.token.email.lower() == 'rakeshkumardhawan123@gmail.com' && request.auth.token.email_verified == true)
+        getUserRole() == 'admin' ||
+        (request.auth.token.get('email', '').lower() == 'rakeshkumardhawan123@gmail.com' && request.auth.token.get('email_verified', false) == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+    function isEditor() {
+      return isSignedIn() && (
+        getUserRole() == 'editor' || isAdmin()
       );
     }
     function isEmailVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn() && request.auth.token.get('email_verified', false) == true;
     }
 
     // --- Validation Helpers ---
@@ -64,9 +74,8 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming());
-      allow update: if (isOwner(userId) || isAdmin()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['username', 'village', 'office', 'bio', 'time'])
-      );
+      allow update: if (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'village', 'office', 'bio', 'time'])) ||
+                       (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'village', 'office', 'bio', 'time', 'role']));
     }
 
     match /admins/{userId} {
@@ -85,10 +94,10 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidId(postId) && isValidPost(incoming());
       allow update: if isSignedIn() && (
         (isOwner(existing().uid) && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'category', 'subCategory', 'mediaUrl', 'status'])) || 
-        isAdmin() ||
+        isEditor() ||
         (incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'likedBy', 'views', 'comments']))
       );
-      allow delete: if isAdmin() || isOwner(existing().uid);
+      allow delete: if isEditor() || isOwner(existing().uid);
     }
 
     // --- Chat Rules ---
@@ -99,36 +108,37 @@ service cloud.firestore {
 
     // --- Problem Rules ---
     match /problems/{problemId} {
-      allow read: if isAdmin() || isOwner(existing().uid);
+      allow read: if isEditor() || isOwner(existing().uid);
       allow create: if isSignedIn() && isValidId(problemId) && isValidProblemReport(incoming());
-      allow update: if isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reply']);
+      allow update: if isEditor() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reply']);
     }
 
     // --- Suggestion Rules ---
     match /suggestions/{suggestionId} {
       allow read: if true;
       allow create: if isSignedIn() && isValidId(suggestionId); 
-      allow update, delete: if isAdmin();
+      allow update, delete: if isEditor();
     }
 
     // --- Update/Request Rules ---
     match /updates/{updateId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidId(updateId);
+      allow write: if isEditor() && isValidId(updateId);
     }
     match /requests/{requestId} {
-      allow read: if isAdmin() || isOwner(existing().uid);
+      allow read: if isEditor() || isOwner(existing().uid);
       allow create: if isSignedIn() && isValidId(requestId);
     }
     match /notifications/{notificationId} {
-      allow read: if isSignedIn() && (isAdmin() || isOwner(existing().uid) || existing().uid == 'all');
-      allow create: if isAdmin() && isValidId(notificationId) && isValidNotification(incoming());
+      allow get: if isSignedIn() && (isEditor() || existing().uid == request.auth.uid || existing().uid == 'all');
+      allow list: if isSignedIn() && (isEditor() || existing().uid in [request.auth.uid, 'all']);
+      allow create: if isEditor() && isValidId(notificationId) && isValidNotification(incoming());
       allow update: if isSignedIn() && (
         (isOwner(existing().uid) && incoming().diff(existing()).affectedKeys().hasOnly(['read'])) ||
         (existing().uid == 'all' && incoming().diff(existing()).affectedKeys().hasOnly(['read'])) ||
-        isAdmin()
+        isEditor()
       );
-      allow delete: if isAdmin();
+      allow delete: if isEditor();
     }
   }
 }

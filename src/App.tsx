@@ -190,162 +190,141 @@ interface Notification {
 const APP_STYLES = `
 :root {
   --primary: #0d3b66;
-  --primary-light: #1e4d7a;
   --accent: #fbbf24;
-  --accent-dark: #b48a1d;
-  --success: #059669;
-  --danger: #e11d48;
-  --info: #0284c7;
+  --success: #16a34a;
+  --danger: #dc2626;
   --bg-light: #f8fafc;
   --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  --header-height: 65px;
-  --nav-bar-height: 50px;
+}
+
+body {
+  margin: 0;
+  background-color: #f1f5f9;
+  color: #1e293b;
 }
 
 .brand-title {
-  font-size: 28px;
+  font-family: 'Righteous', cursive;
+  font-size: 34px;
   margin: 0;
-  letter-spacing: 2.5px;
-  font-weight: 900;
-  text-transform: uppercase;
-  background: linear-gradient(135deg, #fbbf24 0%, #fff 50%, #fbbf24 100%);
+  letter-spacing: 2px;
+  background: linear-gradient(to right, #facc15, #fef08a, #22c55e, #0ea5e9, #facc15);
   background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shineText 5s linear infinite;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  animation: shineText 4s linear infinite;
 }
+@keyframes shineText { to { background-position: 200% center; } }
 
-@keyframes shineText { 
-  0% { background-position: 0% center; } 
-  100% { background-position: 200% center; } 
-}
-
-.latest-bar { 
-  background: #fff; 
-  padding: 8px 4%; 
-  display: flex; 
-  align-items: center; 
-  border-bottom: 2px solid #e2e8f0;
-}
-
-.latest-text span { 
-  display: inline-block; 
-  white-space: nowrap; 
-  animation: scrollLeft 30s linear infinite; 
-}
-
-@keyframes scrollLeft { 
-  from { transform: translateX(100%); } 
-  to { transform: translateX(-100%); } 
-}
-
-.sidebar {
-  width: 0;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-}
-
-.sidebar-open .sidebar {
-  width: 250px;
-}
-
-.side-btn { 
-  display: flex; align-items: center; width: 100%; padding: 14px 16px; 
-  background: transparent; color: #475569; border-radius: 12px; cursor: pointer; 
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); border: none; text-align: left; gap: 12px;
-}
-
-.active-tab { 
-  background: #eef2ff !important; 
-  color: var(--primary) !important; 
-  font-weight: 800 !important;
-  box-shadow: inset 0 0 0 1px rgba(13, 59, 102, 0.1);
-}
-
-.lock-screen { 
-  position: fixed; inset: 0; background: rgba(13, 59, 102, 0.99); 
-  z-index: 10000; display: flex; flex-direction: column; 
-  align-items: center; justify-content: center; backdrop-filter: blur(12px); 
-}
-
-.pin-input { 
-  background: #fff; border: 3px solid var(--accent); border-radius: 16px; 
-  padding: 18px; font-size: 28px; font-weight: 900; width: 220px; 
-  text-align: center; letter-spacing: 12px; outline: none; 
-  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-}
-
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.mana-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 20px;
-  margin-top: 20px;
-}
-
-.mana-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 24px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-}
-
-.mana-card:hover {
-  background: #f8fafc;
-  transform: translateY(-4px);
-  border-color: var(--accent);
-  box-shadow: 0 12px 30px rgba(0,0,0,0.08);
-}
-
-.mana-card h4 {
-  margin: 12px 0 0 0;
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--primary);
-}
-
-.post-tag {
-  padding: 5px 12px;
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.post-action-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-  transition: all 0.2s ease;
-  color: #64748b;
-}
-
-.post-action-btn:hover {
-  color: var(--primary);
+.sub-tagline {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
   opacity: 0.9;
 }
 
-.table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-table { width: 100%; border-collapse: collapse; min-width: 600px; }
-th { background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-th, td { padding: 16px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+.ev-logo-text {
+  font-family: 'Righteous', cursive;
+  font-size: 20px;
+  font-weight: 900;
+  animation: evColorCycle 4s infinite linear;
+}
+@keyframes evColorCycle {
+  0% { fill: #facc15; } 25% { fill: #22c55e; } 50% { fill: #0ea5e9; } 75% { fill: #ec4899; } 100% { fill: #facc15; }
+}
+
+.latest-bar {
+  background: #fff;
+  padding: 10px 5%;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+}
+.latest-label {
+  background: var(--accent);
+  color: #000;
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-weight: 800;
+  font-size: 11px;
+  margin-right: 15px;
+  white-space: nowrap;
+}
+.latest-text { flex: 1; overflow: hidden; font-weight: 600; font-size: 14px; color: var(--primary); }
+.latest-text span { display: inline-block; white-space: nowrap; animation: scrollLeft 30s linear infinite; }
+@keyframes scrollLeft { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+
+.sidebar-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 15px;
+  box-shadow: var(--card-shadow);
+}
+.side-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px 15px;
+  margin-bottom: 8px;
+  background: transparent;
+  color: #64748b;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  text-align: left;
+  gap: 12px;
+}
+.side-btn:hover { background: #f1f5f9; color: var(--primary); transform: translateX(5px); }
+.side-btn.active-tab {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(13, 59, 102, 0.3);
+}
+
+.section-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 25px;
+  box-shadow: var(--card-shadow);
+  margin-bottom: 25px;
+  border-top: 5px solid var(--primary);
+}
+
+.scheme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+.scheme-card {
+  background: #fff;
+  border: 1px solid #f1f5f9;
+  border-radius: 16px;
+  padding: 25px;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+  border-bottom: 4px solid #e2e8f0;
+}
+.scheme-card:hover { transform: translateY(-8px); box-shadow: 0 12px 25px rgba(0,0,0,0.08); border-bottom-color: var(--primary); }
+.scheme-card h4 { margin: 15px 0 10px; font-size: 19px; color: var(--primary); }
+.scheme-card p { font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 20px; }
+.scheme-link-btn {
+  margin-top: auto;
+  background: var(--primary);
+  color: #fff;
+  text-decoration: none;
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 13px;
+}
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
@@ -362,13 +341,43 @@ th, td { padding: 16px; border-bottom: 1px solid #f1f5f9; text-align: left; }
   background: #cbd5e1;
 }
 
-.flash-pulse {
-  animation: flashGlow 2s infinite ease-in-out;
+.msg-bubble {
+  padding: 10px 15px;
+  border-radius: 15px;
+  max-width: 80%;
+  font-size: 14px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
+.msg-other { background: #fff; border-bottom-left-radius: 2px; align-self: flex-start; color: #334155; }
+.msg-me { background: var(--primary); color: #fff; border-bottom-right-radius: 2px; align-self: flex-end; }
 
-@keyframes flashGlow {
-  0%, 100% { box-shadow: 4px 0 10px rgba(225,29,72,0.2); }
-  50% { box-shadow: 4px 0 20px rgba(225,29,72,0.4); }
+.mana-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+.mana-card {
+  background: #fff;
+  border: 1.5px solid #f1f5f9;
+  border-radius: 28px;
+  padding: 35px 25px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+}
+.mana-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-8px);
+  box-shadow: 0 15px 35px rgba(13, 59, 102, 0.1);
+}
+.mana-card h4 {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--primary);
+  margin-top: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 `;
 
@@ -380,7 +389,9 @@ function cleanStringData(val: any) {
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'editor' | 'user'>('user');
+  const isAdmin = userRole === 'admin';
+  const isEditor = userRole === 'admin' || userRole === 'editor';
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState('home');
   const [currentFilter, setCurrentFilter] = useState('All');
@@ -417,8 +428,8 @@ export default function App() {
       setUser(u);
       if (!u) {
         setUserProfile(null);
-        setIsAdmin(false);
-        signInAnonymously(auth).catch(err => handleFirestoreError(err, OperationType.WRITE, 'auth'));
+        setUserRole('user');
+        signInAnonymously(auth).catch(err => console.warn('Anonymous auth not enabled:', err));
       }
     });
 
@@ -439,7 +450,7 @@ export default function App() {
       const pArr: Post[] = [];
       snap.forEach((d) => {
           const data = d.data() as any;
-          if (data.status !== 'Deleted' || isAdmin) {
+          if (data.status !== 'Deleted' || isEditor) {
               pArr.push({ id: d.id, ...data } as Post);
           }
       });
@@ -452,7 +463,7 @@ export default function App() {
       unsubSuggestions();
       unsubPosts();
     };
-  }, [isAdmin]);
+  }, [isEditor]);
 
   // Authenticated-Only Listeners
   useEffect(() => {
@@ -466,7 +477,14 @@ export default function App() {
 
     const unsubAdminCheck = onSnapshot(doc(db, 'admins', user.uid), (snap) => {
       const isDevEmail = user.email?.toLowerCase() === 'rakeshkumardhawan123@gmail.com';
-      setIsAdmin(snap.exists() || isDevEmail);
+      if (isDevEmail) {
+        setUserRole('admin');
+      } else if (snap.exists()) {
+        const data = snap.data();
+        setUserRole(data?.role || 'admin');
+      } else {
+        setUserRole('user');
+      }
     }, (err) => handleFirestoreError(err, OperationType.GET, `admins/${user.uid}`));
 
     const unsubChat = onSnapshot(query(collection(db, 'chat')), (snap) => {
@@ -476,7 +494,7 @@ export default function App() {
       setChatMessages(cArr.slice(-50));
     }, (err) => handleFirestoreError(err, OperationType.GET, 'chat'));
 
-    const problemsQuery = isAdmin
+    const problemsQuery = isEditor
       ? query(collection(db, 'problems'), orderBy('time', 'desc'))
       : query(collection(db, 'problems'), where('uid', '==', user.uid));
 
@@ -489,7 +507,7 @@ export default function App() {
     });
 
     // Requests visibility: Admins see all, users see their own
-    const requestsQuery = isAdmin 
+    const requestsQuery = isEditor 
       ? query(collection(db, 'requests'), orderBy('time', 'desc'))
       : query(collection(db, 'requests'), where('uid', '==', user.uid));
 
@@ -517,7 +535,7 @@ export default function App() {
       unsubRequests();
       unsubNotifications();
     };
-  }, [user, isAdmin]);
+  }, [user, isEditor]);
 
   const addToast = (msg: string) => {
     const id = Date.now();
@@ -580,7 +598,7 @@ export default function App() {
     const cMatch = (p.content || "").toLowerCase().includes(q);
     const searchOk = !q || tMatch || cMatch;
     if (currentFilter === 'All') return searchOk;
-    return searchOk && (p.category === currentFilter || p.subCategory === currentFilter);
+    return searchOk && (p.category === currentFilter || p.subCategory === currentFilter || !p.category);
   });
 
   return (
@@ -601,246 +619,379 @@ export default function App() {
         ))}
       </AnimatePresence>
 
-      <header className="bg-primary h-[65px] px-6 flex items-center border-b-4 border-accent shadow-lg sticky top-0 z-[1001]" style={{ background: '#0d3b66', borderColor: '#fbbf24' }}>
-        <div className="flex-1 flex items-center gap-4 cursor-pointer" onClick={() => setSidebarOpen(!sidebarOpen)}>
-          <Menu className="text-white" />
-          <div className="flex flex-col">
-            <h1 className="brand-title font-black text-2xl leading-none">E-VEDHIKA</h1>
-            <p className="text-[10px] font-bold text-accent opacity-90" style={{ color: '#fbbf24' }}>PR & RD TECHNICAL PORTAL</p>
+      <header className="bg-primary flex justify-between items-center px-[5%] py-4 border-b-4 border-accent shadow-lg sticky top-0 z-[1001]" style={{ background: '#0d3b66', borderColor: '#fbbf24' }}>
+        <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setCurrentTab('home')}>
+          <div className="logo-container relative">
+            <svg viewBox="0 0 64 64" width="54" height="54">
+              <g className="logo-ring"><circle cx="32" cy="32" r="29" fill="none" stroke="#facc15" strokeWidth="2.5" strokeDasharray="6 8"/></g>
+              <circle cx="32" cy="32" r="22" fill="#0d3b66"/>
+              <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" className="ev-logo-text fill-accent">EV</text>
+            </svg>
+          </div>
+          <div>
+            <h1 className="brand-title tracking-widest">E-VEDHIKA</h1>
+            <p className="sub-tagline opacity-80 uppercase tracking-tighter">Unified Portal for Rural Prosperity</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 relative">
+        <div className="flex items-center gap-4">
           <div 
-            className="relative cursor-pointer p-2 hover:bg-white/15 rounded-full transition-all active:scale-95"
+            className="relative cursor-pointer p-2.5 hover:bg-white/10 rounded-xl transition-all"
             onClick={() => setShowNotifications(!showNotifications)}
           >
-            <Bell size={24} className="text-white" strokeWidth={2.5} />
+            <Bell size={22} className="text-white" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 bg-danger text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-[#0d3b66] shadow-sm">
-                {unreadCount > 9 ? '9+' : unreadCount}
+              <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-[#0d3b66]">
+                {unreadCount}
               </span>
             )}
           </div>
-
-          <AnimatePresence>
-            {showNotifications && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="absolute top-[55px] right-0 w-[340px] bg-white rounded-[24px] shadow-2xl border border-slate-200 z-[1005] overflow-hidden"
-              >
-                <div className="p-5 border-b bg-slate-50/50 flex justify-between items-center">
-                  <h3 className="font-black text-primary flex items-center gap-2">
-                    <Bell size={18} className="text-primary" /> Notifications
-                  </h3>
-                  {unreadCount > 0 && (
-                    <button 
-                      onClick={async () => {
-                        const batch: any = [];
-                        notifications.filter(n => !n.read).forEach(n => {
-                          batch.push(updateDoc(doc(db, 'notifications', n.id), { read: true }));
-                        });
-                        await Promise.all(batch);
-                      }}
-                      className="text-[11px] font-black text-primary hover:text-primary-light transition-colors underline decoration-2 underline-offset-4"
-                    >
-                      Mark all as read
-                    </button>
-                  )}
+          
+          {user && !user.isAnonymous ? (
+             <div className="hidden sm:flex items-center gap-3 bg-white/10 pl-1 pr-3 py-1 rounded-full border border-white/20">
+                <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-primary font-black text-sm">
+                  {(userProfile?.username || "P")[0].toUpperCase()}
                 </div>
-                <div className="max-h-[450px] overflow-y-auto custom-scrollbar">
-                  {notifications.length === 0 ? (
-                    <div className="p-12 text-center text-slate-400">
-                      <div className="mb-4 opacity-20"><Bell size={48} className="mx-auto" /></div>
-                      <p className="text-sm font-bold">No notifications yet</p>
-                    </div>
-                  ) : (
-                    notifications.map(n => (
-                      <div 
-                        key={n.id} 
-                        className={`p-5 border-b hover:bg-slate-50 transition-colors cursor-pointer ${!n.read ? 'bg-blue-50/30' : ''}`}
-                        onClick={async () => {
-                          if (!n.read) await updateDoc(doc(db, 'notifications', n.id), { read: true });
-                          setShowNotifications(false);
-                        }}
-                      >
-                        <div className="flex gap-4">
-                          <div className={`w-2.5 h-2.5 mt-1.5 rounded-full flex-shrink-0 ${n.read ? 'bg-slate-200' : 'bg-accent shadow-[0_0_8px_rgba(251,191,36,0.5)]'}`}></div>
-                          <div>
-                            <p className="text-[13px] font-black text-primary leading-tight mb-1">{n.title}</p>
-                            <p className="text-[12px] text-slate-600 leading-relaxed font-medium">{n.message}</p>
-                            <p className="text-[10px] text-slate-500 mt-2 font-bold uppercase tracking-wider">{new Date(n.time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                <div className="flex flex-col">
+                  <span className="text-white text-[10px] font-black leading-none">{userProfile?.username || "Member"}</span>
+                  <span className="text-accent text-[8px] font-bold uppercase tracking-widest">{isAdmin ? 'Admin' : isEditor ? 'Editor' : 'Active'}</span>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+             </div>
+          ) : (
+            <button onClick={() => setCurrentTab('home')} className="bg-accent text-primary px-4 py-1.5 rounded-lg text-[11px] font-black uppercase hover:bg-white transition-colors">Join Portal</button>
+          )}
+          
+          <button className="md:hidden text-white p-2" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
       </header>
 
-      <div className="latest-bar h-10 overflow-hidden bg-white border-b-2 flex items-center">
-        <div className="bg-danger text-white text-[10px] font-black px-4 h-full flex items-center z-10 flash-pulse">FLASH</div>
-        <div className="latest-text flex-1">
-          <span className="text-[13px] font-bold text-primary">
+      <div className="latest-bar h-[44px] overflow-hidden bg-white border-b flex items-center sticky top-[84px] z-[1000] shadow-sm">
+        <div className="latest-label ml-4">HOT UPDATES</div>
+        <div className="latest-text flex-1 pl-4">
+          <span className="font-bold tracking-tight">
             {updates.length > 0 
-              ? updates.map(u => u.text).join('  •  ') 
-              : 'Welcome to E-Vedhika Portal... Stay tuned for daily updates and official daily status reports from Mandals and GPs...'}
+              ? updates.map(u => u.text || (u as any).msg || (u as any).update).join('  •  ') 
+              : 'Empowering local governance through digital innovation... Telangana PR Portal is now live for all panchayats...'}
           </span>
         </div>
       </div>
 
-      <div className={`flex flex-1 ${sidebarOpen ? 'sidebar-open' : ''}`}>
-        <aside className="sidebar bg-white border-r flex-shrink-0 sticky top-[97px] h-[calc(100vh-97px)]">
-          <motion.div 
-            initial="closed"
-            animate={sidebarOpen ? "open" : "closed"}
-            variants={{
-              open: { opacity: 1, x: 0, transition: { staggerChildren: 0.05, delayChildren: 0.1 } },
-              closed: { opacity: 0, x: -20 }
-            }}
-            className="w-[250px] p-4 space-y-2"
-          >
-            <MenuButton label="Home" icon={Home} active={currentTab === 'home' && currentFilter === 'All'} onClick={() => { setCurrentTab('home'); setCurrentFilter('All'); setSidebarOpen(false); }} />
-            <MenuButton label="Mana Panchayath" icon={LayoutDashboard} active={currentTab === 'workspace'} onClick={() => { setCurrentTab('workspace'); setSidebarOpen(false); }} />
-            <MenuButton label="Live Chat" icon={MessageSquare} active={currentTab === 'chat'} onClick={() => { setCurrentTab('chat'); setSidebarOpen(false); }} />
-            <MenuButton label="Knowledge Hub" icon={Book} active={currentTab === 'repo'} onClick={() => { setCurrentTab('repo'); setSidebarOpen(false); }} />
-            <MenuButton label="Suggestions" icon={Lightbulb} active={currentTab === 'suggestions'} onClick={() => { setCurrentTab('suggestions'); setSidebarOpen(false); }} />
-            {isAdmin && <MenuButton label="Admin Console" icon={ShieldAlert} active={currentTab === 'admin'} onClick={() => { setCurrentTab('admin'); setSidebarOpen(false); }} />}
-          </motion.div>
-        </aside>
-
-        <main className="flex-1 p-6 max-w-5xl mx-auto w-full">
-          {currentTab === 'home' && (
-            <div className="space-y-6">
-              <div className="bg-white p-4 rounded-2xl shadow-sm border flex items-center justify-between">
-                {user && !user.isAnonymous ? (
-                  <div className="flex items-center justify-between w-full">
-                    <span className="font-bold flex items-center gap-2">👤 {userProfile?.username || "Member"}</span>
-                    <button onClick={() => signOut(auth)} className="text-red-600 font-bold text-sm">Logout</button>
-                  </div>
-                ) : (
-                  <div className="flex gap-4 w-full">
-                     <form onSubmit={handleLogin} className="flex gap-2 flex-1">
-                        <input name="email" type="email" placeholder="Email" className="mb-0 py-1" />
-                        <input name="password" type="password" placeholder="Pass" className="mb-0 py-1" />
-                        <button className="bg-primary text-white px-4 rounded-xl font-bold text-sm" style={{ background: '#0d3b66' }}>Go</button>
-                     </form>
-                     <button onClick={handleGoogleLogin} className="bg-red-500 text-white px-4 rounded-xl font-black">G</button>
+      <div className="max-w-[1440px] mx-auto w-full flex-1 px-[4%] py-8">
+        <div className="grid grid-cols-1 md:grid-cols-[260px,1fr] gap-8">
+          <aside className={`md:block ${sidebarOpen ? 'block fixed inset-0 z-[2000] bg-white p-6 pt-24 md:static md:p-0 md:bg-transparent' : 'hidden md:block'}`}>
+            {sidebarOpen && <button className="absolute top-6 right-6 md:hidden" onClick={() => setSidebarOpen(false)}><X size={32}/></button>}
+            <div className="space-y-2 sticky top-[150px]">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-4">Navigations</h3>
+              <MenuButton label="Explore Feed" icon={Home} active={currentTab === 'home'} onClick={() => {setCurrentTab('home'); setSidebarOpen(false);}} />
+              <MenuButton label="Digital Workspace" icon={LayoutDashboard} active={currentTab === 'workspace'} onClick={() => {setCurrentTab('workspace'); setSidebarOpen(false);}} />
+              <MenuButton label="Govt. Schemes" icon={ Megaphone } active={currentTab === 'schemes'} onClick={() => {setCurrentTab('schemes'); setSidebarOpen(false);}} />
+              <MenuButton label="Communicate" icon={MessageSquare} active={currentTab === 'chat'} onClick={() => {setCurrentTab('chat'); setSidebarOpen(false);}} />
+              <MenuButton label="Union Corner" icon={Handshake} active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
+              
+              <div className="pt-6">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-4">Engagement</h3>
+                <MenuButton label="Public Suggests" icon={Lightbulb} active={currentTab === 'suggestions'} onClick={() => {setCurrentTab('suggestions'); setSidebarOpen(false);}} />
+                <MenuButton label="Report Problem" icon={AlertTriangle} active={currentTab === 'problems'} onClick={() => {setCurrentTab('problems'); setSidebarOpen(false);}} />
+                {isEditor && (
+                  <div className="pt-6">
+                    <MenuButton label={isAdmin ? "Master Config" : "Editor Config"} icon={ShieldAlert} active={currentTab === 'admin'} onClick={() => {setCurrentTab('admin'); setSidebarOpen(false);}} />
                   </div>
                 )}
               </div>
+            </div>
+          </aside>
 
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search updates..." 
-                  className="pl-12 pr-4 py-4 rounded-2xl border-none shadow-sm focus:ring-2 ring-primary text-primary font-medium"
-                />
-              </div>
+          <main className="min-w-0">
+            <AnimatePresence mode="wait">
+              {currentTab === 'home' && (
+                <motion.div key="home" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border-l-[6px] border-l-[#0ea5e9]">
+                      <span className="text-[11px] font-black text-slate-400 uppercase">Live Updates</span>
+                      <h2 className="text-3xl font-black text-primary mt-2">{posts.length}</h2>
+                    </div>
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border-l-[6px] border-l-danger cursor-pointer hover:bg-red-50 transition-colors" onClick={() => setCurrentTab('problems')}>
+                      <span className="text-[11px] font-black text-slate-400 uppercase">Pending Issues</span>
+                      <h2 className="text-3xl font-black text-danger mt-2">{problemsGlobal.filter(p => p.status !== 'solved').length}</h2>
+                    </div>
+                    <div className="bg-primary p-6 rounded-3xl shadow-lg border-l-[6px] border-l-accent overflow-hidden relative" style={{ background: '#0d3b66' }}>
+                      <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/5 rounded-full blur-2xl"></div>
+                      <span className="text-[11px] font-black text-accent uppercase tracking-widest">Portal Access</span>
+                      <div className="mt-2">
+                        {user && !user.isAnonymous ? (
+                           <div className="flex justify-between items-center">
+                             <span className="text-sm font-black text-white">Active session</span>
+                             <button onClick={() => signOut(auth)} className="text-[9px] bg-red-500 text-white px-3 py-1 rounded-full font-black uppercase">Exit</button>
+                           </div>
+                        ) : (
+                          <button onClick={() => {
+                             Swal.fire({
+                               title: 'Login to E-Vedhika',
+                               html: `
+                                 <input id="swal-input1" class="swal2-input" placeholder="Email">
+                                 <input id="swal-input2" type="password" class="swal2-input" placeholder="Password">
+                               `,
+                               focusConfirm: false,
+                               showCancelButton: true,
+                               confirmButtonText: 'Sign In',
+                               confirmButtonColor: '#0d3b66',
+                               preConfirm: () => {
+                                 const email = (document.getElementById('swal-input1') as HTMLInputElement).value;
+                                 const password = (document.getElementById('swal-input2') as HTMLInputElement).value;
+                                 if (!email || !password) {
+                                   Swal.showValidationMessage('Please enter both email and password');
+                                 }
+                                 return { email, password };
+                               }
+                             }).then(async (result) => {
+                               if (result.isConfirmed) {
+                                  try {
+                                    await signInWithEmailAndPassword(auth, result.value.email, result.value.password);
+                                    addToast("Welcome back!");
+                                  } catch (err: any) {
+                                    try {
+                                      await createUserWithEmailAndPassword(auth, result.value.email, result.value.password);
+                                      addToast("Signed up successfully!");
+                                    } catch (e: any) {
+                                      addToast("Login failed");
+                                    }
+                                  }
+                               }
+                             });
+                          }} className="w-full bg-accent text-primary py-2.5 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-white transition-all shadow-md">Authenticate Now</button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-              {user && !user.isAnonymous && (
-                <button 
-                  onClick={() => { setEditingPost(null); setShowPostForm(!showPostForm); }}
-                  className="w-full h-[55px] bg-primary text-white rounded-2xl font-black flex items-center justify-center gap-3 shadow-lg"
-                  style={{ background: '#0d3b66' }}
-                >
-                  <PlusCircle /> Create Update
-                </button>
+                  <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100">
+                    <div className="flex justify-between items-center mb-6">
+                       <div>
+                         <h3 className="text-xl font-black text-primary">📝 Portal Updates</h3>
+                         <p className="text-xs font-bold text-slate-400 mt-1">Publish news, reports or notices for the community</p>
+                       </div>
+                       <div className="flex gap-2">
+                          <button onClick={() => setSearchQuery('')} className={`p-2 rounded-lg ${searchQuery === '' ? 'bg-slate-100 text-primary' : 'text-slate-300'}`}><Layers size={18}/></button>
+                          <Search size={18} className="text-slate-300 mt-2" />
+                       </div>
+                    </div>
+
+                    {user && !user.isAnonymous ? (
+                      <button 
+                        onClick={() => { setEditingPost(null); setShowPostForm(true); }}
+                        className="w-full bg-slate-50 border-2 border-dashed border-slate-200 p-10 rounded-[28px] text-slate-400 font-bold hover:bg-slate-100 hover:border-primary/20 transition-all flex flex-col items-center gap-3"
+                      >
+                        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border shadow-sm text-primary">
+                          <PlusCircle size={24} />
+                        </div>
+                        <span>Compose an official update...</span>
+                      </button>
+                    ) : (
+                      <div className="p-10 bg-slate-50 rounded-[28px] border border-dashed text-center">
+                        <Lock size={32} className="mx-auto text-slate-300 mb-4" />
+                        <p className="text-sm font-bold text-slate-400">Authentication required to publish updates</p>
+                      </div>
+                    )}
+
+                    {(showPostForm || editingPost) && (
+                      <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl custom-scrollbar">
+                           <PostForm addToast={addToast} onCancel={() => { setShowPostForm(false); setEditingPost(null); }} currentUserProfile={userProfile} editingPost={editingPost} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-10">
+                    <AnimatePresence mode="popLayout">
+                      {filteredPosts.map((post, index) => (
+                        <motion.div key={post.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
+                          <PostCard 
+                            post={post} 
+                            isExpanded={expandedPosts.has(post.id)} 
+                            toggleExpansion={() => togglePostExpansion(post.id)} 
+                            addToast={addToast} 
+                            isAdmin={isEditor} 
+                            onEdit={(p) => { setEditingPost(p); setShowPostForm(false); }} 
+                          />
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
               )}
 
-              {(showPostForm || editingPost) && <PostForm addToast={addToast} onCancel={() => { setShowPostForm(false); setEditingPost(null); }} currentUserProfile={userProfile} editingPost={editingPost} />}
+            {currentTab === 'workspace' && (
+              <motion.div key="workspace" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <DigitalWorkspaceSection addToast={addToast} />
+              </motion.div>
+            )}
 
-              <div className="space-y-6">
-                <AnimatePresence mode="popLayout">
-                  {filteredPosts.map((post, index) => (
-                    <motion.div
-                      key={post.id}
-                      initial={{ opacity: 0, y: 30 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ delay: index * 0.05 }}
-                    >
-                      <PostCard 
-                        post={post} 
-                        isExpanded={expandedPosts.has(post.id)} 
-                        toggleExpansion={() => togglePostExpansion(post.id)} 
-                        addToast={addToast} 
-                        isAdmin={isAdmin} 
-                        onEdit={(p) => { 
-                          setEditingPost(p); 
-                          setShowPostForm(false); 
-                          window.scrollTo({ top: 0, behavior: 'smooth' }); 
-                        }} 
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            </div>
-          )}
+            {currentTab === 'schemes' && (
+              <motion.div key="schemes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                 <div className="section-card border-t-[#0ea5e9]">
+                    <h2 className="text-2xl font-black text-primary mb-6">🏛️ Rural Development Schemes</h2>
+                    <div className="scheme-grid">
+                      {[{ name: 'SthreeNidhi', desc: 'Financial support and credit facilities for Mahila SHG members across Telangana.', icon: '👩‍💼', link: 'https://streenidhi.telangana.gov.in/' },
+                        { name: 'Mission Bhagiratha', desc: 'The flagship project to provide safe and sustainable tap water to every household.', icon: '🚰', link: 'https://missionbhagiratha.telangana.gov.in/' },
+                        { name: 'MGNREGS', desc: 'Ensuring wage employment and building durable assets in rural areas.', icon: '👷', link: 'https://nregs.telangana.gov.in/' },
+                        { name: 'SERP', desc: 'Programs focused on poverty elimination and building community institutions.', icon: '🏘️', link: 'https://serp.telangana.gov.in/' }
+                      ].map(s => (
+                        <div key={s.name} className="scheme-card">
+                          <div className="text-4xl mb-4">{s.icon}</div>
+                          <h4 className="font-black text-lg text-primary">{s.name}</h4>
+                          <p className="text-sm font-medium text-slate-600 mt-2 flex-1">{s.desc}</p>
+                          <a href={s.link} target="_blank" rel="noreferrer" className="scheme-link-btn hover:opacity-90 transition-opacity">Visit Official Website</a>
+                        </div>
+                      ))}
+                    </div>
+                 </div>
+              </motion.div>
+            )}
 
-          {currentTab === 'chat' && <ChatSection messages={chatMessages} user={user} addToast={addToast} />}
-          
-          {currentTab === 'workspace' && <DigitalWorkspaceSection addToast={addToast} />}
+            {currentTab === 'chat' && (
+              <motion.div key="chat" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <ChatSection messages={chatMessages} user={user} addToast={addToast} />
+              </motion.div>
+            )}
 
-          {currentTab === 'repo' && <KnowledgeHubSection />}
-
-          {currentTab === 'suggestions' && (
-            <div className="bg-white p-6 rounded-3xl shadow-sm border">
-               <h2 className="text-xl font-black mb-6 flex items-center gap-3">💡 Suggestions Hub</h2>
-               <div id="suggestionBox" className="max-h-[500px] overflow-y-auto space-y-4 pr-2">
-                 {suggestions.map(s => (
-                   <div key={s.id} className="p-4 bg-slate-50 rounded-2xl border-l-4 border-accent" style={{ borderColor: '#fbbf24' }}>
-                     <b className="text-primary">{s.name || 'User'}:</b> {s.text || (s as any).suggestion || (s as any).msg}
-                   </div>
-                 ))}
-               </div>
-            </div>
-          )}
-
-          {currentTab === 'admin' && isAdmin && (
-            <>
-              {adminLocked ? (
-                <div className="lock-screen">
-                  <Lock size={48} color="#fbbf24" className="mb-6 animate-pulse" />
-                  <h2 className="text-white text-2xl font-black mb-6">ADMIN CONSOLE LOCKED</h2>
-                  <input 
-                    type="password" 
-                    className="pin-input" 
-                    maxLength={4}
-                    value={adminPinInput}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setAdminPinInput(v);
-                      if (v === currentAdminPin) { 
-                        setAdminLocked(false);
-                        addToast("Access Granted");
-                      }
-                    }}
-                  />
+            {currentTab === 'union' && (
+              <motion.div key="union" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <div className="section-card border-t-success">
+                  <h2 className="text-2xl font-black text-primary mb-6">🤝 Union Updates & Notices</h2>
+                  <div className="space-y-4">
+                     {filteredPosts.filter(p => p.category === 'Updates').length > 0 ? (
+                       filteredPosts.filter(p => p.category === 'Updates').map(upd => (
+                         <div key={upd.id} className="p-5 bg-slate-50 rounded-2xl border-l-4 border-success">
+                            <h4 className="font-black text-primary">{upd.title}</h4>
+                            <p className="text-sm font-medium text-slate-600 mt-2">{upd.content}</p>
+                         </div>
+                       ))
+                     ) : (
+                       <p className="text-center text-slate-400 font-bold py-10">No specific union notices available.</p>
+                     )}
+                  </div>
                 </div>
-              ) : (
-                <AdminSection addToast={addToast} lockSession={() => setAdminLocked(true)} updates={updates} problemsGlobal={problemsGlobal} />
-              )}
-            </>
-          )}
+              </motion.div>
+            )}
+
+            {currentTab === 'suggestions' && (
+              <motion.div key="suggestions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <div className="section-card border-t-[#a855f7]">
+                  <h2 className="text-2xl font-black text-primary mb-6">💡 Community Voice</h2>
+                  <div className="bg-slate-50 rounded-2xl p-4 max-h-[400px] overflow-y-auto mb-6 custom-scrollbar">
+                    {suggestions.length > 0 ? (
+                      suggestions.map(s => (
+                        <div key={s.id} className="bg-white p-4 rounded-xl border border-slate-200 border-l-4 border-l-[#a855f7] mb-3 last:mb-0">
+                          <span className="text-[10px] font-black text-[#a855f7] uppercase mb-1 block">👤 {s.name || 'Anonymous Platform User'}</span>
+                          <p className="text-sm font-medium text-slate-700">{s.text || (s as any).suggestion || (s as any).msg}</p>
+                        </div>
+                      ))
+                    ) : <p className="text-center font-bold text-slate-400 py-10">No public suggestions shared yet.</p>}
+                  </div>
+                  <button onClick={() => { setCurrentTab('suggestions'); setShowPostForm(true); }} className="w-full bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90 transition-all active:scale-95">
+                    📝 Submit New Suggestion
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {currentTab === 'problems' && (
+              <motion.div key="problems" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <div className="section-card border-t-danger">
+                  <h2 className="text-2xl font-black text-primary mb-6">🚩 Report an Issue</h2>
+                  <div className="bg-red-50 p-6 rounded-2xl border border-red-100 mb-8">
+                     <form onSubmit={async (e) => {
+                       e.preventDefault();
+                       const target = e.target as any;
+                       const cat = target.category.value;
+                       const msg = target.message.value;
+                       if (!user || user.isAnonymous) return addToast("Please login to report issues");
+                       try {
+                         await addDoc(collection(db, 'problems'), {
+                           msg,
+                           category: cat,
+                           status: 'pending',
+                           time: Date.now(),
+                           uid: user.uid
+                         });
+                         addToast("Problem reported successfully!");
+                         target.reset();
+                       } catch(err) { handleFirestoreError(err, OperationType.WRITE, 'problems'); }
+                     }} className="space-y-4">
+                       <input name="category" placeholder="Category (e.g. Aadhar, Water, Tax)" required className="bg-white" />
+                       <textarea name="message" placeholder="Explain your problem in detail..." required rows={3} className="bg-white" />
+                       <button className="w-full bg-danger text-white py-3 rounded-xl font-black shadow-md hover:opacity-90">Submit Report</button>
+                     </form>
+                  </div>
+                  <div className="space-y-4">
+                    {problemsGlobal.map(p => (
+                      <div key={p.id} className="p-4 bg-white border border-slate-200 rounded-2xl border-l-4 border-danger">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-[10px] font-black text-danger uppercase tracking-widest">{p.category}</span>
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${p.status === 'solved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.status?.toUpperCase()}</span>
+                        </div>
+                        <p className="text-sm font-medium text-slate-700">{p.msg}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {currentTab === 'admin' && isEditor && (
+              <motion.div key="admin" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                {adminLocked ? (
+                  <div className="flex flex-col items-center justify-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                    <Lock size={48} className="text-accent mb-4 animate-bounce" />
+                    <h2 className="text-xl font-black text-primary mb-6">ADMIN CONSOLE LOCKED</h2>
+                    <input 
+                      type="password" 
+                      placeholder="ENTER PIN"
+                      className="pin-input w-48 text-center"
+                      maxLength={4}
+                      value={adminPinInput}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setAdminPinInput(v);
+                        if (v === currentAdminPin) { 
+                          setAdminLocked(false);
+                          addToast("Access Granted");
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <AdminPanel 
+                    addToast={addToast} 
+                    problems={problemsGlobal} 
+                    suggestions={suggestions} 
+                    users={[]} 
+                    setAdminLocked={setAdminLocked} 
+                    adminLocked={adminLocked} 
+                    notifications={notifications} 
+                    requests={requests} 
+                    updates={updates}
+                    userRole={userRole}
+                  />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </main>
       </div>
     </div>
+  </div>
   );
 }
 
-function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addToast: (s: string) => void, lockSession: () => void, updates: Update[], problemsGlobal: ProblemReport[] }) {
+function AdminPanel({ addToast, problems, suggestions, users, setAdminLocked, adminLocked, notifications, requests, updates, userRole }: { addToast: (s: string) => void, problems: ProblemReport[], suggestions: Suggestion[], users: UserProfile[], setAdminLocked: (b: boolean) => void, adminLocked: boolean, notifications: Notification[], requests: RequestData[], updates: Update[], userRole: 'admin' | 'editor' | 'user' }) {
+  const isAdmin = userRole === 'admin';
+  const isEditor = userRole === 'admin' || userRole === 'editor';
   const [activeSubTab, setActiveSubTab] = useState('dash');
-  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [allProblems, setAllProblems] = useState<ProblemReport[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [permissionError, setPermissionError] = useState<string | null>(null);
@@ -850,7 +1001,7 @@ function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addT
     const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
       const uList: UserProfile[] = [];
       snap.forEach(d => uList.push({ id: d.id, ...(d.data() as any) }));
-      setUsers(uList);
+      setAllUsers(uList);
     }, (err) => {
       setPermissionError("Access to user database restricted.");
       handleFirestoreError(err, OperationType.GET, 'users');
@@ -879,6 +1030,14 @@ function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addT
     };
   }, []);
 
+  const deleteUser = async (id: string) => {
+    if (!window.confirm("Delete this user?")) return;
+    try {
+      await deleteDoc(doc(db, 'users', id));
+      addToast("User deleted");
+    } catch (err) { handleFirestoreError(err, OperationType.DELETE, `users/${id}`); }
+  };
+
   const resolveProblem = async (problem: ProblemReport) => {
     try {
       await updateDoc(doc(db, 'problems', problem.id), { status: 'solved', resolvedAt: Date.now() });
@@ -899,23 +1058,17 @@ function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addT
     }
   };
 
-  const deleteUser = async (id: string) => {
-    if (!window.confirm("Delete this user?")) return;
-    try {
-      await deleteDoc(doc(db, 'users', id));
-      addToast("User deleted");
-    } catch (err) { handleFirestoreError(err, OperationType.DELETE, `users/${id}`); }
-  };
-
   return (
     <div className="bg-white p-6 rounded-3xl shadow-sm border space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-black text-primary">Control Center ⚙️</h2>
-        <button onClick={lockSession} className="bg-slate-100 p-2 rounded-xl"><Lock size={18} /></button>
+        <button onClick={() => setAdminLocked(true)} className="bg-slate-100 p-2 rounded-xl"><Lock size={18} /></button>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
-        {['dash', 'users', 'reports', 'updates', 'trash', 'logs', 'alerts', 'settings'].map(t => (
+        {['dash', 'users', 'reports', 'updates', 'trash', 'logs', 'alerts', 'settings']
+          .filter(t => isAdmin || ['dash', 'reports', 'updates', 'alerts'].includes(t))
+          .map(t => (
           <button 
             key={t} 
             onClick={() => setActiveSubTab(t)} 
@@ -937,7 +1090,7 @@ function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addT
         animate={{ opacity: 1, y: 0 }}
         className="grid grid-cols-2 md:grid-cols-4 gap-4"
       >
-         <StatCard label="Total Users" val={users.length} color="blue" />
+         <StatCard label="Total Users" val={allUsers.length} color="blue" />
          <StatCard label="Active Problems" val={allProblems.filter(p => p.status === 'pending').length} color="amber" />
          <StatCard label="Flash Updates" val={updates.length} color="purple" />
          <StatCard label="Resolved" val={allProblems.filter(p => p.status === 'solved').length} color="green" />
@@ -966,7 +1119,7 @@ function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addT
           {permissionError ? (
             <div className="p-10 text-center text-slate-400 font-bold">{permissionError}</div>
           ) : (
-            users.map(u => (
+            allUsers.map(u => (
               <div key={u.id} className="bg-white p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                   <div className="flex items-center gap-2">
@@ -1178,27 +1331,29 @@ function AdminSection({ addToast, lockSession, updates, problemsGlobal }: { addT
 
 function StatCard({ label, val, color }: { label: string, val: number, color: string }) {
   const themes: any = { 
-    blue: { bg: '#ffffff', border: '#e2e8f0', text: '#000000', icon: Users },
-    red: { bg: '#ffffff', border: '#e2e8f0', text: '#000000', icon: AlertOctagon },
-    green: { bg: '#ffffff', border: '#e2e8f0', text: '#000000', icon: CheckCircle2 },
-    amber: { bg: '#ffffff', border: '#e2e8f0', text: '#000000', icon: ClipboardList },
-    purple: { bg: '#ffffff', border: '#e2e8f0', text: '#000000', icon: Zap }
+    blue: { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af', icon: Users },
+    red: { bg: '#fef2f2', border: '#fecaca', text: '#991b1b', icon: AlertOctagon },
+    green: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534', icon: CheckCircle2 },
+    amber: { bg: '#fffbeb', border: '#fde68a', text: '#92400e', icon: ClipboardList },
+    purple: { bg: '#faf5ff', border: '#e9d5ff', text: '#6b21a8', icon: Zap }
   };
   const theme = themes[color] || themes.blue;
   const Icon = theme.icon;
 
   return (
     <motion.div 
-      whileHover={{ scale: 1.02, translateY: -5 }}
-      whileTap={{ scale: 0.98 }}
-      className="p-5 rounded-2xl border-2 shadow-sm transition-all hover:shadow-md group cursor-pointer" 
+      whileHover={{ scale: 1.02, translateY: -4 }}
+      className="p-5 rounded-[24px] border border-transparent shadow-sm transition-all hover:shadow-lg group cursor-default" 
       style={{ background: theme.bg, borderColor: theme.border }}
     >
-      <div className="flex justify-between items-start mb-2">
-        <div className="text-[11px] font-black uppercase tracking-wider" style={{ color: theme.text }}>{label}</div>
-        <Icon size={16} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: theme.text }} />
+      <div className="flex justify-between items-start mb-3">
+        <div className="text-[10px] font-black uppercase tracking-widest opacity-60" style={{ color: theme.text }}>{label}</div>
+        <div className="p-2 rounded-xl bg-white/50 shadow-inner group-hover:bg-white transition-colors">
+          <Icon size={16} style={{ color: theme.text }} strokeWidth={2.5} />
+        </div>
       </div>
-      <div className="text-3xl font-black" style={{ color: theme.text }}>{val}</div>
+      <div className="text-3xl font-black tracking-tight" style={{ color: theme.text }}>{val}</div>
+      <div className="h-1 w-8 rounded-full mt-3 bg-current opacity-20" style={{ color: theme.text }}></div>
     </motion.div>
   );
 }
@@ -1353,82 +1508,84 @@ function DSRAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit }: { post: Post, isExpanded: boolean, toggleExpansion: () => void, addToast: (s:string) => void, isAdmin: boolean, onEdit: (p: Post) => void }) {
   const isOwner = auth.currentUser?.uid === post.uid || isAdmin;
 
-  const handleLike = async () => {
-    if (!auth.currentUser || auth.currentUser.isAnonymous) return addToast("Join to interact!");
-    if (post.likedBy?.includes(auth.currentUser.uid)) return;
-    try {
-      await updateDoc(doc(db, 'posts', post.id), { 
-        likes: increment(1),
-        likedBy: arrayUnion(auth.currentUser.uid)
-      });
-    } catch (err) { handleFirestoreError(err, OperationType.WRITE, `posts/${post.id}`); }
-  };
-
-  const deletePost = async () => {
-    const res = await Swal.fire({ title: 'Delete?', text: 'Move to recycle bin?', icon: 'warning', showCancelButton: true });
-    if (res.isConfirmed) {
-      try {
-        await updateDoc(doc(db, 'posts', post.id), { status: 'Deleted' });
-        addToast("Trash moved");
-      } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `posts/${post.id}`);
-      }
-    }
-  };
-
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl shadow-sm border overflow-hidden">
-      {post.mediaUrl && (
-        <div className="aspect-video bg-slate-100 border-b overflow-hidden flex items-center justify-center">
-           {post.mediaType?.includes('video') ? <video src={post.mediaUrl} controls className="w-full h-full" /> : <img src={post.mediaUrl} className="w-full h-full object-cover" />}
-        </div>
-      )}
-      <div className="p-6 space-y-4">
-        <div className="flex justify-between items-start">
-           <div className="flex gap-2">
-              <span className="post-tag bg-primary-light text-white shadow-sm font-black px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider">{post.category}</span>
-              {isAdmin && post.uid === auth.currentUser?.uid && <span className="post-tag bg-green-100 text-green-700 border border-green-200 font-extrabold px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider">✓ Official</span>}
-           </div>
-           {isOwner && (
-             <div className="flex gap-1">
-                <button onClick={() => onEdit(post)} className="p-2 text-primary bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors"><Edit3 size={16} strokeWidth={2.5}/></button>
-                <button onClick={deletePost} className="p-2 text-danger bg-red-50 hover:bg-red-100 rounded-xl transition-colors"><Trash2 size={16} strokeWidth={2.5}/></button>
-             </div>
-           )}
-        </div>
-        
-        <h3 className="text-xl font-black text-primary leading-tight">{post.title}</h3>
-        <div className="text-[11px] text-slate-500 flex items-center gap-2 font-bold bg-slate-50 p-2 px-3 rounded-xl border border-slate-100">
-           <User size={14} className="text-primary" strokeWidth={3} /> <span className="text-primary font-black uppercase tracking-tight">{post.userName || 'Member'}</span> <span className="opacity-30 mx-1">•</span> {new Date(post.time).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
-        </div>
-
-        <div className={`text-slate-600 text-sm leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
-          <ReactMarkdown>{post.content}</ReactMarkdown>
-        </div>
-
-        {post.content.length > 150 && (
-          <button onClick={toggleExpansion} className="text-xs font-black text-primary underline">
-            {isExpanded ? 'Show Less' : 'Read More'}
-          </button>
-        )}
-
-        <div className="pt-4 border-t flex justify-between items-center">
-           <div className="flex gap-4">
-              <button onClick={handleLike} className="post-action-btn group" style={{ color: post.likedBy?.includes(auth.currentUser?.uid || "") ? '#e11d48' : '#475569' }}>
-                <Heart size={20} fill={post.likedBy?.includes(auth.currentUser?.uid || "") ? '#e11d48' : 'none'} className="transition-transform group-active:scale-125" /> 
-                <span className="font-black">{post.likes}</span>
-              </button>
-              <div className="post-action-btn text-slate-500 cursor-default">
-                <Eye size={20} strokeWidth={2.5}/> 
-                <span className="font-black">{post.views}</span>
-              </div>
-           </div>
-           <button onClick={() => { navigator.clipboard.writeText(window.location.href); addToast("Link copied!"); }} className="text-primary p-2 hover:bg-slate-50 rounded-full transition-colors">
-             <Share2 size={20} strokeWidth={2.5} />
-           </button>
+    <div className="section-card !border-t-0 !border-l-[6px] !p-6" style={{ borderLeftColor: '#0d3b66' }}>
+      <div className="flex justify-between items-start mb-4">
+        <span className="bg-primary text-white text-[10px] font-black px-3 py-1 rounded uppercase tracking-wider" style={{ background: '#0d3b66' }}>{post.category || 'Update'}</span>
+        <div className="flex gap-3">
+          {isOwner && (
+             <>
+               <button onClick={() => onEdit(post)} className="text-slate-400 hover:text-primary transition-colors"><Edit2 size={16} /></button>
+               <button onClick={async () => {
+                 const res = await Swal.fire({ title: 'Delete?', text: 'Move to recycle bin?', icon: 'warning', showCancelButton: true });
+                 if (res.isConfirmed) {
+                   await updateDoc(doc(db, 'posts', post.id), { status: 'Deleted' });
+                   addToast("Deleted successfully");
+                 }
+               }} className="text-slate-400 hover:text-danger transition-colors"><Trash2 size={16} /></button>
+             </>
+          )}
+          <span className="text-[10px] font-bold text-slate-400 uppercase">{new Date(post.time).toLocaleDateString()}</span>
         </div>
       </div>
-    </motion.div>
+      
+      <h4 className="text-xl font-black text-primary leading-tight mb-3">{post.title || 'Platform Update'}</h4>
+      
+      <div className={`text-slate-600 font-medium leading-relaxed mb-4 ${isExpanded ? '' : 'line-clamp-3'}`}>
+        <ReactMarkdown>{post.content || (post as any).message || (post as any).text || (post as any).desc || ''}</ReactMarkdown>
+      </div>
+
+      <button onClick={toggleExpansion} className="text-xs font-black text-primary uppercase underline underline-offset-4 mb-6 block">
+        {isExpanded ? 'View Less' : 'View Full Text'}
+      </button>
+
+      {post.mediaUrl && isExpanded && (
+        <div className="mb-6 rounded-2xl overflow-hidden border shadow-inner bg-slate-50">
+          {post.mediaType?.startsWith('video') ? (
+            <video src={post.mediaUrl} controls className="w-full max-h-[500px] object-contain" />
+          ) : (
+            <img src={post.mediaUrl} alt={post.title} className="w-full max-h-[500px] object-contain" />
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-between items-center pt-4 border-t border-slate-100 mt-2">
+         <button 
+           onClick={async () => {
+             const userId = auth.currentUser?.uid;
+             if (!userId || auth.currentUser?.isAnonymous) return addToast("Login to like");
+             const likedBy = post.likedBy || [];
+             if (likedBy.includes(userId)) {
+               await updateDoc(doc(db, 'posts', post.id), {
+                 likes: increment(-1),
+                 likedBy: likedBy.filter(id => id !== userId)
+               });
+             } else {
+               await updateDoc(doc(db, 'posts', post.id), {
+                 likes: increment(1),
+                 likedBy: arrayUnion(userId)
+               });
+             }
+           }} 
+           className="flex items-center gap-2 group"
+         >
+           <Heart size={18} className={post.likedBy?.includes(auth.currentUser?.uid || "") ? 'fill-danger text-danger' : 'text-slate-400 group-hover:text-danger'} />
+           <span className="text-sm font-black text-slate-500 group-hover:text-primary">{post.likes || 0}</span>
+         </button>
+
+         <button 
+           onClick={() => {
+             const url = `${window.location.origin}${window.location.pathname}?post=${post.id}`;
+             navigator.clipboard.writeText(url);
+             addToast("Link copied to clipboard!");
+           }}
+           className="flex items-center gap-2 group text-primary"
+         >
+            <span className="text-[11px] font-black uppercase">Share Link</span>
+            <Share2 size={18} className="group-hover:scale-110 transition-transform" />
+         </button>
+      </div>
+    </div>
   );
 }
 
@@ -1564,16 +1721,12 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost }: { add
 function MenuButton({ label, active, onClick, icon: Icon }: { label: string, active: boolean, onClick: () => void, icon: any }) {
   return (
     <motion.button 
-      variants={{
-        open: { opacity: 1, x: 0 },
-        closed: { opacity: 0, x: -20 }
-      }}
       whileHover={{ x: 5 }}
       whileTap={{ scale: 0.97 }}
       onClick={onClick} 
       className={`side-btn ${active ? 'active-tab' : 'hover:bg-slate-50'}`}
     >
-      <Icon size={20} className={active ? 'text-primary' : 'text-slate-500'} strokeWidth={active ? 2.5 : 2} />
+      <Icon size={20} className={active ? 'text-white' : 'text-slate-500'} strokeWidth={active ? 2.5 : 2} />
       <span className="text-sm tracking-tight">{label}</span>
     </motion.button>
   );
