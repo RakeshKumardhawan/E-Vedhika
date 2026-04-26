@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Righteous&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -25,10 +25,11 @@ button {
   --success: #16a34a;
   --danger: #dc2626;
   --info: #0ea5e9;
-  --bg-light: #f8fafc;
+  --bg-light: #f1f5f9;
+  --google-red: #ea4335;
   --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  --header-h: 65px;
-  --nav-h: 55px;
+  --header-h: 72px;
+  --nav-h: 44px;
 }
 
 body {
@@ -47,30 +48,66 @@ header {
   display: flex;
   justify-content: flex-start; 
   align-items: center;
-  border-bottom: 3px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
   box-shadow: 0 2px 10px rgba(0,0,0,0.2);
 }
 
 .brand-wrapper { display: flex; align-items: center; gap: 12px; }
 .brand-title {
-  font-family: 'Righteous', cursive;
-  font-size: 26px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 900;
+  font-size: 24px;
   margin: 0;
-  letter-spacing: 1.5px;
+  letter-spacing: -0.5px;
   text-transform: uppercase;
-  background: linear-gradient(135deg, #facc15 0%, #fff 50%, #facc15 100%);
+  background: linear-gradient(
+    to right, 
+    #10b981, #06b6d4, #3b82f6, #10b981
+  );
+  background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shineText 5s linear infinite;
+  animation: color-shimmer 4s linear infinite;
+  filter: drop-shadow(0 2px 8px rgba(16, 185, 129, 0.4));
 }
-@keyframes shineText { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
-.sub-tagline { margin: 0; font-size: 9px; font-weight: 600; color: var(--accent); text-transform: uppercase; }
+
+@keyframes color-shimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+.sub-tagline { 
+  margin: 0; 
+  font-size: 8px; 
+  font-weight: 800; 
+  color: #fbbf24; 
+  text-transform: uppercase; 
+  letter-spacing: 2.5px;
+  margin-top: -2px;
+}
 
 /* LOGO ANIMATIONS */
-.logo-container { position: relative; width: 40px; height: 40px; cursor: pointer; }
-.logo-ring { transform-origin: center; animation: spin 6s linear infinite; }
+.logo-pro {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  width: 40px;
+  height: 40px;
+}
+.logo-pro:active {
+  transform: scale(0.9);
+}
+.logo-ring { 
+  transform-origin: 32px 32px; 
+  animation: spin 5s linear infinite; 
+}
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.ev-logo-text { font-family: 'Righteous', cursive; font-size: 16px; font-weight: 900; fill: #facc15; }
+.logo-text {
+  user-select: none;
+  pointer-events: none;
+}
 
 /* TICKER */
 .latest-bar { 
@@ -158,7 +195,7 @@ header {
   transition: 0.2s; font-size: 14px; border: none; text-align: left; 
 }
 .side-btn:hover { background: #f8fafc; color: var(--primary); }
-.side-btn.active-tab { background: var(--primary); color: #fff !important; }
+.side-btn.active-tab { background: var(--primary); color: #fff !important; box-shadow: 0 4px 10px rgba(13, 59, 102, 0.15); }
 
 /* CONTENT AREA */
 .content-area {

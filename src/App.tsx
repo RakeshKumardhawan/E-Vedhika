@@ -193,7 +193,8 @@ const APP_STYLES = `
   --accent: #fbbf24;
   --success: #16a34a;
   --danger: #dc2626;
-  --bg-light: #f8fafc;
+  --bg-light: #f1f5f9;
+  --google-red: #ea4335;
   --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
@@ -208,30 +209,17 @@ body {
   font-size: 34px;
   margin: 0;
   letter-spacing: 2px;
-  background: linear-gradient(to right, #facc15, #fef08a, #22c55e, #0ea5e9, #facc15);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: shineText 4s linear infinite;
+  color: var(--accent);
+  text-shadow: 2px 2px 0px var(--primary);
 }
-@keyframes shineText { to { background-position: 200% center; } }
 
 .sub-tagline {
   margin: 0;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
   opacity: 0.9;
-}
-
-.ev-logo-text {
-  font-family: 'Righteous', cursive;
-  font-size: 20px;
-  font-weight: 900;
-  animation: evColorCycle 4s infinite linear;
-}
-@keyframes evColorCycle {
-  0% { fill: #facc15; } 25% { fill: #22c55e; } 50% { fill: #0ea5e9; } 75% { fill: #ec4899; } 100% { fill: #facc15; }
+  letter-spacing: 1px;
 }
 
 .latest-bar {
@@ -242,16 +230,16 @@ body {
   border-bottom: 1px solid #e2e8f0;
 }
 .latest-label {
-  background: var(--accent);
-  color: #000;
+  background: var(--danger);
+  color: #fff;
   padding: 5px 12px;
   border-radius: 4px;
-  font-weight: 800;
+  font-weight: 900;
   font-size: 11px;
   margin-right: 15px;
   white-space: nowrap;
 }
-.latest-text { flex: 1; overflow: hidden; font-weight: 600; font-size: 14px; color: var(--primary); }
+.latest-text { flex: 1; overflow: hidden; font-weight: 700; font-size: 14px; color: var(--primary); }
 .latest-text span { display: inline-block; white-space: nowrap; animation: scrollLeft 30s linear infinite; }
 @keyframes scrollLeft { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
 
@@ -271,7 +259,7 @@ body {
   color: #64748b;
   border: 1px solid transparent;
   border-radius: 10px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 14px;
@@ -282,8 +270,9 @@ body {
 .side-btn.active-tab {
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(13, 59, 102, 0.3);
+  box-shadow: 0 4px 12px rgba(13, 59, 102, 0.4);
 }
+.side-btn-emoji { font-size: 18px; width: 24px; text-align: center; }
 
 .section-card {
   background: #fff;
@@ -293,7 +282,6 @@ body {
   margin-bottom: 25px;
   border-top: 5px solid var(--primary);
 }
-
 .scheme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -396,6 +384,10 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState('home');
   const [currentFilter, setCurrentFilter] = useState('All');
   const [posts, setPosts] = useState<Post[]>([]);
+
+  // Correct sticky header height coordination
+  const headerHeight = "72px";
+  const tickerHeight = "44px";
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [updates, setUpdates] = useState<Update[]>([]);
   const [requests, setRequests] = useState<RequestData[]>([]);
@@ -413,6 +405,16 @@ export default function App() {
   const [adminLocked, setAdminLocked] = useState(true);
   const [adminPinInput, setAdminPinInput] = useState('');
   const [currentAdminPin, setCurrentAdminPin] = useState('1234');
+  
+  // Body scroll lock for sidebar
+  useEffect(() => {
+    if (sidebarOpen && window.innerWidth < 900) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [sidebarOpen]);
 
   // Styles Injection
   useEffect(() => {
@@ -429,7 +431,6 @@ export default function App() {
       if (!u) {
         setUserProfile(null);
         setUserRole('user');
-        signInAnonymously(auth).catch(err => console.warn('Anonymous auth not enabled:', err));
       }
     });
 
@@ -577,6 +578,73 @@ export default function App() {
     }
   };
 
+  const triggerLogin = () => {
+    Swal.fire({
+      title: 'Login to E-Vedhika',
+      html: `
+        <div style="text-align: left; margin-bottom: 10px; font-weight: 800; font-size: 11px; color: #64748b; text-transform: uppercase;">Email Login</div>
+        <input id="swal-input1" class="swal2-input" placeholder="Email" style="margin-top: 0;">
+        <input id="swal-input2" type="password" class="swal2-input" placeholder="Password">
+        <div style="margin: 15px 0; display: flex; align-items: center; gap: 10px;">
+           <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+           <span style="font-size: 10px; font-weight: 800; color: #94a3b8;">OR</span>
+           <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+        </div>
+        <button id="google-login-btn" class="swal2-confirm swal2-styled" style="background-color: #ea4335; width: 100%; margin: 0; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 12px; font-weight: 800; text-transform: uppercase; font-size: 11px;">
+           <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="white"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="white"/><path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" fill="white"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="white"/></svg>
+           Sign in with Google
+        </button>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'Sign In with Email',
+      confirmButtonColor: '#0d3b66',
+      customClass: {
+        confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3',
+        cancelButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
+      },
+      didRender: () => {
+         const googleBtn = document.getElementById('google-login-btn');
+         if (googleBtn) {
+           googleBtn.addEventListener('click', () => {
+             Swal.clickConfirm();
+             (window as any).isGoogleLogin = true;
+           });
+         }
+      },
+      preConfirm: () => {
+        if ((window as any).isGoogleLogin) {
+          delete (window as any).isGoogleLogin;
+          return { method: 'google' };
+        }
+        const email = (document.getElementById('swal-input1') as HTMLInputElement).value;
+        const password = (document.getElementById('swal-input2') as HTMLInputElement).value;
+        if (!email || !password) {
+          Swal.showValidationMessage('Please enter both email and password');
+        }
+        return { method: 'email', email, password };
+      }
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+         if (result.value.method === 'google') {
+           handleGoogleLogin();
+         } else {
+           try {
+             await signInWithEmailAndPassword(auth, result.value.email, result.value.password);
+             addToast("Welcome back!");
+           } catch (err: any) {
+             try {
+               await createUserWithEmailAndPassword(auth, result.value.email, result.value.password);
+               addToast("Signed up successfully!");
+             } catch (e: any) {
+               addToast("Login failed");
+             }
+           }
+         }
+      }
+    });
+  };
+
   const togglePostExpansion = async (id: string) => {
     setExpandedPosts(prev => {
       const next = new Set(prev);
@@ -598,7 +666,7 @@ export default function App() {
     const cMatch = (p.content || "").toLowerCase().includes(q);
     const searchOk = !q || tMatch || cMatch;
     if (currentFilter === 'All') return searchOk;
-    return searchOk && (p.category === currentFilter || p.subCategory === currentFilter || !p.category);
+    return searchOk && (p.category === currentFilter || p.subCategory === currentFilter);
   });
 
   return (
@@ -619,58 +687,55 @@ export default function App() {
         ))}
       </AnimatePresence>
 
-      <header className="bg-primary flex justify-between items-center px-[5%] py-4 border-b-4 border-accent shadow-lg sticky top-0 z-[1001]" style={{ background: '#0d3b66', borderColor: '#fbbf24' }}>
-        <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setCurrentTab('home')}>
-          <div className="logo-container relative">
-            <svg viewBox="0 0 64 64" width="54" height="54">
-              <g className="logo-ring"><circle cx="32" cy="32" r="29" fill="none" stroke="#facc15" strokeWidth="2.5" strokeDasharray="6 8"/></g>
+      <header className="sticky top-0 z-[1001]" style={{ background: 'var(--primary)', height: 'var(--header-h)', borderBottom: '3px solid var(--accent)', display: 'flex', alignItems: 'center', padding: '0 4%' }}>
+        <div className="brand-wrapper cursor-pointer" onClick={() => setCurrentTab('home')}>
+          <div className="logo-pro" id="evLogo">
+            <svg viewBox="0 0 64 64" width="40" height="40">
+              <defs>
+                <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#22c55e"/>
+                  <stop offset="100%" stopColor="#0ea5e9"/>
+                </linearGradient>
+                <linearGradient id="ringG" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#22c55e"/>
+                  <stop offset="100%" stopColor="#0ea5e9"/>
+                </linearGradient>
+              </defs>
+              <g className="logo-ring">
+                <circle cx="32" cy="32" r="29" fill="none" stroke="url(#ringG)" strokeWidth="2" strokeDasharray="6 10" strokeLinecap="round"/>
+              </g>
+              <circle cx="32" cy="32" r="26" fill="url(#g)"/>
               <circle cx="32" cy="32" r="22" fill="#0d3b66"/>
-              <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" className="ev-logo-text fill-accent">EV</text>
+              <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="700" fontFamily="Segoe UI, sans-serif" className="logo-text">EV</text>
             </svg>
           </div>
           <div>
-            <h1 className="brand-title tracking-widest">E-VEDHIKA</h1>
-            <p className="sub-tagline opacity-80 uppercase tracking-tighter">Unified Portal for Rural Prosperity</p>
+            <h2 className="brand-title">E-VEDHIKA</h2>
+            <p className="sub-tagline">all problems one solution</p>
           </div>
         </div>
 
+        <div className="flex-1"></div>
+
         <div className="flex items-center gap-4">
-          <div 
-            className="relative cursor-pointer p-2.5 hover:bg-white/10 rounded-xl transition-all"
-            onClick={() => setShowNotifications(!showNotifications)}
-          >
-            <Bell size={22} className="text-white" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-danger text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-[#0d3b66]">
-                {unreadCount}
-              </span>
-            )}
-          </div>
-          
-          {user && !user.isAnonymous ? (
+          {user && !user.isAnonymous && (
              <div className="hidden sm:flex items-center gap-3 bg-white/10 pl-1 pr-3 py-1 rounded-full border border-white/20">
                 <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-primary font-black text-sm">
-                  {(userProfile?.username || "P")[0].toUpperCase()}
+                   👤
                 </div>
                 <div className="flex flex-col">
                   <span className="text-white text-[10px] font-black leading-none">{userProfile?.username || "Member"}</span>
                   <span className="text-accent text-[8px] font-bold uppercase tracking-widest">{isAdmin ? 'Admin' : isEditor ? 'Editor' : 'Active'}</span>
                 </div>
              </div>
-          ) : (
-            <button onClick={() => setCurrentTab('home')} className="bg-accent text-primary px-4 py-1.5 rounded-lg text-[11px] font-black uppercase hover:bg-white transition-colors">Join Portal</button>
           )}
-          
-          <button className="md:hidden text-white p-2" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
         </div>
       </header>
 
-      <div className="latest-bar h-[44px] overflow-hidden bg-white border-b flex items-center sticky top-[84px] z-[1000] shadow-sm">
-        <div className="latest-label ml-4">HOT UPDATES</div>
-        <div className="latest-text flex-1 pl-4">
-          <span className="font-bold tracking-tight">
+      <div className="latest-bar overflow-hidden">
+        <div className="latest-label">HOT UPDATES</div>
+        <div className="latest-text flex-1">
+          <span>
             {updates.length > 0 
               ? updates.map(u => u.text || (u as any).msg || (u as any).update).join('  •  ') 
               : 'Empowering local governance through digital innovation... Telangana PR Portal is now live for all panchayats...'}
@@ -678,47 +743,95 @@ export default function App() {
         </div>
       </div>
 
-      <div className="max-w-[1440px] mx-auto w-full flex-1 px-[4%] py-8">
-        <div className="grid grid-cols-1 md:grid-cols-[260px,1fr] gap-8">
-          <aside className={`md:block ${sidebarOpen ? 'block fixed inset-0 z-[2000] bg-white p-6 pt-24 md:static md:p-0 md:bg-transparent' : 'hidden md:block'}`}>
-            {sidebarOpen && <button className="absolute top-6 right-6 md:hidden" onClick={() => setSidebarOpen(false)}><X size={32}/></button>}
-            <div className="space-y-2 sticky top-[150px]">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-4">Navigations</h3>
-              <MenuButton label="Explore Feed" icon={Home} active={currentTab === 'home'} onClick={() => {setCurrentTab('home'); setSidebarOpen(false);}} />
-              <MenuButton label="Digital Workspace" icon={LayoutDashboard} active={currentTab === 'workspace'} onClick={() => {setCurrentTab('workspace'); setSidebarOpen(false);}} />
-              <MenuButton label="Govt. Schemes" icon={ Megaphone } active={currentTab === 'schemes'} onClick={() => {setCurrentTab('schemes'); setSidebarOpen(false);}} />
-              <MenuButton label="Communicate" icon={MessageSquare} active={currentTab === 'chat'} onClick={() => {setCurrentTab('chat'); setSidebarOpen(false);}} />
-              <MenuButton label="Union Corner" icon={Handshake} active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
-              
-              <div className="pt-6">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-4">Engagement</h3>
-                <MenuButton label="Public Suggests" icon={Lightbulb} active={currentTab === 'suggestions'} onClick={() => {setCurrentTab('suggestions'); setSidebarOpen(false);}} />
-                <MenuButton label="Report Problem" icon={AlertTriangle} active={currentTab === 'problems'} onClick={() => {setCurrentTab('problems'); setSidebarOpen(false);}} />
-                {isEditor && (
-                  <div className="pt-6">
-                    <MenuButton label={isAdmin ? "Master Config" : "Editor Config"} icon={ShieldAlert} active={currentTab === 'admin'} onClick={() => {setCurrentTab('admin'); setSidebarOpen(false);}} />
-                  </div>
-                )}
-              </div>
-            </div>
-          </aside>
+      <nav className="nav-trigger-bar sticky top-0 z-[1000]">
+        <div className="trigger-left">
+          <button className="menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          
+          <div 
+            className="notif-bell"
+            onClick={() => setShowNotifications(!showNotifications)}
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <span className="notif-badge" style={{ display: 'flex' }}>
+                {unreadCount}
+              </span>
+            )}
+          </div>
+        </div>
 
-          <main className="min-w-0">
+        <div className="flex items-center gap-4">
+           {searchQuery === '' && <Search size={18} className="text-slate-400" />}
+           {!user || user.isAnonymous ? (
+             <button onClick={triggerLogin} className="bg-primary text-white px-4 py-1.5 rounded-lg text-[11px] font-black uppercase shadow-sm">Login / Create account</button>
+           ) : (
+             <button onClick={() => signOut(auth)} className="text-[10px] font-black text-danger uppercase">Exit</button>
+           )}
+        </div>
+      </nav>
+
+      {/* Sidebar Overlay for Mobile */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-black/40 z-[1050] md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      <div className={`main-layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
+        <aside className={`sidebar ${sidebarOpen ? 'z-[1100]' : ''}`}>
+          <div className="sidebar-inner relative">
+            {sidebarOpen && (
+              <button 
+                onClick={() => setSidebarOpen(false)}
+                className="md:hidden absolute top-0 right-0 p-2 text-slate-400 hover:text-primary transition-colors"
+                title="Close sidebar"
+              >
+                <X size={20} />
+              </button>
+            )}
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-4">Navigations</h3>
+            <MenuButton label="Home" emoji="🏠" active={currentTab === 'home'} onClick={() => {setCurrentTab('home'); setCurrentFilter('All'); setSidebarOpen(false);}} />
+            <MenuButton label="🏛️ Mana Panchayath" emoji="📊" active={currentTab === 'workspace'} onClick={() => {setCurrentTab('workspace'); setSidebarOpen(false);}} />
+            <MenuButton label="Schemes info and govt" emoji="📢" active={currentTab === 'schemes'} onClick={() => {setCurrentTab('schemes'); setSidebarOpen(false);}} />
+            <MenuButton label="Live Chat" emoji="💬" active={currentTab === 'chat'} onClick={() => {setCurrentTab('chat'); setSidebarOpen(false);}} />
+            <MenuButton label="Union Corner" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
+            
+            <div className="pt-6">
+              <MenuButton label="Public suggestions & Feedback" emoji="💡" active={currentTab === 'suggestions'} onClick={() => {setCurrentTab('suggestions'); setSidebarOpen(false);}} />
+              {isEditor && (
+                <div className="pt-6">
+                  <MenuButton label={isAdmin ? "Admin Panel" : "Editor Config"} emoji="🛡️" active={currentTab === 'admin'} onClick={() => {setCurrentTab('admin'); setSidebarOpen(false);}} />
+                </div>
+              )}
+            </div>
+          </div>
+        </aside>
+
+        <main className="content-area min-w-0">
             <AnimatePresence mode="wait">
               {currentTab === 'home' && (
                 <motion.div key="home" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border-l-[6px] border-l-[#0ea5e9]">
+                    <div className="section-card card-blue !p-6">
                       <span className="text-[11px] font-black text-slate-400 uppercase">Live Updates</span>
                       <h2 className="text-3xl font-black text-primary mt-2">{posts.length}</h2>
                     </div>
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border-l-[6px] border-l-danger cursor-pointer hover:bg-red-50 transition-colors" onClick={() => setCurrentTab('problems')}>
+                    <div className="section-card !border-t-danger !p-6 cursor-pointer hover:bg-red-50 transition-colors" onClick={() => setCurrentTab('problems')}>
                       <span className="text-[11px] font-black text-slate-400 uppercase">Pending Issues</span>
                       <h2 className="text-3xl font-black text-danger mt-2">{problemsGlobal.filter(p => p.status !== 'solved').length}</h2>
                     </div>
-                    <div className="bg-primary p-6 rounded-3xl shadow-lg border-l-[6px] border-l-accent overflow-hidden relative" style={{ background: '#0d3b66' }}>
+                    <div className="section-card card-gold !p-6 !bg-primary overflow-hidden relative">
                       <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/5 rounded-full blur-2xl"></div>
-                      <span className="text-[11px] font-black text-accent uppercase tracking-widest">Portal Access</span>
                       <div className="mt-2">
                         {user && !user.isAnonymous ? (
                            <div className="flex justify-between items-center">
@@ -726,41 +839,13 @@ export default function App() {
                              <button onClick={() => signOut(auth)} className="text-[9px] bg-red-500 text-white px-3 py-1 rounded-full font-black uppercase">Exit</button>
                            </div>
                         ) : (
-                          <button onClick={() => {
-                             Swal.fire({
-                               title: 'Login to E-Vedhika',
-                               html: `
-                                 <input id="swal-input1" class="swal2-input" placeholder="Email">
-                                 <input id="swal-input2" type="password" class="swal2-input" placeholder="Password">
-                               `,
-                               focusConfirm: false,
-                               showCancelButton: true,
-                               confirmButtonText: 'Sign In',
-                               confirmButtonColor: '#0d3b66',
-                               preConfirm: () => {
-                                 const email = (document.getElementById('swal-input1') as HTMLInputElement).value;
-                                 const password = (document.getElementById('swal-input2') as HTMLInputElement).value;
-                                 if (!email || !password) {
-                                   Swal.showValidationMessage('Please enter both email and password');
-                                 }
-                                 return { email, password };
-                               }
-                             }).then(async (result) => {
-                               if (result.isConfirmed) {
-                                  try {
-                                    await signInWithEmailAndPassword(auth, result.value.email, result.value.password);
-                                    addToast("Welcome back!");
-                                  } catch (err: any) {
-                                    try {
-                                      await createUserWithEmailAndPassword(auth, result.value.email, result.value.password);
-                                      addToast("Signed up successfully!");
-                                    } catch (e: any) {
-                                      addToast("Login failed");
-                                    }
-                                  }
-                               }
-                             });
-                          }} className="w-full bg-accent text-primary py-2.5 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-white transition-all shadow-md">Authenticate Now</button>
+                          <div className="space-y-2">
+                            <button onClick={triggerLogin} className="w-full bg-accent text-primary py-2.5 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-white transition-all shadow-md">Login / Create account</button>
+                            <button onClick={handleGoogleLogin} className="w-full bg-[#ea4335] text-white py-2 rounded-xl font-black text-[10px] uppercase tracking-wider hover:opacity-90 transition-all flex items-center justify-center gap-2">
+                               <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="white"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="white"/><path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" fill="white"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="white"/></svg>
+                               Google Login
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -778,7 +863,7 @@ export default function App() {
                        </div>
                     </div>
 
-                    {user && !user.isAnonymous ? (
+                    {user && !user.isAnonymous && (
                       <button 
                         onClick={() => { setEditingPost(null); setShowPostForm(true); }}
                         className="w-full bg-slate-50 border-2 border-dashed border-slate-200 p-10 rounded-[28px] text-slate-400 font-bold hover:bg-slate-100 hover:border-primary/20 transition-all flex flex-col items-center gap-3"
@@ -788,11 +873,6 @@ export default function App() {
                         </div>
                         <span>Compose an official update...</span>
                       </button>
-                    ) : (
-                      <div className="p-10 bg-slate-50 rounded-[28px] border border-dashed text-center">
-                        <Lock size={32} className="mx-auto text-slate-300 mb-4" />
-                        <p className="text-sm font-bold text-slate-400">Authentication required to publish updates</p>
-                      </div>
                     )}
 
                     {(showPostForm || editingPost) && (
@@ -831,7 +911,7 @@ export default function App() {
 
             {currentTab === 'schemes' && (
               <motion.div key="schemes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                 <div className="section-card border-t-[#0ea5e9]">
+                 <div className="section-card card-blue">
                     <h2 className="text-2xl font-black text-primary mb-6">🏛️ Rural Development Schemes</h2>
                     <div className="scheme-grid">
                       {[{ name: 'SthreeNidhi', desc: 'Financial support and credit facilities for Mahila SHG members across Telangana.', icon: '👩‍💼', link: 'https://streenidhi.telangana.gov.in/' },
@@ -859,7 +939,7 @@ export default function App() {
 
             {currentTab === 'union' && (
               <motion.div key="union" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <div className="section-card border-t-success">
+                <div className="section-card card-blue">
                   <h2 className="text-2xl font-black text-primary mb-6">🤝 Union Updates & Notices</h2>
                   <div className="space-y-4">
                      {filteredPosts.filter(p => p.category === 'Updates').length > 0 ? (
@@ -879,7 +959,7 @@ export default function App() {
 
             {currentTab === 'suggestions' && (
               <motion.div key="suggestions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <div className="section-card border-t-[#a855f7]">
+                <div className="section-card card-gold">
                   <h2 className="text-2xl font-black text-primary mb-6">💡 Community Voice</h2>
                   <div className="bg-slate-50 rounded-2xl p-4 max-h-[400px] overflow-y-auto mb-6 custom-scrollbar">
                     {suggestions.length > 0 ? (
@@ -900,7 +980,7 @@ export default function App() {
 
             {currentTab === 'problems' && (
               <motion.div key="problems" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <div className="section-card border-t-danger">
+                <div className="section-card card-gold !border-t-danger">
                   <h2 className="text-2xl font-black text-primary mb-6">🚩 Report an Issue</h2>
                   <div className="bg-red-50 p-6 rounded-2xl border border-red-100 mb-8">
                      <form onSubmit={async (e) => {
@@ -983,7 +1063,6 @@ export default function App() {
         </main>
       </div>
     </div>
-  </div>
   );
 }
 
@@ -1362,15 +1441,15 @@ function DigitalWorkspaceSection({ addToast }: { addToast: (s:string) => void })
   const [activeTool, setActiveTool] = useState<string | null>(null);
 
   return (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border">
+    <div className="section-card card-blue">
       <h2 className="text-xl font-black mb-2 flex items-center gap-3">🏛️ Mana Panchayath</h2>
       <p className="text-xs text-slate-500 mb-6">Technical Workspace for PR Officers</p>
       
       <div className="mana-grid">
-        <ToolCard icon={BarChart3} title="DSR Analyzer" onClick={() => setActiveTool('dsr')} />
-        <ToolCard icon={Layers} title="Multi-Day Attendance" onClick={() => setActiveTool('multi')} />
-        <ToolCard icon={GraduationCap} title="Digital Training" onClick={() => setActiveTool('training')} />
-        <ToolCard icon={Database} title="Forms Hub" onClick={() => setActiveTool('forms')} />
+        <ToolCard emoji="📈" title="DSR Analyzer" onClick={() => setActiveTool('dsr')} />
+        <ToolCard emoji="🗓️" title="Multi-Day Attendance" onClick={() => setActiveTool('multi')} />
+        <ToolCard emoji="🎓" title="Digital Training" onClick={() => setActiveTool('training')} />
+        <ToolCard emoji="📂" title="Forms Hub" onClick={() => setActiveTool('forms')} />
       </div>
 
       <div className="mt-8 pt-8 border-t">
@@ -1416,7 +1495,7 @@ function TrainingCenter() {
   );
 }
 
-function ToolCard({ icon: Icon, title, onClick }: { icon: any, title: string, onClick: () => void }) {
+function ToolCard({ icon: Icon, emoji, title, onClick }: { icon?: any, emoji?: string, title: string, onClick: () => void }) {
   return (
     <motion.div 
       whileHover={{ scale: 1.05, translateY: -5 }}
@@ -1424,8 +1503,12 @@ function ToolCard({ icon: Icon, title, onClick }: { icon: any, title: string, on
       onClick={onClick} 
       className="mana-card"
     >
-      <Icon size={32} className="mx-auto text-primary" />
-      <h4 className="font-bold mt-3">{title}</h4>
+      {emoji ? (
+        <div className="text-4xl mb-2">{emoji}</div>
+      ) : (
+        Icon && <Icon size={32} className="mx-auto text-primary" />
+      )}
+      <h4 className="font-bold mt-1 text-sm">{title}</h4>
     </motion.div>
   );
 }
@@ -1507,44 +1590,50 @@ function DSRAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 
 function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit }: { post: Post, isExpanded: boolean, toggleExpansion: () => void, addToast: (s:string) => void, isAdmin: boolean, onEdit: (p: Post) => void }) {
   const isOwner = auth.currentUser?.uid === post.uid || isAdmin;
+  const postTime = post.time || (post as any).createdAt || 0;
 
   return (
-    <div className="section-card !border-t-0 !border-l-[6px] !p-6" style={{ borderLeftColor: '#0d3b66' }}>
-      <div className="flex justify-between items-start mb-4">
-        <span className="bg-primary text-white text-[10px] font-black px-3 py-1 rounded uppercase tracking-wider" style={{ background: '#0d3b66' }}>{post.category || 'Update'}</span>
-        <div className="flex gap-3">
+    <div className="post-card">
+      <div className="post-meta">
+        <div>
+          <span className="cat-tag">{post.category || 'Update'}</span>
+          {post.subCategory && <span className="cat-tag sub-cat-tag">{post.subCategory}</span>}
+        </div>
+        <div className="flex gap-3 items-center">
           {isOwner && (
              <>
-               <button onClick={() => onEdit(post)} className="text-slate-400 hover:text-primary transition-colors"><Edit2 size={16} /></button>
+               <button onClick={() => onEdit(post)} className="text-slate-400 hover:text-primary transition-colors text-lg" title="Edit">✏️</button>
                <button onClick={async () => {
                  const res = await Swal.fire({ title: 'Delete?', text: 'Move to recycle bin?', icon: 'warning', showCancelButton: true });
                  if (res.isConfirmed) {
                    await updateDoc(doc(db, 'posts', post.id), { status: 'Deleted' });
                    addToast("Deleted successfully");
                  }
-               }} className="text-slate-400 hover:text-danger transition-colors"><Trash2 size={16} /></button>
+               }} className="text-slate-400 hover:text-danger transition-colors text-lg" title="Delete">🗑️</button>
              </>
           )}
-          <span className="text-[10px] font-bold text-slate-400 uppercase">{new Date(post.time).toLocaleDateString()}</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{new Date(postTime).toLocaleDateString()}</span>
         </div>
       </div>
       
-      <h4 className="text-xl font-black text-primary leading-tight mb-3">{post.title || 'Platform Update'}</h4>
+      <h4 className="post-title">{post.title || 'Platform Update'}</h4>
       
-      <div className={`text-slate-600 font-medium leading-relaxed mb-4 ${isExpanded ? '' : 'line-clamp-3'}`}>
+      <div className={`post-body mb-4 ${isExpanded ? '' : 'line-clamp-4'}`}>
         <ReactMarkdown>{post.content || (post as any).message || (post as any).text || (post as any).desc || ''}</ReactMarkdown>
       </div>
 
-      <button onClick={toggleExpansion} className="text-xs font-black text-primary uppercase underline underline-offset-4 mb-6 block">
-        {isExpanded ? 'View Less' : 'View Full Text'}
-      </button>
+      {post.content && post.content.length > 200 && (
+        <button onClick={toggleExpansion} className="text-xs font-black text-primary uppercase underline underline-offset-4 mb-6 block">
+          {isExpanded ? 'View Less' : 'View Full Text'}
+        </button>
+      )}
 
-      {post.mediaUrl && isExpanded && (
-        <div className="mb-6 rounded-2xl overflow-hidden border shadow-inner bg-slate-50">
+      {post.mediaUrl && (
+        <div className="mb-4">
           {post.mediaType?.startsWith('video') ? (
-            <video src={post.mediaUrl} controls className="w-full max-h-[500px] object-contain" />
+            <video src={post.mediaUrl} controls className="post-media" />
           ) : (
-            <img src={post.mediaUrl} alt={post.title} className="w-full max-h-[500px] object-contain" />
+            <img src={post.mediaUrl} alt={post.title} className="post-media" />
           )}
         </div>
       )}
@@ -1569,9 +1658,14 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
            }} 
            className="flex items-center gap-2 group"
          >
-           <Heart size={18} className={post.likedBy?.includes(auth.currentUser?.uid || "") ? 'fill-danger text-danger' : 'text-slate-400 group-hover:text-danger'} />
+           <span className="text-lg group-hover:scale-125 transition-transform">{post.likedBy?.includes(auth.currentUser?.uid || "") ? '❤️' : '🤍'}</span>
            <span className="text-sm font-black text-slate-500 group-hover:text-primary">{post.likes || 0}</span>
          </button>
+
+         <div className="flex items-center gap-2">
+            <span className="text-lg">👁️</span>
+            <span className="text-[11px] font-bold text-slate-400">{post.views || 0}</span>
+         </div>
 
          <button 
            onClick={() => {
@@ -1579,10 +1673,9 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
              navigator.clipboard.writeText(url);
              addToast("Link copied to clipboard!");
            }}
-           className="flex items-center gap-2 group text-primary"
+           className="flex items-center gap-1 group text-primary"
          >
-            <span className="text-[11px] font-black uppercase">Share Link</span>
-            <Share2 size={18} className="group-hover:scale-110 transition-transform" />
+            <span className="text-[11px] font-black uppercase">Share 🔗</span>
          </button>
       </div>
     </div>
@@ -1644,10 +1737,9 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost }: { add
     >
       <div className="flex justify-between items-center mb-6">
         <h3 className="font-black text-primary uppercase text-lg flex items-center gap-2">
-          {editingPost ? <Edit3 size={20} className="text-primary" /> : <PlusCircle size={20} className="text-primary" />}
-          {editingPost ? 'Edit Update' : 'New Update'}
+          {editingPost ? '✏️ Edit Update' : '📝 New Update'}
         </h3>
-        <button type="button" onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X /></button>
+        <button type="button" onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors font-black text-lg">✕</button>
       </div>
 
       <div className="space-y-4">
@@ -1695,7 +1787,7 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost }: { add
                </div>
              ) : (
                <div className="space-y-2 py-4">
-                 <Camera size={32} className="mx-auto text-slate-300 group-hover:text-primary transition-colors" />
+                 <div className="text-3xl">📷</div>
                  <div className="text-xs font-black text-slate-400 group-hover:text-primary transition-colors">Add Image or Video</div>
                </div>
              )}
@@ -1711,14 +1803,14 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost }: { add
         </div>
       </div>
 
-      <button disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-all active:scale-95 mt-6 disabled:opacity-50">
-        {loading ? (editingPost ? 'SAVING...' : 'PUBLISHING...') : (editingPost ? 'SAVE CHANGES' : 'PUBLISH NOW')}
+      <button disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-all active:scale-95 mt-6 disabled:opacity-50" style={{ background: '#0d3b66' }}>
+        {loading ? (editingPost ? 'SAVING... 🚀' : 'PUBLISHING... 🚀') : (editingPost ? 'SAVE CHANGES 🚀' : 'PUBLISH NOW 🚀')}
       </button>
     </motion.form>
   );
 }
 
-function MenuButton({ label, active, onClick, icon: Icon }: { label: string, active: boolean, onClick: () => void, icon: any }) {
+function MenuButton({ label, active, onClick, emoji, icon: Icon }: { label: string, active: boolean, onClick: () => void, emoji?: string, icon?: any }) {
   return (
     <motion.button 
       whileHover={{ x: 5 }}
@@ -1726,7 +1818,11 @@ function MenuButton({ label, active, onClick, icon: Icon }: { label: string, act
       onClick={onClick} 
       className={`side-btn ${active ? 'active-tab' : 'hover:bg-slate-50'}`}
     >
-      <Icon size={20} className={active ? 'text-white' : 'text-slate-500'} strokeWidth={active ? 2.5 : 2} />
+      {emoji ? (
+        <span className="side-btn-emoji">{emoji}</span>
+      ) : (
+        Icon && <Icon size={20} className={active ? 'text-white' : 'text-slate-500'} strokeWidth={active ? 2.5 : 2} />
+      )}
       <span className="text-sm tracking-tight">{label}</span>
     </motion.button>
   );
