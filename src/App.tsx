@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { 
   Bell, Menu, X, Home, Megaphone, FileText, Wheat, Vote, 
   Wallet, Building, MessageCircle, Handshake, Lightbulb, 
@@ -11,7 +12,7 @@ import {
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
   Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, Sparkles, MessageSquare,
   Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock,
-  Users, AlertOctagon, CheckCircle2, ClipboardList, Zap, Clock
+  Users, AlertOctagon, CheckCircle2, ClipboardList, Zap, Clock, ArrowLeft, Loader2
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'motion/react';
@@ -42,7 +43,7 @@ async function testConnection() {
     }
   }
 }
-testConnection();
+// testConnection();
 
 enum OperationType {
   CREATE = 'create',
@@ -111,8 +112,10 @@ interface Post {
   likes: number;
   views: number;
   comments: Comment[];
+  commentCount?: number;
   likedBy?: string[];
   userName?: string;
+  userPhoto?: string;
   time: number;
   uid: string;
   status?: string;
@@ -127,6 +130,7 @@ interface Comment {
 interface UserProfile {
   id: string;
   username: string;
+  photoURL?: string;
   village?: string;
   office?: string;
   bio?: string;
@@ -375,6 +379,9 @@ function cleanStringData(val: any) {
 }
 
 export default function App() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const postIdFromUrl = searchParams.get('postId');
+
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRole, setUserRole] = useState<'admin' | 'editor' | 'user'>('user');
@@ -398,6 +405,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
   const [showPostForm, setShowPostForm] = useState(false);
+  const [showSuggestionForm, setShowSuggestionForm] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -439,13 +448,13 @@ export default function App() {
       const uArr: Update[] = [];
       snap.forEach(d => uArr.push({ id: d.id, ...(d.data() as any) } as Update));
       setUpdates(uArr);
-    }, (err) => handleFirestoreError(err, OperationType.GET, 'updates'));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'updates'));
 
-    const unsubSuggestions = onSnapshot(collection(db, 'suggestions'), (snap) => {
+    const unsubSuggestions = onSnapshot(query(collection(db, 'suggestions'), orderBy('time', 'desc')), (snap) => {
       const sArr: Suggestion[] = [];
       snap.forEach(d => sArr.push({ id: d.id, ...(d.data() as any) } as Suggestion));
       setSuggestions(sArr);
-    }, (err) => handleFirestoreError(err, OperationType.GET, 'suggestions'));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'suggestions'));
 
     const unsubPosts = onSnapshot(query(collection(db, 'posts')), (snap) => {
       const pArr: Post[] = [];
@@ -456,7 +465,7 @@ export default function App() {
           }
       });
       setPosts(pArr.sort((a, b) => (b.time || 0) - (a.time || 0)));
-    }, (err) => handleFirestoreError(err, OperationType.GET, 'posts'));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'posts'));
 
     return () => {
       unsubAuth();
@@ -493,7 +502,7 @@ export default function App() {
       snap.forEach((d) => cArr.push({ id: d.id, ...(d.data() as any) } as ChatMessage));
       cArr.sort((a, b) => (a.time || 0) - (b.time || 0));
       setChatMessages(cArr.slice(-50));
-    }, (err) => handleFirestoreError(err, OperationType.GET, 'chat'));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'chat'));
 
     const problemsQuery = isEditor
       ? query(collection(db, 'problems'), orderBy('time', 'desc'))
@@ -521,12 +530,25 @@ export default function App() {
       console.warn("Requests listener issue:", err.message);
     });
 
-    const unsubNotifications = onSnapshot(query(collection(db, 'notifications'), where('uid', 'in', [user.uid, 'all']), orderBy('time', 'desc'), limit(50)), (snap) => {
+    const unsub1 = onSnapshot(query(collection(db, 'notifications'), where('uid', '==', user.uid), orderBy('time', 'desc'), limit(50)), (snap) => {
       const nArr: Notification[] = [];
       snap.forEach(d => nArr.push({ id: d.id, ...(d.data() as any) } as Notification));
-      setNotifications(nArr);
-      setUnreadCount(nArr.filter(n => !n.read).length);
-    }, (err) => handleFirestoreError(err, OperationType.GET, 'notifications'));
+      setNotifications(prev => {
+        const merged = [...prev.filter(n => n.uid === 'all'), ...nArr].sort((a, b) => b.time - a.time).slice(0, 50);
+        setUnreadCount(merged.filter(n => !n.read).length);
+        return merged;
+      });
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'notifications'));
+
+    const unsub2 = onSnapshot(query(collection(db, 'notifications'), where('uid', '==', 'all'), orderBy('time', 'desc'), limit(50)), (snap) => {
+      const nArr: Notification[] = [];
+      snap.forEach(d => nArr.push({ id: d.id, ...(d.data() as any) } as Notification));
+      setNotifications(prev => {
+        const merged = [...prev.filter(n => n.uid !== 'all'), ...nArr].sort((a, b) => b.time - a.time).slice(0, 50);
+        setUnreadCount(merged.filter(n => !n.read).length);
+        return merged;
+      });
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'notifications'));
 
     return () => {
       unsubProfile();
@@ -534,7 +556,8 @@ export default function App() {
       unsubChat();
       unsubProblems();
       unsubRequests();
-      unsubNotifications();
+      unsub1();
+      unsub2();
     };
   }, [user, isEditor]);
 
@@ -670,7 +693,7 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-[#f8fafc] to-slate-100 text-slate-800 flex flex-col font-sans selection:bg-accent/20 selection:text-primary scroll-smooth antialiased">
       <AnimatePresence>
         {toasts.map(t => (
           <motion.div
@@ -689,26 +712,17 @@ export default function App() {
 
       <header className="sticky top-0 z-[1001]" style={{ background: 'var(--primary)', height: 'var(--header-h)', borderBottom: '3px solid var(--accent)', display: 'flex', alignItems: 'center', padding: '0 4%' }}>
         <div className="brand-wrapper cursor-pointer" onClick={() => setCurrentTab('home')}>
-          <div className="logo-pro" id="evLogo">
+          {/* Logo Section */}
+          <div className="logo-container" id="evLogo">
             <svg viewBox="0 0 64 64" width="40" height="40">
-              <defs>
-                <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#22c55e"/>
-                  <stop offset="100%" stopColor="#0ea5e9"/>
-                </linearGradient>
-                <linearGradient id="ringG" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#22c55e"/>
-                  <stop offset="100%" stopColor="#0ea5e9"/>
-                </linearGradient>
-              </defs>
-              <g className="logo-ring">
-                <circle cx="32" cy="32" r="29" fill="none" stroke="url(#ringG)" strokeWidth="2" strokeDasharray="6 10" strokeLinecap="round"/>
+              <g className="logo-ring" id="mainLogoRing">
+                <circle cx="32" cy="32" r="29" fill="none" stroke="#facc15" strokeWidth="2" strokeDasharray="5 8"/>
               </g>
-              <circle cx="32" cy="32" r="26" fill="url(#g)"/>
-              <circle cx="32" cy="32" r="22" fill="#0d3b66"/>
-              <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="700" fontFamily="Segoe UI, sans-serif" className="logo-text">EV</text>
+              <circle cx="32" cy="32" r="24" fill="#0d3b66"/>
+              <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="700" fontFamily="Segoe UI, sans-serif" className="ev-logo-text">EV</text>
             </svg>
           </div>
+          {/* Website Name Section */}
           <div>
             <h2 className="brand-title">E-VEDHIKA</h2>
             <p className="sub-tagline">all problems one solution</p>
@@ -717,15 +731,23 @@ export default function App() {
 
         <div className="flex-1"></div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-5">
           {user && !user.isAnonymous && (
-             <div className="hidden sm:flex items-center gap-3 bg-white/10 pl-1 pr-3 py-1 rounded-full border border-white/20">
-                <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-primary font-black text-sm">
-                   👤
+             <div onClick={() => setShowProfileModal(true)} className="hidden sm:flex items-center gap-3 bg-gradient-to-r from-[#174b7c] to-transparent pl-1.5 pr-5 py-1.5 rounded-[16px] border border-accent/30 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_0_20px_rgba(250,204,21,0.25)] hover:border-accent/60 transition-all duration-300 relative overflow-hidden group cursor-pointer">
+                <div className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/10 to-accent/0 -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out"></div>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-[#d97706] flex items-center justify-center text-primary font-black text-lg shadow-inner border-[2px] border-white/20 relative z-10 shadow-[0_0_10px_rgba(250,204,21,0.5)] overflow-hidden">
+                   {user?.photoURL ? (
+                     <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                   ) : (
+                     <User size={18} className="text-primary" />
+                   )}
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-white text-[10px] font-black leading-none">{userProfile?.username || "Member"}</span>
-                  <span className="text-accent text-[8px] font-bold uppercase tracking-widest">{isAdmin ? 'Admin' : isEditor ? 'Editor' : 'Active'}</span>
+                <div className="flex flex-col justify-center relative z-10">
+                  <span className="text-white text-[12px] font-black tracking-wide leading-tight drop-shadow-sm">{userProfile?.username || "Panchayat Member"}</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_6px_#10b981] animate-pulse"></span>
+                    <span className="text-accent text-[9px] font-bold uppercase tracking-[0.15em] drop-shadow-sm">{isAdmin ? 'System Admin' : isEditor ? 'Editor' : 'Active User'}</span>
+                  </div>
                 </div>
              </div>
           )}
@@ -745,7 +767,7 @@ export default function App() {
 
       <nav className="nav-trigger-bar sticky top-0 z-[1000]">
         <div className="trigger-left">
-          <button className="menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          <button className="menu-toggle lg:hidden shrink-0" onClick={() => setSidebarOpen(!sidebarOpen)}>
             <span></span>
             <span></span>
             <span></span>
@@ -766,10 +788,8 @@ export default function App() {
 
         <div className="flex items-center gap-4">
            {searchQuery === '' && <Search size={18} className="text-slate-400" />}
-           {!user || user.isAnonymous ? (
+           {(!user || user.isAnonymous) && (
              <button onClick={triggerLogin} className="bg-primary text-white px-4 py-1.5 rounded-lg text-[11px] font-black uppercase shadow-sm">Login / Create account</button>
-           ) : (
-             <button onClick={() => signOut(auth)} className="text-[10px] font-black text-danger uppercase">Exit</button>
            )}
         </div>
       </nav>
@@ -818,6 +838,17 @@ export default function App() {
         </aside>
 
         <main className="content-area min-w-0">
+          {postIdFromUrl ? (
+            <PostDetail 
+               postId={postIdFromUrl} 
+               onBack={() => {
+                 searchParams.delete('postId');
+                 setSearchParams(searchParams);
+               }} 
+               isAdmin={isAdmin}
+               addToast={addToast}
+            />
+          ) : (
             <AnimatePresence mode="wait">
               {currentTab === 'home' && (
                 <motion.div key="home" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
@@ -836,7 +867,7 @@ export default function App() {
                         {user && !user.isAnonymous ? (
                            <div className="flex justify-between items-center">
                              <span className="text-sm font-black text-white">Active session</span>
-                             <button onClick={() => signOut(auth)} className="text-[9px] bg-red-500 text-white px-3 py-1 rounded-full font-black uppercase">Exit</button>
+                             <button onClick={() => signOut(auth)} className="text-xs bg-red-500 text-white px-4 py-1.5 rounded-full font-black uppercase shadow-md">Logout</button>
                            </div>
                         ) : (
                           <div className="space-y-2">
@@ -882,6 +913,18 @@ export default function App() {
                         </div>
                       </div>
                     )}
+
+                    {showProfileModal && (
+                      <EditProfileModal onClose={() => setShowProfileModal(false)} user={user} userProfile={userProfile} addToast={addToast} />
+                    )}
+
+                    {showSuggestionForm && (
+                      <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-[24px] shadow-2xl custom-scrollbar relative">
+                           <SuggestionForm addToast={addToast} onCancel={() => setShowSuggestionForm(false)} />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-10">
@@ -920,7 +963,7 @@ export default function App() {
                         { name: 'SERP', desc: 'Programs focused on poverty elimination and building community institutions.', icon: '🏘️', link: 'https://serp.telangana.gov.in/' }
                       ].map(s => (
                         <div key={s.name} className="scheme-card">
-                          <div className="text-4xl mb-4">{s.icon}</div>
+                          <div className="text-3xl mb-3">{s.icon}</div>
                           <h4 className="font-black text-lg text-primary">{s.name}</h4>
                           <p className="text-sm font-medium text-slate-600 mt-2 flex-1">{s.desc}</p>
                           <a href={s.link} target="_blank" rel="noreferrer" className="scheme-link-btn hover:opacity-90 transition-opacity">Visit Official Website</a>
@@ -971,7 +1014,7 @@ export default function App() {
                       ))
                     ) : <p className="text-center font-bold text-slate-400 py-10">No public suggestions shared yet.</p>}
                   </div>
-                  <button onClick={() => { setCurrentTab('suggestions'); setShowPostForm(true); }} className="w-full bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90 transition-all active:scale-95">
+                  <button onClick={() => { setShowSuggestionForm(true); }} className="w-full bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90 transition-all active:scale-95">
                     📝 Submit New Suggestion
                   </button>
                 </div>
@@ -1060,7 +1103,65 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
+          )}
         </main>
+      </div>
+    </div>
+  );
+}
+
+function EditProfileModal({ onClose, user, userProfile, addToast }: { onClose: () => void, user: any, userProfile: UserProfile | null, addToast: (s:string) => void }) {
+  const [username, setUsername] = useState(userProfile?.username || user?.displayName || '');
+  const [photoURL, setPhotoURL] = useState(userProfile?.photoURL || user?.photoURL || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        username,
+        photoURL,
+        time: userProfile ? undefined : Date.now()
+      }, { merge: true });
+      addToast("Profile updated successfully!");
+      onClose();
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
+      addToast("Failed to update profile: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[4000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 bg-slate-100 p-2 rounded-full hover:bg-slate-200"><X size={20}/></button>
+        <h2 className="text-2xl font-black text-primary mb-6">Edit Profile</h2>
+        
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="flex justify-center mb-6">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-slate-100 shadow-sm bg-slate-50 flex items-center justify-center">
+              {photoURL ? <img src={photoURL} alt="Preview" className="w-full h-full object-cover" /> : <User size={40} className="text-slate-300" />}
+            </div>
+          </div>
+          
+          <div>
+            <label className="text-xs font-black text-slate-500 uppercase mb-1 block">Username</label>
+            <input value={username} onChange={e => setUsername(e.target.value)} required className="w-full border p-3 rounded-xl focus:border-primary outline-none" placeholder="Enter username" />
+          </div>
+          <div>
+            <label className="text-xs font-black text-slate-500 uppercase mb-1 block">Photo URL (Optional)</label>
+            <input value={photoURL} onChange={e => setPhotoURL(e.target.value)} className="w-full border p-3 rounded-xl focus:border-primary outline-none" placeholder="https://example.com/photo.jpg" />
+            <p className="text-[10px] text-slate-400 mt-1">Paste a URL of an image to use as your avatar.</p>
+          </div>
+          
+          <button type="submit" disabled={saving} className="w-full bg-primary text-white py-4 rounded-xl font-bold uppercase mt-4 hover:bg-opacity-90 disabled:opacity-50">
+            {saving ? 'Saving...' : 'Save Profile'}
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -1083,14 +1184,14 @@ function AdminPanel({ addToast, problems, suggestions, users, setAdminLocked, ad
       setAllUsers(uList);
     }, (err) => {
       setPermissionError("Access to user database restricted.");
-      handleFirestoreError(err, OperationType.GET, 'users');
+      handleFirestoreError(err, OperationType.LIST, 'users');
     });
 
     const unsubProblems = onSnapshot(collection(db, 'problems'), (snap) => {
       const pList: ProblemReport[] = [];
       snap.forEach(d => pList.push({ id: d.id, ...(d.data() as any) }));
       setAllProblems(pList);
-    }, (err) => handleFirestoreError(err, OperationType.GET, 'problems'));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'problems'));
 
     const unsubLogs = onSnapshot(query(collection(db, 'security_logs'), orderBy('time', 'desc'), limit(20)), (snap) => {
       const lList: any[] = [];
@@ -1099,7 +1200,7 @@ function AdminPanel({ addToast, problems, suggestions, users, setAdminLocked, ad
       setLogsError(false);
     }, (err) => {
       setLogsError(true);
-      handleFirestoreError(err, OperationType.GET, 'security_logs');
+      handleFirestoreError(err, OperationType.LIST, 'security_logs');
     });
 
     return () => {
@@ -1145,8 +1246,8 @@ function AdminPanel({ addToast, problems, suggestions, users, setAdminLocked, ad
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
-        {['dash', 'users', 'reports', 'updates', 'trash', 'logs', 'alerts', 'settings']
-          .filter(t => isAdmin || ['dash', 'reports', 'updates', 'alerts'].includes(t))
+        {['dash', 'users', 'reports', 'suggestions', 'updates', 'trash', 'logs', 'alerts', 'settings']
+          .filter(t => isAdmin || ['dash', 'reports', 'suggestions', 'updates', 'alerts'].includes(t))
           .map(t => (
           <button 
             key={t} 
@@ -1167,12 +1268,13 @@ function AdminPanel({ addToast, problems, suggestions, users, setAdminLocked, ad
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
       >
          <StatCard label="Total Users" val={allUsers.length} color="blue" />
-         <StatCard label="Active Problems" val={allProblems.filter(p => p.status === 'pending').length} color="amber" />
-         <StatCard label="Flash Updates" val={updates.length} color="purple" />
+         <StatCard label="Active Issues" val={allProblems.filter(p => p.status === 'pending').length} color="amber" />
          <StatCard label="Resolved" val={allProblems.filter(p => p.status === 'solved').length} color="green" />
+         <StatCard label="Suggestions" val={suggestions.length} color="purple" />
+         <StatCard label="Hot Updates" val={updates.length} color="red" />
       </motion.div>
           
           <div className="w-full h-[300px] min-h-[300px] bg-white p-4 rounded-2xl shadow-sm border">
@@ -1292,6 +1394,40 @@ function AdminPanel({ addToast, problems, suggestions, users, setAdminLocked, ad
             <Trash2 size={32} />
           </div>
           <p className="text-slate-400 text-sm font-medium">Recycle Bin is currently empty.</p>
+        </div>
+      )}
+
+      {activeSubTab === 'suggestions' && (
+        <div className="space-y-4">
+          {suggestions.length === 0 && <div className="p-10 text-center text-slate-400 font-bold">No suggestions found</div>}
+          {suggestions.map(s => (
+            <div key={s.id} className="p-4 bg-slate-50 rounded-2xl border flex justify-between items-start">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-black text-primary uppercase">{s.name}</span>
+                  <span className="text-[9px] text-slate-400 font-bold">• {s.time ? new Date(s.time).toLocaleDateString() : 'N/A'}</span>
+                </div>
+                <p className="text-sm font-medium text-slate-700">{s.text || (s as any).suggestion}</p>
+                <div className="mt-2 flex gap-2">
+                   <span className="text-[9px] bg-white border px-2 py-0.5 rounded-full font-bold text-slate-500">{ (s as any).village || 'No Village' }</span>
+                   <span className="text-[9px] bg-white border px-2 py-0.5 rounded-full font-bold text-slate-500">{ (s as any).mobile || 'No Mobile' }</span>
+                </div>
+              </div>
+              <button 
+                onClick={async () => {
+                  if(!window.confirm("Delete suggestion?")) return;
+                  try {
+                    await deleteDoc(doc(db, 'suggestions', s.id));
+                    addToast("Suggestion Deleted");
+                  } catch(err) { handleFirestoreError(err, OperationType.DELETE, `suggestions/${s.id}`); }
+                }}
+                className="text-red-400 p-2 hover:bg-red-50 rounded-full transition-colors"
+                title="Delete Suggestion"
+              >
+                 <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
@@ -1504,9 +1640,9 @@ function ToolCard({ icon: Icon, emoji, title, onClick }: { icon?: any, emoji?: s
       className="mana-card"
     >
       {emoji ? (
-        <div className="text-4xl mb-2">{emoji}</div>
+        <div className="text-3xl mb-2">{emoji}</div>
       ) : (
-        Icon && <Icon size={32} className="mx-auto text-primary" />
+        Icon && <Icon size={24} className="mx-auto text-primary" />
       )}
       <h4 className="font-bold mt-1 text-sm">{title}</h4>
     </motion.div>
@@ -1591,6 +1727,49 @@ function DSRAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit }: { post: Post, isExpanded: boolean, toggleExpansion: () => void, addToast: (s:string) => void, isAdmin: boolean, onEdit: (p: Post) => void }) {
   const isOwner = auth.currentUser?.uid === post.uid || isAdmin;
   const postTime = post.time || (post as any).createdAt || 0;
+  
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  useEffect(() => {
+    if (showComments) {
+      const q = query(collection(db, 'posts', post.id, 'comments'), orderBy('time', 'desc'));
+      const unsub = onSnapshot(q, (snap) => {
+        setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+      return () => unsub();
+    }
+  }, [showComments, post.id]);
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
+      addToast("Login to comment");
+      return;
+    }
+    
+    setSubmittingComment(true);
+    try {
+      await addDoc(collection(db, 'posts', post.id, 'comments'), {
+        text: newComment,
+        time: Date.now(),
+        uid: auth.currentUser.uid,
+        userName: auth.currentUser.email?.split('@')[0] || "User",
+      });
+      setNewComment("");
+      
+      await updateDoc(doc(db, 'posts', post.id), {
+        commentCount: increment(1)
+      });
+    } catch (e: any) {
+      handleFirestoreError(e, OperationType.WRITE, `posts/${post.id}/comments`);
+      addToast("Error adding comment");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   return (
     <div className="post-card">
@@ -1666,18 +1845,58 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
             <span className="text-lg">👁️</span>
             <span className="text-[11px] font-bold text-slate-400">{post.views || 0}</span>
          </div>
+         
+         <button onClick={() => setShowComments(!showComments)} className="flex items-center gap-2 group text-slate-500 hover:text-primary">
+            <MessageCircle size={18} />
+            <span className="text-sm font-black">{post.commentCount || 0}</span>
+         </button>
 
          <button 
            onClick={() => {
-             const url = `${window.location.origin}${window.location.pathname}?post=${post.id}`;
+             const url = `${window.location.origin}${window.location.pathname}?postId=${post.id}`;
              navigator.clipboard.writeText(url);
-             addToast("Link copied to clipboard!");
+             addToast("Link copied!");
            }}
            className="flex items-center gap-1 group text-primary"
          >
             <span className="text-[11px] font-black uppercase">Share 🔗</span>
          </button>
+         
+         <Link to={`/?postId=${post.id}`} className="bg-primary text-white font-black uppercase text-[10px] sm:text-xs px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl">Read Full Story</Link>
       </div>
+
+      {showComments && (
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <div className="flex gap-2 mb-4">
+            <input 
+              value={newComment} 
+              onChange={e => setNewComment(e.target.value)} 
+              onKeyDown={e => e.key === 'Enter' && handleAddComment()}
+              placeholder="Write a comment..." 
+              className="flex-1 text-sm bg-slate-50 p-2 rounded-xl border border-slate-200 outline-none focus:border-primary/30 m-0" 
+            />
+            <button 
+              disabled={submittingComment}
+              onClick={handleAddComment} 
+              className="bg-primary text-white p-2 rounded-xl text-sm font-bold disabled:opacity-50"
+            >
+              <Send size={16} />
+            </button>
+          </div>
+          <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+            {comments.length === 0 && <p className="text-xs text-slate-400 text-center py-2">No comments yet</p>}
+            {comments.map(c => (
+              <div key={c.id} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                 <div className="flex justify-between items-center mb-1">
+                   <span className="text-xs font-bold text-primary">{c.userName || 'User'}</span>
+                   <span className="text-[10px] text-slate-400">{new Date(c.time).toLocaleDateString()}</span>
+                 </div>
+                 <p className="text-sm text-slate-600">{c.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1711,10 +1930,11 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost }: { add
       } else {
         await addDoc(collection(db, 'posts'), {
           ...postData,
-          likes: 0, likedBy: [], views: 0, comments: [],
+          likes: 0, likedBy: [], views: 0, comments: [], commentCount: 0,
           time: Date.now(),
           uid: auth.currentUser.uid,
           userName: currentUserProfile?.username || "Portal User",
+          userPhoto: currentUserProfile?.photoURL || auth.currentUser.photoURL || undefined,
           status: 'Approved'
         });
         addToast("Update Published!");
@@ -1950,6 +2170,335 @@ function SmartAssistant({ systemInstruction, placeholder, title, icon: Icon }: {
   );
 }
 
+function SuggestionForm({ addToast, onCancel }: { addToast: (s:string) => void, onCancel: () => void }) {
+  const [name, setName] = useState('');
+  const [village, setVillage] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [category, setCategory] = useState('');
+  const [suggestion, setSuggestion] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = async () => {
+    if(!name || !village || !mobile || !category || !suggestion) {
+      addToast("దయచేసి అన్ని వివరాలు నింపండి");
+      return;
+    }
+
+    if(!/^[0-9]{10}$/.test(mobile)){
+      addToast("10 digit mobile number enter cheyandi");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, "suggestions"), {
+        name,
+        village,
+        mobile,
+        category,
+        suggestion: suggestion,
+        text: suggestion,
+        status: "pending",
+        time: Date.now(),
+        createdAt: Date.now()
+      });
+      setSubmitted(true);
+      addToast("Successfully sumitted!");
+    } catch(err) {
+      handleFirestoreError(err, OperationType.WRITE, 'suggestions');
+      addToast("Error submitting suggestion");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div className="p-10 text-center space-y-6">
+        <div className="mx-auto w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
+          <CheckCircle2 size={32} />
+        </div>
+        <h2 className="text-2xl font-black text-primary">✅ Submitted Successfully</h2>
+        <p className="text-slate-500 font-bold">మీ సూచన నమోదు చేయబడింది</p>
+        
+        <div className="gap-3 flex flex-col pt-4">
+           <button onClick={() => {
+              setSubmitted(false);
+              setName(''); setVillage(''); setMobile(''); setCategory(''); setSuggestion('');
+           }} className="bg-primary text-white p-3 rounded-xl font-bold">Add More Suggestions</button>
+           <button onClick={onCancel} className="bg-[#0d3b66] text-white p-3 rounded-xl font-bold">Go to Main Website</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8">
+      <div className="flex justify-between items-center mb-6">
+         <h2 className="text-2xl font-black text-primary">e-Vedhika Suggestion Portal</h2>
+         <button onClick={onCancel} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:text-slate-700">
+           <X size={20} />
+         </button>
+      </div>
+      <p className="text-sm font-bold text-slate-500 mb-6">మీ సూచనలు నమోదు చేయండి</p>
+      
+      <div className="space-y-4">
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="మీ పేరు" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary/50" />
+        <input value={village} onChange={e => setVillage(e.target.value)} placeholder="జిల్లా / మండలం" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary/50" />
+        <input value={mobile} onChange={e => setMobile(e.target.value)} maxLength={10} placeholder="మొబైల్ నంబర్" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary/50" />
+        
+        <select value={category} onChange={e => setCategory(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary/50">
+          <option value="">విభాగం ఎంచుకోండి</option>
+          <option value="Home">Home</option>
+          <option value="Latest News">Latest News</option>
+          <option value="Services">Services</option>
+          <option value="Public Suggestions">Public Suggestions</option>
+          <option value="Discussion Forum">Discussion Forum</option>
+          <option value="User Login">User Login</option>
+          <option value="FAQ">FAQ</option>
+          <option value="Search">Search</option>
+          <option value="Union Updates">Union Updates</option>
+        </select>
+
+        <textarea value={suggestion} onChange={e => setSuggestion(e.target.value)} placeholder="మీ సూచన" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-primary/50 min-h-[120px]" />
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-4 mt-8">
+        <button disabled={isSubmitting} onClick={handleSubmit} className="flex-1 bg-green-600 text-white py-4 rounded-xl font-bold disabled:opacity-50">Submit</button>
+        <button onClick={onCancel} className="flex-1 bg-[#0d3b66] text-white py-4 rounded-xl font-bold">Back to Website</button>
+      </div>
+    </div>
+  );
+}
+
 function PRActHub() {
     return <KnowledgeHubSection />;
+}
+
+// --- POST DETAIL MODULE ---
+
+function PostDetail({ postId, onBack, isAdmin, addToast }: { postId: string, onBack: () => void, isAdmin: boolean, addToast: (s:string) => void }) {
+  const [post, setPost] = useState<Post | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadPost() {
+      try {
+        const docRef = doc(db, 'posts', postId);
+        const snapshot = await getDoc(docRef);
+        if (snapshot.exists()) {
+          setPost({ id: snapshot.id, ...snapshot.data() } as Post);
+          
+          // Increment views
+          updateDoc(docRef, { views: increment(1) }).catch(e => console.error(e));
+        } else {
+          addToast("Post not found");
+        }
+      } catch (err: any) {
+        handleFirestoreError(err, OperationType.GET, `posts/${postId}`);
+        addToast("Error loading post");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPost();
+  }, [postId]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center flex-col items-center py-32 space-y-4">
+        <Loader2 className="animate-spin text-primary" size={40} />
+        <span className="font-bold text-slate-400">Loading update...</span>
+      </div>
+    );
+  }
+
+  if (!post) {
+    return (
+      <div className="text-center py-32 space-y-6">
+        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-300">
+           <AlertTriangle size={32} />
+        </div>
+        <div>
+          <h2 className="text-xl font-black text-primary">Post Not Found</h2>
+          <p className="text-slate-500 font-medium">Sorry, we couldn't find that update. It may have been removed.</p>
+        </div>
+        <button onClick={onBack} className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-opacity-90 inline-flex items-center gap-2">
+          <ArrowLeft size={16} /> Return to Feed
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-6 md:p-10 rounded-[32px] shadow-sm border space-y-8">
+       <button onClick={onBack} className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-slate-500 hover:text-primary transition-colors font-bold text-sm w-fit group">
+         <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to Feed
+       </button>
+       
+       <div className="space-y-6">
+         <div className="flex items-center justify-between border-b pb-6">
+           <div className="flex flex-wrap items-center gap-2">
+             <span className="cat-tag bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">{post.category || 'Update'}</span>
+             {post.subCategory && <span className="cat-tag sub-cat-tag bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">{post.subCategory}</span>}
+           </div>
+           <div className="flex items-center text-xs font-black text-slate-400 uppercase tracking-wider">
+             <Clock size={14} className="mr-1.5" />
+             {new Date(post.time || Date.now()).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+           </div>
+         </div>
+         
+         <h1 className="text-3xl md:text-5xl font-black text-primary leading-tight tracking-tight">{post.title}</h1>
+         
+         <div className="flex items-center gap-3 text-sm font-bold text-slate-600">
+           <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white border-2 border-white shadow-sm ring-2 ring-slate-50 overflow-hidden">
+             {post.userPhoto ? (
+               <img src={post.userPhoto} alt="Author" className="w-full h-full object-cover" />
+             ) : (
+               <User size={18} />
+             )}
+           </div>
+           <div className="flex flex-col">
+             <span>{post.userName || 'Portal User'}</span>
+             <span className="text-[10px] font-black text-slate-400 uppercase">Author</span>
+           </div>
+         </div>
+         
+         {post.mediaUrl && (
+           <div className="mt-8 rounded-[24px] overflow-hidden border-4 border-slate-50 shadow-md">
+             <img src={post.mediaUrl} alt="Post media" className="w-full object-cover max-h-[500px]" />
+           </div>
+         )}
+
+         <div className="prose prose-slate prose-lg md:prose-xl max-w-none pt-4 text-slate-700 leading-relaxed font-serif">
+           <ReactMarkdown>{post.content}</ReactMarkdown>
+         </div>
+         
+         <div className="flex justify-between items-center sm:mt-12 mt-8 pt-8 border-t-2 border-dashed border-slate-100">
+            <div className="flex gap-6">
+               <div className="flex items-center gap-2 text-primary bg-primary/5 px-4 py-2 rounded-xl">
+                  <Heart size={20} className={post.likedBy?.includes(auth.currentUser?.uid || '') ? "fill-primary text-primary" : "text-primary"} />
+                  <span className="font-black text-base">{post.likes || 0}</span> <span className="text-xs uppercase tracking-wider hidden sm:inline">Likes</span>
+               </div>
+               <div className="flex items-center gap-2 text-slate-500 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                  <Eye size={20} />
+                  <span className="font-black text-base">{post.views || 0}</span> <span className="text-xs uppercase tracking-wider hidden sm:inline">Views</span>
+               </div>
+            </div>
+            
+            <button 
+               onClick={() => {
+                 navigator.clipboard.writeText(`${window.location.origin}/?postId=${post.id}`);
+                 addToast("Link Copied!");
+               }} 
+               className="flex items-center gap-2 text-slate-500 hover:text-primary hover:bg-slate-50 px-4 py-2 rounded-xl transition-all"
+            >
+               <Share2 size={18} />
+               <span className="text-xs font-black uppercase tracking-wider hidden sm:inline">Share</span>
+            </button>
+         </div>
+       </div>
+
+       <div className="pt-10 border-t mt-12 border-slate-100">
+         <h3 className="text-2xl font-black text-primary mb-6 flex items-center gap-3">
+           <MessageCircle size={24} className="text-accent" style={{ color: '#fbbf24' }}/> 
+           Community Comments <span className="bg-slate-100 text-slate-500 text-sm py-1 px-3 rounded-full">{post.commentCount || 0}</span>
+         </h3>
+         <PostComments post={post} addToast={addToast} />
+       </div>
+    </motion.div>
+  );
+}
+
+function PostComments({ post, addToast }: { post: Post, addToast: (s:string) => void }) {
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  useEffect(() => {
+    const q = query(collection(db, 'posts', post.id, 'comments'), orderBy('time', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, [post.id]);
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+    if (!auth.currentUser || auth.currentUser.isAnonymous) {
+      addToast("Login to comment");
+      return;
+    }
+    
+    setSubmittingComment(true);
+    try {
+      await addDoc(collection(db, 'posts', post.id, 'comments'), {
+        text: newComment,
+        time: Date.now(),
+        uid: auth.currentUser.uid,
+        userName: auth.currentUser.email?.split('@')[0] || "User",
+      });
+      setNewComment("");
+      
+      await updateDoc(doc(db, 'posts', post.id), {
+        commentCount: increment(1)
+      });
+    } catch (e: any) {
+      handleFirestoreError(e, OperationType.WRITE, `posts/${post.id}/comments`);
+      addToast("Error adding comment");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="bg-slate-50 p-6 rounded-[24px] border border-slate-200">
+        <label className="block text-sm font-black text-primary mb-3">Add your perspective</label>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input 
+            value={newComment} 
+            onChange={e => setNewComment(e.target.value)} 
+            onKeyDown={e => e.key === 'Enter' && handleAddComment()}
+            placeholder="Type your comment here..." 
+            className="flex-1 text-base bg-white p-4 rounded-xl border-2 border-transparent focus:border-accent outline-none shadow-sm transition-all text-slate-700" 
+          />
+          <button 
+            disabled={submittingComment || !newComment.trim()}
+            onClick={handleAddComment} 
+            className="bg-primary text-white py-4 px-8 rounded-xl font-black uppercase tracking-wider disabled:opacity-50 hover:bg-opacity-90 flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+          >
+            {submittingComment ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />} 
+            Post
+          </button>
+        </div>
+      </div>
+      <div className="space-y-4">
+        {comments.length === 0 && (
+          <div className="text-center py-12 border-2 border-dashed border-slate-100 rounded-[24px]">
+            <MessageCircle size={40} className="mx-auto text-slate-200 mb-4" />
+            <p className="text-base text-slate-400 font-bold">No comments yet.</p>
+            <p className="text-sm text-slate-400">Be the first to start the conversation!</p>
+          </div>
+        )}
+        {comments.map(c => (
+          <div key={c.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex gap-4 items-start">
+             <div className="w-10 h-10 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex-shrink-0 flex items-center justify-center text-slate-400 font-black border border-white shadow-sm mt-1">
+               {(c.userName || 'U')[0].toUpperCase()}
+             </div>
+             <div className="flex-1">
+               <div className="flex flex-row justify-between items-center sm:items-baseline mb-2">
+                 <span className="text-[15px] font-black text-primary">{c.userName || 'User'}</span>
+                 <span className="text-xs text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded-md">
+                   {new Date(c.time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                 </span>
+               </div>
+               <p className="text-slate-700 leading-relaxed">{c.text}</p>
+             </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

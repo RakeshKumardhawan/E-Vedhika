@@ -44,6 +44,20 @@
         "uid": { "type": "string" }
       }
     },
+    "Suggestion": {
+      "title": "Suggestion",
+      "description": "Public feedback from citizens.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "village": { "type": "string" },
+        "mobile": { "type": "string" },
+        "category": { "type": "string" },
+        "text": { "type": "string" },
+        "status": { "type": "string" },
+        "time": { "type": "integer" }
+      }
+    },
     "Notification": {
       "title": "Notification",
       "description": "User specific notifications.",
