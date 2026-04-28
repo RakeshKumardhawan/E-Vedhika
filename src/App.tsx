@@ -2673,8 +2673,8 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                  
                  // Greedy GP Detection: Any string > 3 chars that isn't a date, number, or known header
                  if (gpCol === -1 && sample.length > 3 && isNaN(Number(sample)) && 
-                     !['mandal', 'mandal name', 'district', 'sl.no', 'sl no', 's.no'].includes(sample) &&
-                     !sample.includes('202') && !sample.includes('/') && !sample.includes('-')) {
+                     !['mandal', 'mandal name', 'district', 'sl.no', 'sl no', 's.no', 'serial no'].includes(sample) &&
+                     !sample.includes('202') && !sample.includes('/') && !sample.includes('-') && !sample.includes(':') && !sample.includes('time')) {
                    gpCol = c;
                  }
                }
@@ -2804,7 +2804,6 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
     });
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "GP Comparative");
     XLSX.utils.book_append_sheet(wb, ws, "GP Comparative");
     XLSX.writeFile(wb, `MultiDay_GP_Comparative_${new Date().toLocaleDateString()}.xlsx`);
     addToast("GP వైజ్ కంపారిటివ్ రిపోర్ట్ డౌన్లోడ్ అవుతోంది...");

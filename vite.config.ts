@@ -10,6 +10,7 @@ export default defineConfig(({mode}) => {
     plugins: [react(), tailwindcss()],
     build: {
       outDir: '.dist',
+      emptyOutDir: true,
     },
     resolve: {
       alias: {
