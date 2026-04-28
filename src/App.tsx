@@ -2561,11 +2561,14 @@ function StatusCell({ status }: { status: string }) {
 }
 
 function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
-  const [aggregatedData, setAggregatedData] = useState<Map<string, { mandal: string, attendance: Record<string, string> }>>(new Map());
+  const [aggregatedData, setAggregatedData] = useState<Map<string, { mandal: string, attendance: Record<string, string>, dsr: Record<string, boolean> }>>(new Map());
   const [allDates, setAllDates] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [mandalFilter, setMandalFilter] = useState("All");
+  const [rawRows, setRawRows] = useState<any[][]>([]);
+  const [parserDebug, setParserDebug] = useState<{file: string, sheet: string, date: string, gpColIdx: number, gpColName: string, statusColIdx: number, statusColName: string, rowsFound: number}[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
 
   const onUpload = async (e: any) => {
     const files = Array.from(e.target.files) as File[];
@@ -2574,6 +2577,8 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
     setIsAnalyzing(true);
     const newAggregated = new Map(aggregatedData);
     const datesFound = new Set(allDates);
+    const updatedRawRows: any[][] = [];
+    const debugLogs: any[] = [];
 
     try {
       for (const file of files) {
@@ -2583,9 +2588,9 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
         for (const sheetName of workbook.SheetNames) {
           const sheet = workbook.Sheets[sheetName];
           const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-          if (rows.length < 2) continue;
+          if (rows.length < 1) continue;
 
-          // 1. DATE EXTRACTION (Enhanced)
+          // 1. DATE EXTRACTION
           let fileDate = "Unknown";
           const sheetDateMatch = sheetName.match(/(\d{2}[-.]\d{2}[-.]\d{4})|(\d{4}[-.]\d{2}[-.]\d{2})/);
           if (sheetDateMatch) {
@@ -2597,14 +2602,13 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
               if (match) { fileDate = match[0]; break; }
             }
           }
-
           if (fileDate === "Unknown") {
-              const nameMatch = file.name.match(/(\d{2}[-.]\d{2}[-.]\d{4})|(\d{4}[-.]\d{2}[-.]\d{2})/);
-              fileDate = nameMatch ? nameMatch[0] : file.name.split('.')[0];
+               const nameMatch = file.name.match(/(\d{2}[-.]\d{2}[-.]\d{4})|(\d{4}[-.]\d{2}[-.]\d{2})/);
+               fileDate = nameMatch ? nameMatch[0] : (sheetName.toLowerCase().includes('sheet') ? file.name.split('.')[0] : sheetName);
           }
           datesFound.add(fileDate);
 
-          // 2. SMART HEADER DETECTION
+          // 2. HEADER DETECTION
           let bestHeaderRowIdx = -1;
           let maxS = 0;
           for (let r = 0; r < Math.min(rows.length, 50); r++) {
@@ -2612,61 +2616,85 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
             if (!row || !Array.isArray(row)) continue;
             const rowStr = row.map(c => String(c || '').toLowerCase()).join(' ');
             let s = 0;
-            if (rowStr.includes('mandal')) s += 2;
-            if (rowStr.includes('panchayat') || rowStr.includes('gp name') || rowStr.includes('habitation')) s += 2;
-            if (rowStr.includes('status') || rowStr.includes('attendance')) s += 1;
+            if (rowStr.includes('mandal') || rowStr.includes('block')) s += 2;
+            if (rowStr.includes('panchayat') || rowStr.includes('gp') || rowStr.includes('habitation') || rowStr.includes('village')) s += 2;
+            if (rowStr.includes('status') || rowStr.includes('attend')) s += 1;
             if (s > maxS) { maxS = s; bestHeaderRowIdx = r; }
           }
-
-          if (bestHeaderRowIdx === -1) continue;
+          if (bestHeaderRowIdx === -1) bestHeaderRowIdx = rows.findIndex(r => r && r.length > 2);
+          if (bestHeaderRowIdx === -1) bestHeaderRowIdx = 0;
 
           // 3. COLUMN MAPPING
-          let mandalCol = -1, gpCol = -1, statusCol = -1;
+          let mandalCol = -1, gpCol = -1, statusCol = -1, dsrCol = -1;
           const headerRow = rows[bestHeaderRowIdx] || [];
-          for (let c = 0; c < headerRow.length; c++) {
-            const cellVal = String(headerRow[c] || '').toLowerCase().trim();
-            if (gpCol === -1 && (cellVal.includes('gram') || cellVal === 'gp' || cellVal.includes('panchayat') || cellVal.includes('habitation') || cellVal.includes('village name'))) {
-                if (!cellVal.includes('id') && !cellVal.includes('code')) gpCol = c;
-            }
-            if (mandalCol === -1 && (cellVal.includes('mandal') || cellVal.includes('block'))) {
-                if (!cellVal.includes('id') && !cellVal.includes('code')) mandalCol = c;
-            }
-            if (statusCol === -1 && (cellVal.includes('status') || cellVal.includes('attend'))) {
-                if (!cellVal.includes('date') && !cellVal.includes('time')) statusCol = c;
-            }
-          }
+          headerRow.forEach((val, c) => {
+            const s = String(val || '').toLowerCase().trim();
+            if (gpCol === -1 && (s.includes('gram') || s === 'gp' || s.includes('panchayat') || s.includes('habitation') || s.includes('village') || (s.includes('name') && !s.includes('mandal')))) gpCol = c;
+            if (mandalCol === -1 && (s.includes('mandal') || s.includes('block'))) mandalCol = c;
+            if (statusCol === -1 && (s.includes('status') || s.includes('attend') || s.includes('present') || s.includes('p/a'))) statusCol = c;
+            if (dsrCol === -1 && (s.includes('dsr') || s.includes('report') || s.includes('entry'))) dsrCol = c;
+          });
 
-          // 4. DATA PROCESSING
-          for (let r = bestHeaderRowIdx + 1; r < rows.length; r++) {
-            const row = rows[r];
-            if (!row || !Array.isArray(row)) continue;
-            
-            const gp = String(row[gpCol] || '').trim();
-            if (!gp || gp.length < 2 || gp.toLowerCase().includes('total')) continue;
+          // Extreme Fallback
+          if (gpCol === -1) gpCol = headerRow.findIndex(v => String(v || '').length > 3 && !String(v).toLowerCase().includes('id'));
+          if (statusCol === -1) statusCol = headerRow.findIndex(v => {
+             const sv = String(v || '').toLowerCase();
+             return sv.includes('p') || sv.includes('a') || sv.includes('att') || sv.includes('stat');
+          });
 
-            const mandal = mandalCol !== -1 ? String(row[mandalCol] || '').trim() : 'Unknown';
-            const rawStatus = String(row[statusCol] || '').toLowerCase();
+          let rowsAdded = 0;
+          if (gpCol !== -1) {
+            for (let r = bestHeaderRowIdx + 1; r < rows.length; r++) {
+              const row = rows[r];
+              if (!row || !Array.isArray(row)) continue;
+              
+              // Raw rows accumulation
+              updatedRawRows.push([file.name, sheetName, ...row]);
 
-            let symbol = "-";
-            if (rawStatus.includes('present') || rawStatus === 'p' || rawStatus.includes('✅')) symbol = "P";
-            else if (rawStatus.includes('absent') || rawStatus === 'a' || rawStatus.includes('no')) symbol = "A";
-            else if (rawStatus.includes('meeting') || rawStatus === 'm') symbol = "M";
-            else if (rawStatus.includes('training') || rawStatus === 't') symbol = "T";
-            else if (rawStatus.includes('leave') || rawStatus === 'l') symbol = "L";
+              const gp = String(row[gpCol] || '').trim();
+              if (!gp || gp.length < 2 || gp.toLowerCase().includes('total')) continue;
 
-            if (symbol !== "-") {
+              const mandal = mandalCol !== -1 ? String(row[mandalCol] || '').trim() : 'Unknown';
+              const rawStatus = statusCol !== -1 ? String(row[statusCol] || '').toLowerCase() : '';
+              const rawDsr = dsrCol !== -1 ? String(row[dsrCol] || '').toLowerCase() : '';
+
+              let symbol = "-";
+              if (rawStatus.includes('present') || rawStatus === 'p' || rawStatus.includes('✅') || rawStatus === '1') symbol = "P";
+              else if (rawStatus.includes('absent') || rawStatus === 'a' || rawStatus.includes('no') || rawStatus === '0') symbol = "A";
+              else if (rawStatus.includes('meeting') || rawStatus === 'm') symbol = "M";
+              else if (rawStatus.includes('training') || rawStatus === 't') symbol = "T";
+              else if (rawStatus.includes('leave') || rawStatus === 'l') symbol = "L";
+              
+              if (symbol === "-" && rawStatus.length > 0 && rawStatus.length < 4) symbol = "P";
+
               const key = gp.toUpperCase();
               if (!newAggregated.has(key)) {
-                newAggregated.set(key, { mandal: mandal.toUpperCase(), attendance: {} });
+                newAggregated.set(key, { mandal: mandal.toUpperCase(), attendance: {}, dsr: {} });
               }
-              newAggregated.get(key)!.attendance[fileDate] = symbol;
+              const entry = newAggregated.get(key)!;
+              entry.attendance[fileDate] = symbol;
+              entry.dsr[fileDate] = rawDsr.includes('entered') || rawDsr.includes('yes') || rawDsr.includes('✅') || rawDsr.includes('uploaded');
+              rowsAdded++;
             }
           }
+
+          debugLogs.push({
+            file: file.name,
+            sheet: sheetName,
+            date: fileDate,
+            gpColIdx: gpCol,
+            gpColName: gpCol !== -1 ? String(headerRow[gpCol]) : "NOT FOUND",
+            statusColIdx: statusCol,
+            statusColName: statusCol !== -1 ? String(headerRow[statusCol]) : "NOT FOUND",
+            rowsFound: rowsAdded
+          });
         }
       }
 
       setAggregatedData(newAggregated);
       setAllDates(Array.from(datesFound).sort());
+      setParserDebug(debugLogs);
+      setRawRows(updatedRawRows);
       addToast(`Analyzed all sheets in ${files.length} files!`);
     } catch (err) {
       console.error(err);
@@ -2674,6 +2702,26 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const downloadRawExcel = () => {
+    if (rawRows.length === 0) return;
+    const ws = XLSX.utils.aoa_to_sheet(rawRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Combined Raw Data");
+    XLSX.writeFile(wb, `MultiDay_Combined_Raw_${new Date().toLocaleDateString()}.xlsx`);
+    addToast("మొత్తం కలిపిన Raw డేటా డౌన్లోడ్ అవుతోంది...");
+  };
+
+  const downloadRawPdf = () => {
+    if (rawRows.length === 0) return;
+    const doc = new jsPDF('l', 'mm', 'a4');
+    autoTable(doc, {
+      body: rawRows.slice(0, 500), // Limit for PDF safety
+      styles: { fontSize: 5 },
+      margin: { top: 10 }
+    });
+    doc.save(`MultiDay_Combined_Raw_${new Date().toLocaleDateString()}.pdf`);
   };
 
   const downloadMandalSummary = () => {
@@ -2750,13 +2798,18 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 
   const totalGPs = filteredData.length;
   let totalPresent = 0;
+  let totalDsr = 0;
   let totalOpportunities = totalGPs * allDates.length;
   filteredData.forEach(([gp, info]) => {
     allDates.forEach(d => {
-      if (info.attendance[d] === 'P') totalPresent++;
+      if (info.attendance[d] === 'P') {
+        totalPresent++;
+        if (info.dsr[d]) totalDsr++;
+      }
     });
   });
   const avgAttendance = totalOpportunities > 0 ? Math.round((totalPresent / totalOpportunities) * 100) : 0;
+  const dsrCompliance = totalPresent > 0 ? Math.round((totalDsr / totalPresent) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -2770,19 +2823,20 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 
       {aggregatedData.size > 0 && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-6 rounded-[32px] border shadow-sm flex items-center justify-between">
               <div>
-                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total GPs Analyzed</h4>
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total GPs</h4>
                 <div className="text-3xl font-black text-primary">{totalGPs}</div>
               </div>
               <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center">
                 <Users size={24} />
               </div>
             </div>
+            
             <div className="bg-white p-6 rounded-[32px] border shadow-sm">
                <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Avg. Attendance Rate</h4>
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Attendance</h4>
                   <span className="text-sm font-black text-emerald-600">{avgAttendance}%</span>
                </div>
                <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
@@ -2792,11 +2846,45 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                     className="h-full bg-emerald-500 rounded-full"
                   />
                </div>
-               <p className="mt-2 text-[10px] text-slate-500 font-medium uppercase italic">
-                  Overall Period Consistency
-               </p>
+            </div>
+
+            <div className="bg-white p-6 rounded-[32px] border shadow-sm">
+               <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest">DSR Compliance</h4>
+                  <span className="text-sm font-black text-indigo-600">{dsrCompliance}%</span>
+               </div>
+               <div className="h-3 bg-indigo-50 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${dsrCompliance}%` }}
+                    className="h-full bg-indigo-500 rounded-full"
+                  />
+               </div>
             </div>
           </div>
+
+          <div className="flex flex-col gap-2">
+               <div className="flex items-center gap-2">
+                 <button 
+                  onClick={() => setShowDebug(!showDebug)}
+                  className="text-[10px] font-black text-slate-400 uppercase hover:text-primary transition-colors flex items-center gap-1"
+                 >
+                   {showDebug ? 'Hide Debug' : 'Show Debug Info'}
+                 </button>
+               </div>
+               {showDebug && parserDebug.length > 0 && (
+                 <div className="p-4 bg-slate-900 rounded-2xl text-[9px] font-mono text-emerald-400 space-y-1 overflow-auto max-h-48 border border-white/10">
+                   <div className="text-white font-bold mb-2 uppercase tracking-widest text-[10px]">Parser Analysis History</div>
+                   {parserDebug.map((d, i) => (
+                     <div key={i} className="border-b border-white/5 pb-1">
+                       <span className="text-blue-400">[{d.file} / {d.sheet}]</span> 
+                       <br/>
+                       Date: {d.date} | GP Col: {d.gpColName} ({d.gpColIdx}) | Status Col: {d.statusColName} ({d.statusColIdx}) | <span className={d.rowsFound > 0 ? 'text-emerald-400' : 'text-rose-400'}>Rows: {d.rowsFound}</span>
+                     </div>
+                   ))}
+                 </div>
+               )}
+            </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 py-2">
              <button 
@@ -2812,16 +2900,16 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                <Download size={14} /> GP Comparative
              </button>
              <button 
-               onClick={downloadGPSummary}
+               onClick={downloadRawExcel}
                className="flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-emerald-100 hover:border-emerald-200 active:scale-95 transition-all"
              >
-               <Download size={14} /> Raw Excel
+               <Download size={14} /> Combined Raw (XL)
              </button>
              <button 
-               onClick={downloadMultiPdf}
+               onClick={downloadRawPdf}
                className="flex items-center justify-center gap-2 bg-rose-50 text-rose-700 border border-rose-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-rose-100 hover:border-rose-200 active:scale-95 transition-all"
              >
-               <Download size={14} /> Raw PDF
+               <Download size={14} /> Raw PDF (500)
              </button>
           </div>
 
@@ -2848,11 +2936,18 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                     <tr key={gp} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4 border-r font-black text-primary">
                         {gp}
-                        <div className="text-[10px] text-slate-400">{info.mandal}</div>
+                        <div className="text-[10px] text-slate-400 font-medium">{info.mandal}</div>
                       </td>
                       {allDates.map(d => (
                         <td key={d} className="p-4 text-center border-r">
-                           <StatusCell status={info.attendance[d] || '-'} />
+                   <div className="flex flex-col items-center gap-1">
+                      <StatusCell status={info.attendance[d] || '-'} />
+                      {info.attendance[d] === 'P' && (
+                        <span className={`text-[8px] font-black uppercase px-1.5 rounded ${info.dsr[d] ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600'}`}>
+                          {info.dsr[d] ? 'DSR ✅' : 'DSR ❌'}
+                        </span>
+                      )}
+                   </div>
                         </td>
                       ))}
                     </tr>
