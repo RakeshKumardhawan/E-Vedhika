@@ -8,17 +8,19 @@ import { useSearchParams, Link, Routes, Route, useNavigate, useLocation } from '
 import { 
   Bell, Menu, X, Home, Megaphone, FileText, Wheat, Vote, 
   Wallet, Building, MessageCircle, Handshake, Lightbulb, 
-  AlertTriangle, Send, LogOut, ChevronDown, ChevronUp, Search,
+  AlertTriangle, Send, LogOut, ChevronDown, ChevronUp, Search, Filter,
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
   Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, MessageSquare,
   Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock,
-  Users, AlertOctagon, CheckCircle2, ClipboardList, Zap, Clock, ArrowLeft, Loader2, XCircle, ChevronRight, Flag, ShieldCheck
+  Users, AlertOctagon, CheckCircle2, ClipboardList, Zap, Clock, ArrowLeft, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie
 } from 'recharts';
@@ -32,6 +34,7 @@ import {
   getDocFromServer
 } from 'firebase/firestore';
 import { auth, db } from "../firebase";
+import { GoogleGenAI } from "@google/genai";
 
 async function testConnection() {
   try {
@@ -855,65 +858,87 @@ export default function App() {
         ))}
       </AnimatePresence>
 
-      <header className="sticky top-0 z-[1001] bg-[#0d3b66] border-b-4 border-[#fbbf24] shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 h-24 flex items-center gap-4">
-          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { setCurrentTab('home'); setSidebarOpen(false); }}>
-            <div className="w-12 h-12 rounded-full border-2 border-dashed border-[#fbbf24] flex items-center justify-center p-1 group-hover:rotate-12 transition-transform">
-              <div className="w-full h-full rounded-full bg-[#0d3b66] flex items-center justify-center text-white font-black text-sm">EV</div>
-            </div>
-            <div className="flex flex-col">
-              <div className="bg-[#0077b6] px-3 py-1 rounded-t-md">
-                <h1 className="text-2xl font-black italic tracking-tighter text-[#fbbf24] leading-none">E-VEDHIKA</h1>
-              </div>
-              <div className="bg-[#023e8a] px-3 py-0.5 rounded-b-md">
-                <p className="text-[8px] font-black text-white uppercase tracking-wider">All Problems One Solution</p>
-              </div>
-            </div>
+      <header className="sticky top-0 z-[1001]" style={{ background: 'var(--primary)', height: 'var(--header-h)', borderBottom: '3px solid var(--accent)', display: 'flex', alignItems: 'center', padding: '0 4%' }}>
+        <div className="brand-wrapper cursor-pointer" onClick={() => { setCurrentTab('home'); setSidebarOpen(false); }}>
+          {/* Logo Section */}
+          <div className="logo-container" id="evLogo">
+            <svg viewBox="0 0 64 64" width="40" height="40">
+              <g className="logo-ring" id="mainLogoRing">
+                <circle cx="32" cy="32" r="29" fill="none" stroke="#facc15" strokeWidth="2" strokeDasharray="5 8"/>
+              </g>
+              <circle cx="32" cy="32" r="24" fill="#0d3b66"/>
+              <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="700" fontFamily="Segoe UI, sans-serif" className="ev-logo-text">EV</text>
+            </svg>
           </div>
+          {/* Website Name Section */}
+          <div>
+            <h2 className="brand-title">E-VEDHIKA</h2>
+            <p className="sub-tagline">all problems one solution</p>
+          </div>
+        </div>
 
-          <div className="flex-1"></div>
+        <div className="flex-1"></div>
 
-          <div className="hidden md:flex items-center gap-3">
-             {user && !user.isAnonymous ? (
-               <div onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-2xl border border-white/10 transition-all cursor-pointer">
-                  <div className="w-8 h-8 rounded-full bg-[#fbbf24] flex items-center justify-center text-[#0d3b66] font-black text-xs">
-                     {user.photoURL ? <img src={user.photoURL} className="w-full h-full rounded-full object-cover" /> : user.email?.charAt(0).toUpperCase()}
+        <div className="flex items-center gap-5">
+          {user && !user.isAnonymous && (
+             <div onClick={() => setShowProfileModal(true)} className="hidden sm:flex items-center gap-3 bg-gradient-to-r from-[#174b7c] to-transparent pl-1.5 pr-5 py-1.5 rounded-[16px] border border-accent/30 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_0_20px_rgba(250,204,21,0.25)] hover:border-accent/60 transition-all duration-300 relative overflow-hidden group cursor-pointer">
+                <div className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/10 to-accent/0 -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out"></div>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-[#d97706] flex items-center justify-center text-primary font-black text-lg shadow-inner border-[2px] border-white/20 relative z-10 shadow-[0_0_10px_rgba(250,204,21,0.5)] overflow-hidden">
+                   {user?.photoURL ? (
+                     <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                   ) : (
+                     <User size={18} className="text-primary" />
+                   )}
+                </div>
+                <div className="flex flex-col justify-center relative z-10">
+                  <span className="text-white text-[12px] font-black tracking-wide leading-tight drop-shadow-sm">{userProfile?.username || "Panchayat Member"}</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_6px_#10b981] animate-pulse"></span>
+                    <span className="text-accent text-[9px] font-bold uppercase tracking-[0.15em] drop-shadow-sm">{isAdmin ? 'System Admin' : isEditor ? 'Editor' : 'Active User'}</span>
                   </div>
-                  <span className="text-white text-xs font-bold">{userProfile?.username || "Guest"}</span>
-               </div>
-             ) : (
-               <button onClick={triggerLogin} className="bg-[#fbbf24] text-[#0d3b66] px-6 py-2 rounded-xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all">
-                  Join Portal
-               </button>
-             )}
-          </div>
+                </div>
+             </div>
+          )}
         </div>
       </header>
 
-      <div className="bg-white border-b border-slate-100 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="bg-[#dc2626] text-white px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest animate-pulse">Hot Updates</div>
-          <div className="hidden sm:block text-[11px] font-bold text-slate-500 max-w-md truncate">
-             {updates.length > 0 ? updates[0].text : 'Empowering local governance through digital innovation...'}
-          </div>
+      <div className="latest-bar overflow-hidden">
+        <div className="latest-label">HOT UPDATES</div>
+        <div className="latest-text flex-1">
+          <span>
+            {updates.length > 0 
+              ? updates.map(u => u.text || (u as any).msg || (u as any).update).join('  •  ') 
+              : 'Empowering local governance through digital innovation... Telangana PR Portal is now live for all panchayats...'}
+          </span>
         </div>
-        <div className="text-[11px] font-black text-[#0d3b66] uppercase tracking-widest italic">Empowering</div>
       </div>
 
-      <nav className="sticky top-0 z-[1000] bg-white shadow-sm px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-        <button className="bg-[#0d3b66] text-white p-2.5 rounded-lg shadow-md hover:opacity-90 transition-all" onClick={() => setSidebarOpen(!sidebarOpen)}>
-          <Menu size={20} />
-        </button>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setShowNotifications(!showNotifications)} className="p-2.5 text-slate-400 hover:text-[#0d3b66] hover:bg-slate-50 rounded-xl transition-all relative">
-            <Bell size={22} />
-            {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-white">{unreadCount}</span>
-            )}
+      <nav className="nav-trigger-bar sticky top-0 z-[1000]">
+        <div className="trigger-left">
+          <button className="menu-toggle shrink-0" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <span></span>
+            <span></span>
+            <span></span>
           </button>
         </div>
-      </nav>
 
+        <div className="flex-1"></div>
+
+        <div className="flex items-center gap-4">
+          <div 
+            className="notif-bell"
+            onClick={() => setShowNotifications(!showNotifications)}
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <span className="notif-badge" style={{ display: 'flex' }}>
+                {unreadCount}
+              </span>
+            )}
+          </div>
+
+        </div>
+      </nav>
 
       {/* Sidebar Overlay for Mobile */}
       <AnimatePresence>
@@ -936,10 +961,10 @@ export default function App() {
             {sidebarOpen && (
               <button 
                 onClick={() => setSidebarOpen(false)}
-                className="absolute top-2 right-2 p-3 bg-slate-100 text-slate-500 hover:text-primary rounded-full transition-all active:scale-90 z-[1200] shadow-sm flex items-center justify-center hover:bg-white border border-slate-200"
+                className="absolute top-0 right-0 p-2 text-slate-400 hover:text-primary transition-colors focus:outline-none"
                 title="Close sidebar"
               >
-                <X size={20} strokeWidth={3} />
+                <X size={20} />
               </button>
             )}
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-4">Navigations</h3>
@@ -2227,8 +2252,11 @@ function StatCard({ label, val, color }: { label: string, val: number, color: st
     blue: { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af', icon: Users },
     red: { bg: '#fef2f2', border: '#fecaca', text: '#991b1b', icon: AlertOctagon },
     green: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534', icon: CheckCircle2 },
+    emerald: { bg: '#ecfdf5', border: '#a7f3d0', text: '#065f46', icon: CheckCircle2 },
+    cyan: { bg: '#ecfeff', border: '#a5f3fc', text: '#0e7490', icon: Info },
     amber: { bg: '#fffbeb', border: '#fde68a', text: '#92400e', icon: ClipboardList },
-    purple: { bg: '#faf5ff', border: '#e9d5ff', text: '#6b21a8', icon: Zap }
+    purple: { bg: '#faf5ff', border: '#e9d5ff', text: '#6b21a8', icon: Zap },
+    slate: { bg: '#f8fafc', border: '#e2e8f0', text: '#334155', icon: Hash }
   };
   const theme = themes[color] || themes.blue;
   const Icon = theme.icon;
@@ -2251,53 +2279,158 @@ function StatCard({ label, val, color }: { label: string, val: number, color: st
   );
 }
 
-function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => void, user: FirebaseUser | null }) {
-  const [activeTool, setActiveTool] = useState<string | null>(null);
+function safeStringify(obj: any): string {
+  try {
+    return JSON.stringify(obj, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    , 2);
+  } catch (e) {
+    return String(obj);
+  }
+}
+
+function SmartAssistant({ title, placeholder, systemInstruction, icon: Icon }: { title: string, placeholder: string, systemInstruction: string, icon: any }) {
+  const [input, setInput] = useState("");
+  const [response, setResponse] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleAsk = async () => {
+    if (!input.trim()) return;
+    setLoading(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: input,
+        config: {
+          systemInstruction: systemInstruction,
+        },
+      });
+      setResponse(response.text || "No response received.");
+    } catch (error) {
+      console.error("AI Error:", error);
+      setResponse("Sorry, I encountered an error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="bg-white rounded-[16px] shadow-2xl border-t-[8px] border-[#0d3b66] relative overflow-hidden">
-      <div className="p-6 sm:p-8 flex flex-col sm:flex-row justify-between items-center border-b border-slate-100 gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-slate-100 rounded-2xl text-[#0d3b66]">
-            <Building size={32} />
-          </div>
-          <div>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Mana Panchayath</h2>
-            <p className="text-sm font-bold text-slate-400">Technical Workspace for PR Officers</p>
-          </div>
-        </div>
-        {activeTool && (
-          <button 
-            onClick={() => setActiveTool(null)} 
-            className="px-6 py-2 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#0d3b66] rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
-          >
-            <div className="bg-[#0d3b66] text-white p-1 rounded-md">
-               <ArrowLeft size={10} />
-            </div>
-            Back to Tools
-          </button>
-        )}
+    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon size={18} className="text-primary" />
+        <h4 className="font-bold text-sm text-primary">{title}</h4>
       </div>
-      
-      <div className="p-6 sm:p-10">
-        {!activeTool && (
-          <div className="mana-grid">
-            <ToolCard emoji="📈" title="DSR Analyzer" onClick={() => setActiveTool('dsr')} />
-            <ToolCard emoji="🗓️" title="Multi-Day Attendance" onClick={() => setActiveTool('multi')} />
-            <ToolCard emoji="🎓" title="Digital Training" onClick={() => setActiveTool('training')} />
-            <ToolCard emoji="📂" title="Forms Hub" onClick={() => setActiveTool('forms')} />
-          </div>
-        )}
+      <div className="flex gap-2">
+        <input 
+          className="flex-1 bg-white border p-2 rounded-xl text-sm" 
+          placeholder={placeholder}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAsk()}
+        />
+        <button 
+          onClick={handleAsk}
+          disabled={loading}
+          className="bg-primary text-white p-2 rounded-xl disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
+        </button>
+      </div>
+      {response && (
+        <div className="mt-3 p-3 bg-white rounded-xl text-xs text-slate-600 border border-slate-100 markdown-body">
+          <ReactMarkdown>{response}</ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+}
 
-        {activeTool && (
-          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="mt-4">
-            {activeTool === 'dsr' && <DSRAnalyzer addToast={addToast} user={user} />}
-            {activeTool === 'training' && <TrainingCenter />}
-            {activeTool === 'multi' && <MultiDayAnalyzer addToast={addToast} user={user} />}
-            {activeTool === 'forms' && <FormsHub addToast={addToast} user={user} />}
+function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => void, user: FirebaseUser | null }) {
+  const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [showTrainingBot, setShowTrainingBot] = useState(false);
+
+  const tools = [
+    { id: 'dsr', title: 'DSR Analyzer', icon: BarChart3, desc: 'Analyze Daily Status Reports' },
+    { id: 'multiday', title: 'Multi-Day attendance', icon: Layers, desc: 'Multiple Attendance Records' },
+    { id: 'training', title: 'Digital Training', icon: GraduationCap, desc: 'Workflows & Tutorials' },
+    { id: 'pract', title: 'PR Act Hub', icon: Book, desc: 'A to Z Interactive Guide' }
+  ];
+
+  return (
+    <div className="section-card card-blue relative">
+      <motion.h2 
+        initial={{ x: -10, opacity: 0 }} 
+        animate={{ x: 0, opacity: 1 }}
+        style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px' }}
+      >
+        <LayoutDashboard size={24} style={{ color: '#0891b2' }} /> Mana Panchayath
+      </motion.h2>
+      <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>Advanced tools for PR & RD Officers.</p>
+
+      <div className="mana-grid">
+        {tools.map(t => (
+          <div key={t.id} className="mana-card" onClick={() => setActiveTool(t.id)}>
+            <div style={{ color: 'var(--primary)', marginBottom: '10px', display: 'flex', justifyContent: 'center' }}>
+              <t.icon size={32} />
+            </div>
+            <h4>{t.title}</h4>
+          </div>
+        ))}
+      </div>
+
+      <AnimatePresence>
+        {activeTool === 'dsr' && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '20px' }}>
+            <DSRAnalyzer addToast={addToast} user={user} />
           </motion.div>
         )}
-      </div>
+        {activeTool === 'multiday' && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '20px' }}>
+            <MultiDayAnalyzer addToast={addToast} />
+          </motion.div>
+        )}
+        {activeTool === 'training' && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '20px' }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h3 style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}><GraduationCap /> Digital Workflows</h3>
+                <button onClick={() => setShowTrainingBot(!showTrainingBot)} style={{ background: '#f1f5f9', border: 'none', padding: '5px 12px', borderRadius: '15px', color: 'var(--primary)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Bot size={14} /> {showTrainingBot ? "Hide Help" : "Ask Training Bot"}
+                </button>
+             </div>
+
+             <AnimatePresence>
+                {showTrainingBot && (
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} style={{ marginBottom: '20px' }}>
+                    <SmartAssistant 
+                      title="Training Helper"
+                      placeholder="How do I process a DSR? What is the login workflow?"
+                      systemInstruction="You are a helpful training assistant for the Mana Panchayath workspace. You help users understand workflows like DSR Analysis (uploading .xls files, viewing charts) and Digital Training steps. Keep answers short and instructional."
+                      icon={GraduationCap}
+                    />
+                  </motion.div>
+                )}
+             </AnimatePresence>
+
+             <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                {[1, 2, 3].map(step => (
+                  <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div style={{ width: '40px', height: '40px', background: 'var(--primary)', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800' }}>{step}</div>
+                    <div style={{ flex: 1, background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                      <span style={{ fontWeight: 700 }}>Workflow Step {step}</span>
+                      <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>Detailed tutorial content for step {step} will appear here.</p>
+                    </div>
+                  </div>
+                ))}
+             </div>
+          </motion.div>
+        )}
+        {activeTool === 'pract' && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '20px' }}>
+            <PRActHub />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -2418,20 +2551,319 @@ function FormsHub({ addToast, user }: { addToast: (s:string) => void, user: Fire
   );
 }
 
-function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: FirebaseUser | null }) {
+function StatusCell({ status }: { status: string }) {
+  if (status === 'P') return <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black border border-emerald-200">✅ PRESENT</span>;
+  if (status === 'A') return <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-[10px] font-black border border-rose-200">❌ ABSENT</span>;
+  if (status === 'M') return <span className="bg-cyan-100 text-cyan-700 px-3 py-1 rounded-full text-[10px] font-black border border-cyan-200">🤝 MEETING</span>;
+  if (status === 'T') return <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black border border-amber-200">🎓 TRAINING</span>;
+  if (status === 'L') return <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-[10px] font-black border border-slate-200">🏠 LEAVE</span>;
+  return <span className="text-slate-300 font-bold">-</span>;
+}
+
+function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
+  const [aggregatedData, setAggregatedData] = useState<Map<string, { mandal: string, attendance: Record<string, string> }>>(new Map());
+  const [allDates, setAllDates] = useState<string[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [mandalFilter, setMandalFilter] = useState("All");
+
+  const onUpload = async (e: any) => {
+    const files = Array.from(e.target.files) as File[];
+    if (files.length === 0) return;
+
+    setIsAnalyzing(true);
+    const newAggregated = new Map(aggregatedData);
+    const datesFound = new Set(allDates);
+
+    try {
+      for (const file of files) {
+        const dataBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(dataBuffer, { type: 'array' });
+        
+        for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          if (rows.length < 2) continue;
+
+          // 1. DATE EXTRACTION (Enhanced)
+          let fileDate = "Unknown";
+          const sheetDateMatch = sheetName.match(/(\d{2}[-.]\d{2}[-.]\d{4})|(\d{4}[-.]\d{2}[-.]\d{2})/);
+          if (sheetDateMatch) {
+              fileDate = sheetDateMatch[0];
+          } else {
+            for (let r = 0; r < Math.min(rows.length, 20); r++) {
+              const rowStr = rows[r]?.join(' ') || '';
+              const match = rowStr.match(/(\d{2}[-/.]\d{2}[-/.]\d{2,4})|(\d{2}[-/.]\w+[-/.]\d{2,4})/);
+              if (match) { fileDate = match[0]; break; }
+            }
+          }
+
+          if (fileDate === "Unknown") {
+              const nameMatch = file.name.match(/(\d{2}[-.]\d{2}[-.]\d{4})|(\d{4}[-.]\d{2}[-.]\d{2})/);
+              fileDate = nameMatch ? nameMatch[0] : file.name.split('.')[0];
+          }
+          datesFound.add(fileDate);
+
+          // 2. SMART HEADER DETECTION
+          let bestHeaderRowIdx = -1;
+          let maxS = 0;
+          for (let r = 0; r < Math.min(rows.length, 50); r++) {
+            const row = rows[r];
+            if (!row || !Array.isArray(row)) continue;
+            const rowStr = row.map(c => String(c || '').toLowerCase()).join(' ');
+            let s = 0;
+            if (rowStr.includes('mandal')) s += 2;
+            if (rowStr.includes('panchayat') || rowStr.includes('gp name') || rowStr.includes('habitation')) s += 2;
+            if (rowStr.includes('status') || rowStr.includes('attendance')) s += 1;
+            if (s > maxS) { maxS = s; bestHeaderRowIdx = r; }
+          }
+
+          if (bestHeaderRowIdx === -1) continue;
+
+          // 3. COLUMN MAPPING
+          let mandalCol = -1, gpCol = -1, statusCol = -1;
+          const headerRow = rows[bestHeaderRowIdx] || [];
+          for (let c = 0; c < headerRow.length; c++) {
+            const cellVal = String(headerRow[c] || '').toLowerCase().trim();
+            if (gpCol === -1 && (cellVal.includes('gram') || cellVal === 'gp' || cellVal.includes('panchayat') || cellVal.includes('habitation') || cellVal.includes('village name'))) {
+                if (!cellVal.includes('id') && !cellVal.includes('code')) gpCol = c;
+            }
+            if (mandalCol === -1 && (cellVal.includes('mandal') || cellVal.includes('block'))) {
+                if (!cellVal.includes('id') && !cellVal.includes('code')) mandalCol = c;
+            }
+            if (statusCol === -1 && (cellVal.includes('status') || cellVal.includes('attend'))) {
+                if (!cellVal.includes('date') && !cellVal.includes('time')) statusCol = c;
+            }
+          }
+
+          // 4. DATA PROCESSING
+          for (let r = bestHeaderRowIdx + 1; r < rows.length; r++) {
+            const row = rows[r];
+            if (!row || !Array.isArray(row)) continue;
+            
+            const gp = String(row[gpCol] || '').trim();
+            if (!gp || gp.length < 2 || gp.toLowerCase().includes('total')) continue;
+
+            const mandal = mandalCol !== -1 ? String(row[mandalCol] || '').trim() : 'Unknown';
+            const rawStatus = String(row[statusCol] || '').toLowerCase();
+
+            let symbol = "-";
+            if (rawStatus.includes('present') || rawStatus === 'p' || rawStatus.includes('✅')) symbol = "P";
+            else if (rawStatus.includes('absent') || rawStatus === 'a' || rawStatus.includes('no')) symbol = "A";
+            else if (rawStatus.includes('meeting') || rawStatus === 'm') symbol = "M";
+            else if (rawStatus.includes('training') || rawStatus === 't') symbol = "T";
+            else if (rawStatus.includes('leave') || rawStatus === 'l') symbol = "L";
+
+            if (symbol !== "-") {
+              const key = gp.toUpperCase();
+              if (!newAggregated.has(key)) {
+                newAggregated.set(key, { mandal: mandal.toUpperCase(), attendance: {} });
+              }
+              newAggregated.get(key)!.attendance[fileDate] = symbol;
+            }
+          }
+        }
+      }
+
+      setAggregatedData(newAggregated);
+      setAllDates(Array.from(datesFound).sort());
+      addToast(`Analyzed all sheets in ${files.length} files!`);
+    } catch (err) {
+      console.error(err);
+      addToast("Error parsing files.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const downloadMandalSummary = () => {
+    if (aggregatedData.size === 0) return;
+    const mandalSummary = new Map<string, { total: number, present: number }>();
+    filteredData.forEach(([gp, info]) => {
+      const m = info.mandal;
+      if (!mandalSummary.has(m)) mandalSummary.set(m, { total: 0, present: 0 });
+      const s = mandalSummary.get(m)!;
+      allDates.forEach(d => {
+        s.total++;
+        if (info.attendance[d] === 'P') s.present++;
+      });
+    });
+    const exportData = Array.from(mandalSummary.entries()).map(([m, s]) => ({
+      Mandal: m,
+      'Total Checks': s.total,
+      'Present Count': s.present,
+      'Avg Attendance %': s.total > 0 ? Math.round((s.present / s.total) * 100) : 0
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Mandal Summary");
+    XLSX.writeFile(wb, `MultiDay_Mandal_Summary_${new Date().toLocaleDateString()}.xlsx`);
+    addToast("మండల్ అటెండెన్స్ సమ్మరీ డౌన్లోడ్ అవుతోంది...");
+  };
+
+  const downloadGPSummary = () => {
+    if (aggregatedData.size === 0) return;
+    const exportData = filteredData.map(([gp, info]) => {
+      const row: any = { 'GP Name': gp, 'Mandal': info.mandal };
+      let presentDays = 0;
+      allDates.forEach(d => {
+        const s = info.attendance[d] || '-';
+        row[d] = s;
+        if (s === 'P') presentDays++;
+      });
+      row['Present Days'] = presentDays;
+      row['Attendance %'] = allDates.length > 0 ? Math.round((presentDays / allDates.length) * 100) : 0;
+      return row;
+    });
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "GP Comparative");
+    XLSX.utils.book_append_sheet(wb, ws, "GP Comparative");
+    XLSX.writeFile(wb, `MultiDay_GP_Comparative_${new Date().toLocaleDateString()}.xlsx`);
+    addToast("GP వైజ్ కంపారిటివ్ రిపోర్ట్ డౌన్లోడ్ అవుతోంది...");
+  };
+
+  const downloadMultiPdf = () => {
+    if (aggregatedData.size === 0) return;
+    const doc = new jsPDF('l', 'mm', 'a4');
+    const head = [['GP Name', 'Mandal', ...allDates]];
+    const body = filteredData.map(([gp, info]) => [
+      gp,
+      info.mandal,
+      ...allDates.map(d => info.attendance[d] || '-')
+    ]);
+    autoTable(doc, {
+      head: head,
+      body: body,
+      styles: { fontSize: 6 },
+      theme: 'grid'
+    });
+    doc.save(`MultiDay_Comparative_${new Date().toLocaleDateString()}.pdf`);
+  };
+
+  const mandals = Array.from(new Set(Array.from(aggregatedData.values()).map(info => info.mandal))).sort();
+  const filteredData = Array.from(aggregatedData.entries()).filter(([gp, info]) => {
+    const matchesSearch = gp.includes(searchTerm.toUpperCase()) || info.mandal.includes(searchTerm.toUpperCase());
+    const matchesMandal = mandalFilter === 'All' || info.mandal === mandalFilter;
+    return matchesSearch && matchesMandal;
+  });
+
+  const totalGPs = filteredData.length;
+  let totalPresent = 0;
+  let totalOpportunities = totalGPs * allDates.length;
+  filteredData.forEach(([gp, info]) => {
+    allDates.forEach(d => {
+      if (info.attendance[d] === 'P') totalPresent++;
+    });
+  });
+  const avgAttendance = totalOpportunities > 0 ? Math.round((totalPresent / totalOpportunities) * 100) : 0;
+
   return (
-    <div className="space-y-4">
-      <h3 className="font-bold">Multi-Day Growth Analyzer</h3>
-      <div className="p-6 border-2 border-dashed rounded-2xl text-center bg-slate-50">
-        <p className="text-sm text-slate-500">Upload folder or multiple files to generate attendance Heatmap</p>
-        <button onClick={() => {
-           if (!user) {
-              addToast("Please login to upload and view full Multi-Day data.");
-              return;
-           }
-           addToast("Pro Feature: Multi-file scanning requires bulk permissions.")
-        }} className="mt-4 bg-primary text-white px-6 py-2 rounded-xl font-bold">Open Bulk Selector</button>
+    <div className="space-y-6">
+      <div className="bg-slate-50 p-8 rounded-[32px] border-2 border-dashed border-slate-200 text-center">
+        <h3 className="font-black text-primary uppercase text-sm tracking-widest mb-4">Multi-Day Comparative Hub</h3>
+        <input type="file" multiple onChange={onUpload} className="hidden" id="multi-up" />
+        <label htmlFor="multi-up" className="bg-primary text-white px-8 py-3 rounded-2xl font-black text-xs uppercase cursor-pointer hover:scale-105 transition-transform inline-flex items-center gap-2">
+          {isAnalyzing ? <RefreshCw className="animate-spin" size={14} /> : <Upload size={14} />} {aggregatedData.size > 0 ? "Upload More Reports" : "Upload Multiple Daily Reports"}
+        </label>
       </div>
+
+      {aggregatedData.size > 0 && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white p-6 rounded-[32px] border shadow-sm flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total GPs Analyzed</h4>
+                <div className="text-3xl font-black text-primary">{totalGPs}</div>
+              </div>
+              <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center">
+                <Users size={24} />
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-[32px] border shadow-sm">
+               <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Avg. Attendance Rate</h4>
+                  <span className="text-sm font-black text-emerald-600">{avgAttendance}%</span>
+               </div>
+               <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${avgAttendance}%` }}
+                    className="h-full bg-emerald-500 rounded-full"
+                  />
+               </div>
+               <p className="mt-2 text-[10px] text-slate-500 font-medium uppercase italic">
+                  Overall Period Consistency
+               </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 py-2">
+             <button 
+               onClick={downloadMandalSummary}
+               className="flex items-center justify-center gap-2 bg-blue-50 text-blue-700 border border-blue-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-blue-100 hover:border-blue-200 active:scale-95 transition-all"
+             >
+               <Download size={14} /> Mandal Summary
+             </button>
+             <button 
+               onClick={downloadGPSummary}
+               className="flex items-center justify-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-slate-100 active:scale-95 transition-all"
+             >
+               <Download size={14} /> GP Comparative
+             </button>
+             <button 
+               onClick={downloadGPSummary}
+               className="flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-emerald-100 hover:border-emerald-200 active:scale-95 transition-all"
+             >
+               <Download size={14} /> Raw Excel
+             </button>
+             <button 
+               onClick={downloadMultiPdf}
+               className="flex items-center justify-center gap-2 bg-rose-50 text-rose-700 border border-rose-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-rose-100 hover:border-rose-200 active:scale-95 transition-all"
+             >
+               <Download size={14} /> Raw PDF
+             </button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+               <input className="flex-1 bg-white border p-3 rounded-xl text-sm" placeholder="Search GP or Mandal..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+               <select className="bg-white border p-3 rounded-xl text-sm font-bold" value={mandalFilter} onChange={e => setMandalFilter(e.target.value)}>
+                  <option value="All">All Mandals</option>
+                  {mandals.map(m => <option key={m} value={m}>{m}</option>)}
+               </select>
+            </div>
+
+          <div className="bg-white border rounded-[24px] shadow-sm overflow-hidden">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-400 font-black uppercase tracking-widest border-b">
+                    <th className="p-4 border-r">GP (Mandal)</th>
+                    {allDates.map(d => <th key={d} className="p-4 text-center border-r min-w-[100px]">{d}</th>)}
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredData.map(([gp, info]) => (
+                    <tr key={gp} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4 border-r font-black text-primary">
+                        {gp}
+                        <div className="text-[10px] text-slate-400">{info.mandal}</div>
+                      </td>
+                      {allDates.map(d => (
+                        <td key={d} className="p-4 text-center border-r">
+                           <StatusCell status={info.attendance[d] || '-'} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      )}
     </div>
   );
 }
@@ -2471,274 +2903,537 @@ function ToolCard({ icon: Icon, emoji, title, onClick }: { icon?: any, emoji?: s
 
 function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: FirebaseUser | null }) {
   const [data, setData] = useState<any[]>([]);
+  const [filteredData, setFilteredData] = useState<any[]>([]);
   const [rawJson, setRawJson] = useState<any[]>([]);
-  const [stats, setStats] = useState({ total: 0, present: 0, dsr: 0 });
-  const [viewMode, setViewMode] = useState<'processed' | 'raw'>('processed');
+  const [stats, setStats] = useState({ total: 0, present: 0, dsr: 0, meeting: 0, training: 0, leave: 0 });
+  const [mandalSummaries, setMandalSummaries] = useState<Record<string, any>>({});
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const onUpload = (e: any) => {
     const file = e.target.files[0];
     if (!file) return;
+
     const reader = new FileReader();
-    reader.onload = (evt: any) => {
-      const ab = evt.target?.result;
+    reader.onload = (evt) => {
+      const dataBuffer = evt.target?.result as ArrayBuffer;
+      let allRows: any[][] = [];
       
-      // Attempt to decode the buffer to check for HTML strings
-      let content = "";
       try {
-        const decoder = new TextDecoder('utf-8');
-        content = decoder.decode(ab);
+        // Attempt standard Excel parsing
+        const workbook = XLSX.read(dataBuffer, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
       } catch (e) {
-        console.error("Text decoding failed", e);
+        console.error("XLSX parsing failed", e);
       }
 
-      let json: any[] = [];
-      if (content.includes('<table') || content.includes('<div') || content.includes('<html>')) {
-        // It's likely an HTML table saved as .xls/xlsx
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = content;
+      // HTML Fallback (Common for govt portal .xls extensions)
+      if (allRows.length < 5 || (allRows[0] && allRows[0].length < 2)) {
+        try {
+          const text = new TextDecoder().decode(dataBuffer);
+          if (text.includes('<table') || text.includes('<html>')) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            const trs = doc.querySelectorAll('tr');
+            allRows = Array.from(trs).map(tr => 
+              Array.from(tr.querySelectorAll('td, th')).map(td => td.textContent?.trim() || '')
+            );
+          }
+        } catch (e) {
+          console.error("HTML fallback failed", e);
+        }
+      }
+
+      if (allRows.length === 0) {
+        addToast("క్షమించండి! ఫైల్ ఖాళీగా ఉంది లేదా చదవడం కుదరలేదు.");
+        return;
+      }
+
+      setRawJson(allRows);
+
+      // 1. ROBUST HEADER DETECTION
+      let bestHeaderIdx = -1;
+      let maxScore = 0;
+      const mandalKeys = ["mandal", "block", "tehsil"];
+      const gpKeys = ["panchayat", "gp name", "gram", "habitation", "village name"];
+      
+      for (let i = 0; i < Math.min(allRows.length, 100); i++) {
+        const rowStrings = (allRows[i] || []).map(c => String(c || "").toLowerCase().trim());
+        let score = 0;
+        if (rowStrings.some(s => mandalKeys.some(k => s.includes(k)))) score += 3;
+        if (rowStrings.some(s => gpKeys.some(k => s.includes(k)))) score += 3;
+        if (rowStrings.some(s => s.includes("attendance") || s.includes("status"))) score += 1;
         
-        // Find the table that actually contains data headers
-        const tables = tempDiv.querySelectorAll('table');
-        let targetTable: HTMLTableElement | null = null;
+        if (score > maxScore) {
+          maxScore = score;
+          bestHeaderIdx = i;
+        }
+      }
+
+      // Check if user's hint for row 4 (idx 3) should be used
+      if (maxScore < 4 && allRows.length > 3) {
+        const row4 = allRows[3]?.map(c => String(c || "").toLowerCase()) || [];
+        if (row4.some(s => s.includes('mandal')) || row4.some(s => s.includes('panchayat'))) bestHeaderIdx = 3;
+      }
+
+      if (bestHeaderIdx === -1) {
+        addToast("క్షమించండి! మీ ఫైల్‌లో 'Mandal Name' మరియు 'Panchayat Name' కాలమ్స్ దొరకలేదు.");
+        return;
+      }
+
+      // Normalize Headers (check current and next row for merged headers)
+      let headers = allRows[bestHeaderIdx].map(h => String(h || "").toLowerCase().trim());
+      if (bestHeaderIdx + 1 < allRows.length) {
+        const nextRow = allRows[bestHeaderIdx + 1].map(h => String(h || "").toLowerCase().trim());
+        nextRow.forEach((val, idx) => {
+          if (val && val.length > (headers[idx]?.length || 0)) headers[idx] = val;
+        });
+      }
+
+      const getIdx = (keys: string[]) => headers.findIndex(h => keys.some(k => h.includes(k)));
+
+      const mandalIdx = getIdx(mandalKeys);
+      const gpIdx = getIdx(gpKeys);
+      const attStatusIdx = getIdx(["first attendence status", "1st attend status", "attendance status"]);
+      const attTimeIdx = getIdx(["first attendence datetime", "1st attend time", "attendance time"]);
+      const dsrStatusIdx = getIdx(["dsr entry status", "dsr status", "dsr entry"]);
+      const dsrTimeIdx = getIdx(["dsr submited", "dsr submitted", "dsr time"]);
+
+      // Final dynamic fallbacks based on common layout
+      const finalMandalIdx = mandalIdx !== -1 ? mandalIdx : 3;
+      const finalGpIdx = gpIdx !== -1 ? gpIdx : 5;
+
+      const processed: any[] = [];
+      let present = 0, dsr = 0, meeting = 0, training = 0, leave = 0;
+      const mandalStats = new Map<string, { total: number, onTime: number, late: number, pending: number, meeting: number, training: number, leave: number }>();
+
+      allRows.slice(bestHeaderIdx + 1).forEach((r) => {
+        const gpRaw = String(r[finalGpIdx] || "").trim();
+        const mandalRaw = String(r[finalMandalIdx] || "UNKNOWN").trim().toUpperCase();
         
-        for (let i = 0; i < tables.length; i++) {
-          if (tables[i].textContent?.toLowerCase().includes('panchayat name')) {
-            targetTable = tables[i] as HTMLTableElement;
-            break;
+        if (!gpRaw || gpRaw.length < 2 || gpRaw.toLowerCase().includes('total') || /^\d+$/.test(gpRaw)) return;
+        if (gpRaw.toLowerCase() === 'panchayat name') return;
+
+        const attStatusRaw = String(r[attStatusIdx] || "").toLowerCase();
+        const dsrStatusRaw = String(r[dsrStatusIdx] || "").toLowerCase();
+        const dsrTimeStr = String(r[dsrTimeIdx] || "");
+
+        const isP = attStatusRaw.includes("present") || attStatusRaw === "p" || attStatusRaw.includes("✅");
+        const isM = attStatusRaw.includes("meeting") || attStatusRaw === "m";
+        const isT = attStatusRaw.includes("training") || attStatusRaw === "t";
+        const isL = attStatusRaw.includes("leave") || attStatusRaw === "l";
+        const isD = dsrStatusRaw.includes("entered") || dsrStatusRaw.includes("yes") || dsrStatusRaw.includes("✅") || dsrStatusRaw.includes("uploaded");
+
+        // Time Check (10:30 AM)
+        let isOnTime = false;
+        let isLate = false;
+        if (isD && dsrTimeStr) {
+          const timeMatch = dsrTimeStr.match(/(\d{1,2}):(\d{2})/);
+          if (timeMatch) {
+            let hour = parseInt(timeMatch[1]);
+            const min = parseInt(timeMatch[2]);
+            const isPM = dsrTimeStr.toLowerCase().includes('pm');
+            if (isPM && hour < 12) hour += 12;
+            if (!isPM && hour === 12) hour = 0;
+            
+            const totalMinutes = hour * 60 + min;
+            if (totalMinutes <= (10 * 60 + 30)) isOnTime = true;
+            else isLate = true;
           }
         }
 
-        if (targetTable) {
-          const tableWs = XLSX.utils.table_to_sheet(targetTable);
-          json = XLSX.utils.sheet_to_json(tableWs, { header: 1 });
-        } else if (tables.length > 0) {
-          // Fallback to the largest table if header not found
-          let maxRows = 0;
-          let bestTable = tables[0];
-          tables.forEach(t => {
-             if (t.rows.length > maxRows) {
-               maxRows = t.rows.length;
-               bestTable = t;
-             }
-          });
-          const tableWs = XLSX.utils.table_to_sheet(bestTable);
-          json = XLSX.utils.sheet_to_json(tableWs, { header: 1 });
-        } else {
-          const wb = XLSX.read(ab, { type: 'array' });
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          json = XLSX.utils.sheet_to_json(ws, { header: 1 });
-        }
-      } else {
-        const wb = XLSX.read(ab, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        json = XLSX.utils.sheet_to_json(ws, { header: 1 });
-      }
-      
-      setRawJson(json);
-      const rows: any[] = [];
-      let present = 0, dsr = 0;
-      
-      // Find headers dynamically
-      let dataStartIndex = 0;
-      let mandalIdx = 3, gpIdx = 5, attIdx = 7, dsrIdx = 11;
-
-      for (let i = 0; i < Math.min(20, json.length); i++) {
-        const r = json[i] as any[];
-        if (!r || !Array.isArray(r)) continue;
-        const line = r.join(' ').toLowerCase();
-        if (line.includes('panchayat name') || line.includes('gram panchayat')) {
-          dataStartIndex = i + 1;
-          mandalIdx = r.findIndex(c => String(c).toLowerCase().includes('mandal name')) ;
-          if (mandalIdx === -1) mandalIdx = 3;
-          
-          gpIdx = r.findIndex(c => String(c).toLowerCase().includes('panchayat name')) ;
-          if (gpIdx === -1) gpIdx = 5;
-          
-          attIdx = r.findIndex(c => {
-            const val = String(c).toLowerCase();
-            return val.includes('attendance status') || val.includes('attendence status') || val.includes('attendance') || val.includes('attendence');
-          });
-          if (attIdx === -1) attIdx = 7;
-          
-          dsrIdx = r.findIndex(c => {
-             const val = String(c).toLowerCase();
-             return val.includes('dsr entry status') || val.includes('dsr entry') || val.includes('dsr');
-          });
-          if (dsrIdx === -1) dsrIdx = 11;
-          break;
-        }
-      }
-
-      json.slice(dataStartIndex).forEach((r: any) => {
-        if (!r || !r[gpIdx]) return;
-        const statusStr = String(r[attIdx] || "").toLowerCase();
-        const dsrStr = String(r[dsrIdx] || "").toLowerCase();
-        const isPresent = statusStr.includes('present');
-        const isEntered = dsrStr.includes('entered') || dsrStr.includes('yes');
+        if (isP) {
+          present++;
+          if (isD) dsr++;
+        } else if (isM) meeting++;
+        else if (isT) training++;
+        else if (isL) leave++;
         
-        if (isPresent) present++;
-        if (isEntered) dsr++;
+        // Removed global if (isD) dsr++; to avoid non-present counts
+
+        // Aggregate Mandal Stats
+        const currentM = mandalStats.get(mandalRaw) || { total: 0, onTime: 0, late: 0, pending: 0, meeting: 0, training: 0, leave: 0 };
+        currentM.total++;
         
-        rows.push({
-          mandal: r[mandalIdx],
-          gp: r[gpIdx],
-          att: isPresent ? "P" : "A",
-          dsr: isEntered ? "✅" : "❌"
+        if (isM) currentM.meeting++;
+        else if (isT) currentM.training++;
+        else if (isL) currentM.leave++;
+        else if (isOnTime) currentM.onTime++;
+        else if (isLate) currentM.late++;
+        else if (!isD) currentM.pending++;
+        
+        mandalStats.set(mandalRaw, currentM);
+
+        processed.push({
+          mandal: mandalRaw,
+          gp: gpRaw.toUpperCase(),
+          attStatus: r[attStatusIdx] || (isP ? "Present" : isM ? "Meeting" : isT ? "Training" : isL ? "Leave" : "Absent"),
+          attTime: r[attTimeIdx] || "-",
+          dsrStatus: r[dsrStatusIdx] || (isD ? (isOnTime ? "On Time" : "Late") : (isM ? "Meeting" : isT ? "Training" : isL ? "Leave" : "Pending")),
+          dsrTime: dsrTimeStr || "-",
+          isPresent: isP,
+          isMeeting: isM,
+          isTraining: isT,
+          isLeave: isL,
+          isEntered: isD,
+          isOnTime,
+          isLate
         });
       });
-      setData(rows);
-      setStats({ total: rows.length, present, dsr });
-      
-      if (rows.length === 0 && json.length > 0) {
-        addToast("File loaded, but rows couldn't be parsed. Checking Raw Preview...");
-        setViewMode('raw');
-        setData([{ _is_dummy: true }]); 
-      } else {
-        addToast("DSR File Processed! 🚀");
+
+      if (processed.length === 0) {
+        addToast("ప్రాసెస్ చేయబడింది, కానీ డేటా ఏమీ దొరకలేదు. ఫైల్ ఫార్మాట్ ఒకసారి చూడండి.");
+        return;
       }
+
+      setData(processed);
+      setFilteredData(processed);
+      setStats({ total: processed.length, present, dsr, meeting, training, leave });
+      // @ts-ignore
+      setMandalSummaries(Object.fromEntries(mandalStats));
+      addToast(`విజయవంతంగా ప్రాసెస్ చేయబడింది! ${processed.length} గ్రామ పంచాయతీలు దొరికాయి. 🚀`);
     };
     reader.readAsArrayBuffer(file);
   };
 
-  const hasData = data.length > 0 && !(data.length === 1 && data[0]._is_dummy);
+  const downloadMandalReport = () => {
+    if (Object.keys(mandalSummaries).length === 0) return;
+    
+    const exportData = Object.entries(mandalSummaries).map(([mandal, s]: [string, any]) => ({
+      'Mandal Name': mandal,
+      'Total GPs': s.total,
+      'On Time (10:30 AM)': s.onTime,
+      'Meeting': s.meeting,
+      'Training': s.training,
+      'Leave': s.leave,
+      'Late Submission': s.late,
+      'Pending': s.pending,
+      'Success Rate (%)': Math.round(((s.onTime + s.meeting + s.training + s.leave) / s.total) * 100)
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Mandal Summary");
+    XLSX.writeFile(wb, `Mandal_Summary_Report_${new Date().toLocaleDateString()}.xlsx`);
+    addToast("మండల్ సమ్మరీ రిపోర్ట్ డౌన్లోడ్ అవుతోంది...");
+  };
+
+  const downloadFullReport = () => {
+    if (data.length === 0) return;
+    
+    const exportData = data.map(r => ({
+      'Mandal': r.mandal,
+      'GP Name': r.gp,
+      'Attendance Status': r.attStatus,
+      'Attendance Time': r.attTime,
+      'DSR Status': r.isMeeting ? 'Meeting' : r.isTraining ? 'Training' : r.isLeave ? 'Leave' : (r.isOnTime ? 'On Time' : r.isLate ? 'Late' : 'Pending'),
+      'DSR Time': r.dsrTime
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "GP Details");
+    XLSX.writeFile(wb, `Full_Attendance_Report_${new Date().toLocaleDateString()}.xlsx`);
+    addToast("పూర్తి రిపోర్ట్ డౌన్లోడ్ అవుతోంది...");
+  };
+
+  const downloadRawExcel = () => {
+    if (rawJson.length === 0) return;
+    const ws = XLSX.utils.aoa_to_sheet(rawJson);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Raw Data");
+    XLSX.writeFile(wb, `Original_Raw_File_${new Date().toLocaleDateString()}.xlsx`);
+    addToast("ఒరిజినల్ Raw ఫైల్ (Excel) డౌన్లోడ్ అవుతోంది...");
+  };
+
+  const downloadRawPdf = () => {
+    if (rawJson.length === 0) return;
+    const doc = new jsPDF('l', 'mm', 'a4');
+    
+    // Simple logic to find header if it exists
+    let headerIdx = 0;
+    for(let i=0; i<Math.min(rawJson.length, 10); i++) {
+        if (rawJson[i].some((c:any) => String(c).toLowerCase().includes('mandal') || String(c).toLowerCase().includes('panchayat'))) {
+            headerIdx = i;
+            break;
+        }
+    }
+    
+    const body = rawJson.slice(headerIdx);
+
+    autoTable(doc, {
+      body: body,
+      styles: { fontSize: 7, font: 'helvetica' },
+      margin: { top: 10 }
+    });
+    
+    doc.save(`Original_Raw_File_${new Date().toLocaleDateString()}.pdf`);
+    addToast("ఒరిజినల్ Raw ఫైల్ (PDF) డౌన్లోడ్ అవుతోంది...");
+  };
+
+  useEffect(() => {
+    const term = searchTerm.toLowerCase();
+    let filtered = data.filter(r => 
+      String(r.gp || "").toLowerCase().includes(term) || 
+      String(r.mandal || "").toLowerCase().includes(term)
+    );
+
+    if (activeFilter === 'P') filtered = filtered.filter(r => r.isPresent);
+    else if (activeFilter === 'D') filtered = filtered.filter(r => r.isEntered);
+    else if (activeFilter === 'M') filtered = filtered.filter(r => r.isMeeting);
+    else if (activeFilter === 'T') filtered = filtered.filter(r => r.isTraining);
+    else if (activeFilter === 'L') filtered = filtered.filter(r => r.isLeave);
+
+    setFilteredData(filtered);
+  }, [searchTerm, activeFilter, data]);
 
   return (
     <div className="space-y-6">
-      <div className="p-12 sm:p-20 bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-[40px] text-center relative overflow-hidden group">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-100/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        <div className="relative z-10">
-          <div className="w-20 h-20 bg-slate-200 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner text-slate-400">
-            <Upload size={40} strokeWidth={1.5} />
-          </div>
-          <h4 className="text-lg font-black text-[#0d3b66] uppercase tracking-[0.1em] mb-2">Upload Daily DSR Raw File</h4>
-          <p className="text-xs font-bold text-slate-400 mb-10 uppercase tracking-widest">Excel Format (.xlsx / .csv) from Portal</p>
-          <input type="file" onChange={onUpload} className="hidden" id="dsrUp" />
-          <label 
-            htmlFor="dsrUp" 
-            className="bg-[#0f3460] text-white px-12 py-5 rounded-2xl font-black cursor-pointer shadow-2xl hover:bg-[#16213e] hover:-translate-y-1 transition-all inline-block text-[11px] uppercase tracking-widest active:scale-95"
-          >
-             Browse Files
-          </label>
-        </div>
+      <div className="p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px] text-center">
+        <h4 className="text-sm font-black text-primary uppercase tracking-widest mb-4">DSR Analytical Engine</h4>
+        <input type="file" onChange={onUpload} className="hidden" id="dsr-up" />
+        <label htmlFor="dsr-up" className="bg-primary text-white px-10 py-4 rounded-2xl font-black cursor-pointer shadow-xl hover:opacity-90 transition-all inline-block text-xs uppercase tracking-widest">
+           Select DSR File
+        </label>
       </div>
 
-      {(data.length > 0 || rawJson.length > 0) && (
+      {data.length > 0 && (
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-               <button 
-                 onClick={() => setViewMode('processed')} 
-                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'processed' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-               >
-                 Processed Data
-               </button>
-               <button 
-                 onClick={() => setViewMode('raw')} 
-                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'raw' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-               >
-                 Raw File Preview
-               </button>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <button onClick={() => setActiveFilter(null)} className="text-left w-full"><StatCard label="Total" val={stats.total} color="blue" /></button>
+            <button onClick={() => setActiveFilter('P')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'P' ? 'ring-2 ring-emerald-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Present" val={stats.present} color="emerald" /></button>
+            <button onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR" val={stats.dsr} color="blue" /></button>
+            <button onClick={() => setActiveFilter('M')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'M' ? 'ring-2 ring-cyan-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Meeting" val={stats.meeting} color="cyan" /></button>
+            <button onClick={() => setActiveFilter('T')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'T' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Training" val={stats.training} color="amber" /></button>
+            <button onClick={() => setActiveFilter('L')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'L' ? 'ring-2 ring-slate-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Leave" val={stats.leave} color="slate" /></button>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 py-2">
+             <button 
+               onClick={downloadMandalReport}
+               className="flex items-center justify-center gap-2 bg-blue-50 text-blue-700 border border-blue-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-blue-100 hover:border-blue-200 active:scale-95 transition-all"
+             >
+               <Download size={14} /> Mandal Export
+             </button>
+             <button 
+               onClick={downloadFullReport}
+               className="flex items-center justify-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-slate-100 active:scale-95 transition-all"
+             >
+               <Download size={14} /> GP Export
+             </button>
+             <button 
+               onClick={downloadRawExcel}
+               className="flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-emerald-100 hover:border-emerald-200 active:scale-95 transition-all"
+             >
+               <Download size={14} /> Raw Excel
+             </button>
+             <button 
+               onClick={downloadRawPdf}
+               className="flex items-center justify-center gap-2 bg-rose-50 text-rose-700 border border-rose-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-rose-100 hover:border-rose-200 active:scale-95 transition-all"
+             >
+               <Download size={14} /> Raw PDF
+             </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-1 bg-white p-6 rounded-[32px] border shadow-sm">
+               <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Overall Success</h4>
+                  <span className="text-sm font-black text-emerald-600">
+                    {stats.total > 0 ? Math.round(((stats.present + stats.meeting + stats.training + stats.leave) / stats.total) * 100) : 0}%
+                  </span>
+               </div>
+               <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${stats.total > 0 ? ((stats.present + stats.meeting + stats.training + stats.leave) / stats.total) * 100 : 0}%` }}
+                    className="h-full bg-emerald-500 rounded-full"
+                  />
+               </div>
+               <div className="mt-3 flex flex-col gap-1">
+                  <p className="text-[10px] text-slate-500 font-black uppercase">
+                     Total Compliance: {stats.present + stats.meeting + stats.training + stats.leave} / {stats.total}
+                  </p>
+               </div>
             </div>
-            {(data.length > 0) && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
-                 <span className={`w-2 h-2 rounded-full ${hasData ? 'bg-green-500' : 'bg-amber-500'} animate-pulse`}></span>
-                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                   {hasData ? 'Valid Data detected' : 'Check File Format'}
-                 </span>
+
+            <div className="lg:col-span-1 bg-white p-6 rounded-[32px] border shadow-sm">
+               <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">DSR Compliance</h4>
+                  <span className="text-sm font-black text-blue-600">{stats.total > 0 ? Math.round((stats.dsr / stats.total) * 100) : 0}%</span>
+               </div>
+               <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${stats.total > 0 ? (stats.dsr / stats.total) * 100 : 0}%` }}
+                    className="h-full bg-blue-500 rounded-full"
+                  />
+               </div>
+               <p className="mt-3 text-[10px] text-slate-500 font-medium uppercase italic">
+                  {stats.dsr} Present GPs reported DSR (out of {stats.total} total)
+               </p>
+            </div>
+
+            <div className="lg:col-span-2 grid grid-cols-3 gap-4">
+               <div className="bg-cyan-50/50 p-4 rounded-[24px] border border-cyan-100 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2 text-cyan-600">
+                      <Users size={14} />
+                      <span className="text-[10px] font-black uppercase tracking-wider">Meeting</span>
+                    </div>
+                    <div className="text-2xl font-black text-cyan-700">{stats.meeting}</div>
+                  </div>
+                  <p className="text-[8px] text-cyan-600 font-bold uppercase mt-2">DSR Not Required</p>
+               </div>
+               <div className="bg-amber-50/50 p-4 rounded-[24px] border border-amber-100 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2 text-amber-600">
+                      <GraduationCap size={14} />
+                      <span className="text-[10px] font-black uppercase tracking-wider">Training</span>
+                    </div>
+                    <div className="text-2xl font-black text-amber-700">{stats.training}</div>
+                  </div>
+                  <p className="text-[8px] text-amber-600 font-bold uppercase mt-2">DSR Not Required</p>
+               </div>
+               <div className="bg-slate-50 p-4 rounded-[24px] border border-slate-200 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2 text-slate-500">
+                      <Hash size={14} />
+                      <span className="text-[10px] font-black uppercase tracking-wider">Leave</span>
+                    </div>
+                    <div className="text-2xl font-black text-slate-700">{stats.leave}</div>
+                  </div>
+                  <p className="text-[8px] text-slate-500 font-bold uppercase mt-2">DSR Not Required</p>
+               </div>
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                 <Database size={14} /> Mandal-wise Summary Dashboard
+              </h4>
+              <div className="bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 flex items-center gap-2">
+                <Info size={12} className="text-emerald-600" />
+                <span className="text-[9px] font-black text-emerald-700 uppercase">
+                  Note: Total OnTime = OnTime + Meeting + Training + Leave
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(mandalSummaries).map(([mandal, mStats]: [string, any]) => (
+                <button 
+                  key={mandal}
+                  onClick={() => setSearchTerm(mandal)}
+                  className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md hover:border-primary/30 transition-all text-left group"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <h5 className="text-sm font-black text-primary truncate pr-2">{mandal}</h5>
+                    <span className="bg-slate-50 text-[10px] font-black text-slate-400 px-2 py-1 rounded-lg uppercase">
+                      {mStats.total} GPs
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1">
+                    <div className="text-center">
+                       <div className="text-[8px] font-black text-emerald-600 uppercase mb-0.5">OnTime</div>
+                       <div className="text-[10px] font-black text-slate-700">{mStats.onTime}</div>
+                    </div>
+                    <div className="text-center">
+                       <div className="text-[8px] font-black text-cyan-500 uppercase mb-0.5">Meet</div>
+                       <div className="text-[10px] font-black text-slate-700">{mStats.meeting}</div>
+                    </div>
+                    <div className="text-center">
+                       <div className="text-[8px] font-black text-slate-500 uppercase mb-0.5">Leave</div>
+                       <div className="text-[10px] font-black text-slate-700">{mStats.leave}</div>
+                    </div>
+                    <div className="text-center">
+                       <div className="text-[8px] font-black text-rose-500 uppercase mb-0.5">Late</div>
+                       <div className="text-[10px] font-black text-slate-700">{mStats.late}</div>
+                    </div>
+                    <div className="text-center">
+                       <div className="text-[8px] font-black text-slate-300 uppercase mb-0.5">Pend</div>
+                       <div className="text-[10px] font-black text-slate-700">{mStats.pending}</div>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-1 h-1.5 rounded-full overflow-hidden bg-slate-50">
+                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${((mStats.onTime + mStats.meeting + mStats.training + mStats.leave) / mStats.total) * 100}%` }} />
+                    <div className="h-full bg-rose-400 transition-all" style={{ width: `${(mStats.late / mStats.total) * 100}%` }} />
+                    <div className="h-full bg-slate-200 transition-all" style={{ width: `${(mStats.pending / mStats.total) * 100}%` }} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative space-y-4">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none" placeholder="Search GP or Mandal..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            </div>
+            
+            {activeFilter && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filtering by:</span>
+                <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 ${
+                  activeFilter === 'P' ? 'bg-emerald-100 text-emerald-700' :
+                  activeFilter === 'D' ? 'bg-blue-100 text-blue-700' :
+                  activeFilter === 'M' ? 'bg-cyan-100 text-cyan-700' :
+                  activeFilter === 'T' ? 'bg-amber-100 text-amber-700' :
+                  'bg-slate-100 text-slate-700'
+                }`}>
+                  {activeFilter === 'P' ? 'Present' : 
+                   activeFilter === 'D' ? 'DSR Reported' : 
+                   activeFilter === 'M' ? 'In Meeting' : 
+                   activeFilter === 'T' ? 'In Training' : 'On Leave'}
+                  <button onClick={() => setActiveFilter(null)} className="hover:opacity-70"><XCircle size={12} /></button>
+                </span>
+                <button onClick={() => setActiveFilter(null)} className="text-[9px] font-bold text-primary hover:underline uppercase">Clear Filter</button>
               </div>
             )}
           </div>
 
-          {!user ? (
-             <div className="p-8 bg-amber-50 text-amber-700 rounded-[32px] border border-amber-200 text-center">
-                 <Lock className="mx-auto mb-4 opacity-50" size={40} />
-                 <h4 className="text-lg font-black uppercase tracking-tighter mb-2">Access Synchronization Required</h4>
-                 <p className="text-xs font-medium leading-relaxed max-w-sm mx-auto">
-                    The raw data has been parsed successfully but viewing detailed analytics requires an active office session. Please login to decrypt the GP records.
-                 </p>
-                 <button onClick={() => window.scrollTo(0, 0)} className="mt-6 px-8 py-3 bg-amber-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-amber-600/20">Login to Unlock</button>
-             </div>
-          ) : (
-             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                {viewMode === 'processed' ? (
-                  <>
-                    {hasData ? (
-                      <>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                          <StatCard label="Total Staff" val={stats.total} color="blue" />
-                          <StatCard label="Physical Presence" val={stats.present} color="green" />
-                          <StatCard label="DSR Compliance" val={stats.dsr} color="amber" />
-                        </div>
-
-                        <div className="bg-white rounded-[32px] border border-slate-100 shadow-xl shadow-slate-100/40 overflow-hidden">
-                          <div className="overflow-x-auto custom-scrollbar">
-                            <table className="w-full text-left border-collapse">
-                              <thead>
-                                <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                  <th className="p-6">Mandal</th>
-                                  <th className="p-6">Gram Panchayat</th>
-                                  <th className="p-6">Attendance</th>
-                                  <th className="p-6">DSR Status</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-50">
-                                {data.filter(r => !r._is_dummy).map((row, i) => (
-                                  <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                                    <td className="p-6 text-xs font-bold text-slate-500">{row.mandal}</td>
-                                    <td className="p-6 text-sm font-black text-primary uppercase tracking-tight">{row.gp}</td>
-                                    <td className="p-6">
-                                      <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${row.att === 'P' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                        {row.att === 'P' ? 'Present' : 'Absent'}
-                                      </span>
-                                    </td>
-                                    <td className="p-6 text-xl">{row.dsr}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="p-12 text-center bg-white rounded-[32px] border border-slate-100">
-                         <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-300">
-                           <AlertOctagon size={32} />
-                         </div>
-                         <h4 className="text-xl font-black text-primary tracking-tight">Processing Anomaly</h4>
-                         <p className="text-sm font-bold text-slate-400 mt-2">We couldn't extract structure from this file format. Please check "Raw File Preview" to verify headers.</p>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="bg-slate-900 rounded-[32px] p-8 overflow-hidden shadow-2xl relative">
-                    <div className="flex items-center justify-between mb-6">
-                       <h4 className="text-white/40 text-[10px] font-black uppercase tracking-[0.2em]">Source Code: Raw Excel Buffer</h4>
-                       <span className="text-green-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                          <code className="bg-white/10 px-2 py-1 rounded">UTF-8</code> DECRYPTED
-                       </span>
-                    </div>
-                    <div className="max-h-[500px] overflow-auto custom-scrollbar-dark font-mono text-xs leading-relaxed text-blue-400/80">
-                         <table className="w-full text-left">
-                           <tbody>
-                             {rawJson.map((row, idx) => (
-                               <tr key={idx} className="hover:bg-white/5 border-b border-white/5">
-                                 <td className="p-2 text-white/20 select-none w-8">{idx + 1}</td>
-                                 {Array.isArray(row) ? row.map((cell, cidx) => (
-                                   <td key={cidx} className="p-3 whitespace-nowrap min-w-[120px] text-[11px] border-r border-white/5 last:border-0">
-                                     {typeof cell === 'string' && (cell.includes('<') || cell.includes('>')) 
-                                       ? cell.replace(/<[^>]*>?/gm, '').trim() 
-                                       : String(cell)}
-                                   </td>
-                                 )) : <td className="p-3" colSpan={20}>{JSON.stringify(row)}</td>}
-                               </tr>
-                             ))}
-                           </tbody>
-                         </table>
-                    </div>
-                  </div>
-                )}
-             </motion.div>
-          )}
+          <div className="bg-white rounded-[32px] border shadow-xl overflow-hidden">
+            <div className="overflow-x-auto custom-scrollbar">
+               <table className="w-full text-left">
+                  <thead>
+                     <tr className="bg-slate-50 border-b text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <th className="p-4">Mandal / GP</th>
+                        <th className="p-4 text-center">Attendance</th>
+                        <th className="p-4 text-center">DSR Status</th>
+                        <th className="p-4 text-center">Submitted At</th>
+                     </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                     {filteredData.map((row, i) => (
+                       <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4">
+                             <div className="text-[10px] font-bold text-slate-400 uppercase">{row.mandal}</div>
+                             <div className="text-sm font-black text-primary uppercase">{row.gp}</div>
+                          </td>
+                          <td className="p-4 text-center">
+                             <StatusCell status={row.isPresent ? 'P' : row.isMeeting ? 'M' : row.isTraining ? 'T' : row.isLeave ? 'L' : 'A'} />
+                             <div className="text-[9px] text-slate-400 font-mono mt-1">{row.attTime || '-'}</div>
+                          </td>
+                          <td className="p-4 text-center">
+                             {/* Logic: Green if OnTime OR Meeting/Training/Leave. Red if Late. Amber if simply Not Entered (Present but no DSR) */}
+                             <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${
+                               (row.isOnTime || row.isMeeting || row.isTraining || row.isLeave) 
+                                 ? 'bg-emerald-100 text-emerald-700' 
+                                 : row.isLate 
+                                   ? 'bg-rose-100 text-rose-700' 
+                                   : 'bg-amber-100 text-amber-700'
+                             }`}>
+                                {row.isMeeting ? 'Meeting' : row.isTraining ? 'Training' : row.isLeave ? 'Leave' : row.isOnTime ? 'On Time' : row.isLate ? 'Late Submission' : 'Not Entered'}
+                             </span>
+                          </td>
+                          <td className="p-4 text-center text-[10px] font-mono text-slate-500">{row.dsrTime || '-'}</td>
+                       </tr>
+                     ))}
+                  </tbody>
+               </table>
+            </div>
+          </div>
         </div>
       )}
     </div>

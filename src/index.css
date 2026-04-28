@@ -227,32 +227,23 @@ header {
   background: #fff;
   position: fixed;
   z-index: 1100;
-  top: 80px; 
-  bottom: 0; 
-  left: -20px;
-  opacity: 0;
-  visibility: hidden;
+  top: 130px; 
+  bottom: 20px; 
+  left: 0;
+  border-radius: 0 20px 20px 0;
 }
 
 .main-layout.sidebar-open .sidebar {
-  width: 280px;
-  opacity: 1;
-  visibility: visible;
-  left: 15px;
-  top: 100px;
-  bottom: 15px;
-  border-radius: 24px;
-  box-shadow: 0 10px 50px rgba(0,0,0,0.2);
-  border: 1px solid #e2e8f0;
+  width: 260px;
+  border-right: 1px solid #e2e8f0;
+  left: 20px;
+  border-radius: 20px;
+  box-shadow: 10px 10px 40px rgba(0,0,0,0.1);
 }
 
 @media (max-width: 768px) {
-  .main-layout.sidebar-open .sidebar { 
-    width: calc(100% - 30px);
-    left: 15px;
-    top: 80px;
-    bottom: 15px;
-  }
+  .sidebar { width: 0; left: 0; border-radius: 0; }
+  .main-layout.sidebar-open .sidebar { width: 280px; left: 0; border-radius: 0; }
 }
 
 .sidebar-inner { width: 250px; padding: 15px; }
