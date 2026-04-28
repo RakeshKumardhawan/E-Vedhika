@@ -71,9 +71,21 @@
         "time": { "type": "integer" },
         "link": { "type": "string" }
       }
+    },
+    "UsernameRecord": {
+      "title": "Username Record",
+      "description": "Mapping from username to uid.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" }
+      }
     }
   },
   "firestore": {
+    "/usernames/{username}": {
+      "schema": "UsernameRecord",
+      "description": "Unique username reservations."
+    },
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "Public user profiles."
