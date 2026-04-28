@@ -2654,19 +2654,27 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 
           // Fallback: search for columns by sample values if headers failed
           if (statusCol === -1 || gpCol === -1) {
-            for (let c = 0; c < Math.min(headerRow.length, 30); c++) {
-               // Look ahead a few rows for samples
-               for (let rCheck = bestHeaderRowIdx + 1; rCheck < Math.min(rows.length, bestHeaderRowIdx + 15); rCheck++) {
+            for (let c = 0; c < Math.min(headerRow.length, 40); c++) {
+               // Look ahead more rows for samples
+               for (let rCheck = bestHeaderRowIdx + 1; rCheck < Math.min(rows.length, bestHeaderRowIdx + 20); rCheck++) {
                  const cellVal = rows[rCheck]?.[c];
                  if (cellVal === undefined || cellVal === null) continue;
                  const sample = String(cellVal).toLowerCase().trim();
                  
-                 if (statusCol === -1 && (sample === 'p' || sample === 'a' || sample === 'present' || sample === 'absent' || sample === '1' || sample === '0' || sample === 'yes' || sample === 'no')) {
+                 // Greedy Status Detection: Match 'P', 'A', 'PRESENT', 'ABSENT', '1', '0', 'YES', 'NO', '✅'
+                 if (statusCol === -1 && (
+                   sample === 'p' || sample === 'a' || sample === 'present' || 
+                   sample === 'absent' || sample === '1' || sample === '0' || 
+                   sample === 'yes' || sample === 'no' || sample === '✅' ||
+                   sample.includes('ప్రజెంట్') || sample.includes('గేర్హాజరు')
+                 )) {
                    statusCol = c;
                  }
+                 
+                 // Greedy GP Detection: Any string > 3 chars that isn't a date, number, or known header
                  if (gpCol === -1 && sample.length > 3 && isNaN(Number(sample)) && 
                      !['mandal', 'mandal name', 'district', 'sl.no', 'sl no', 's.no'].includes(sample) &&
-                     !sample.includes('202')) {
+                     !sample.includes('202') && !sample.includes('/') && !sample.includes('-')) {
                    gpCol = c;
                  }
                }
@@ -2682,29 +2690,29 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
             updatedRawRows.push([file.name, sheetName, ...row]);
 
             if (gpCol !== -1) {
-              const gp = String(row[gpCol] || '').trim();
-              if (!gp || gp.length < 2 || gp.toLowerCase().includes('total') || gp.toLowerCase().includes('grand')) continue;
+              const gpRaw = String(row[gpCol] || '').trim();
+              if (!gpRaw || gpRaw.length < 2 || gpRaw.toLowerCase().includes('total') || gpRaw.toLowerCase().includes('grand')) continue;
 
               const mandal = mandalCol !== -1 ? String(row[mandalCol] || '').trim() : 'Unknown';
               const rawStatus = statusCol !== -1 ? String(row[statusCol] || '').toLowerCase() : '';
               const rawDsr = dsrCol !== -1 ? String(row[dsrCol] || '').toLowerCase() : '';
 
               let symbol = "-";
-              if (rawStatus.includes('present') || rawStatus === 'p' || rawStatus.includes('✅') || rawStatus === '1' || rawStatus === 'y' || rawStatus.includes('yes')) symbol = "P";
-              else if (rawStatus.includes('absent') || rawStatus === 'a' || rawStatus.includes('no') || rawStatus === '0' || rawStatus === 'n') symbol = "A";
+              if (rawStatus.includes('present') || rawStatus === 'p' || rawStatus.includes('✅') || rawStatus === '1' || rawStatus === 'y' || rawStatus.includes('yes') || rawStatus.includes('working')) symbol = "P";
+              else if (rawStatus.includes('absent') || rawStatus === 'a' || rawStatus.includes('no') || rawStatus === '0' || rawStatus === 'n' || rawStatus.includes('off')) symbol = "A";
               else if (rawStatus.includes('meeting') || rawStatus === 'm') symbol = "M";
               else if (rawStatus.includes('training') || rawStatus === 't') symbol = "T";
               else if (rawStatus.includes('leave') || rawStatus === 'l') symbol = "L";
               
               if (symbol === "-" && rawStatus.length > 0 && rawStatus.length < 3) symbol = "P";
 
-              const key = gp.toUpperCase();
+              const key = gpRaw.toUpperCase();
               if (!newAggregated.has(key)) {
                 newAggregated.set(key, { mandal: mandal.toUpperCase(), attendance: {}, dsr: {} });
               }
               const entry = newAggregated.get(key)!;
               entry.attendance[fileDate] = symbol;
-              entry.dsr[fileDate] = rawDsr.includes('entered') || rawDsr.includes('yes') || rawDsr.includes('✅') || rawDsr.includes('uploaded') || rawDsr.includes('done');
+              entry.dsr[fileDate] = rawDsr.includes('entered') || rawDsr.includes('yes') || rawDsr.includes('✅') || rawDsr.includes('uploaded') || rawDsr.includes('done') || rawDsr === '1' || rawDsr === 'true';
               rowsAdded++;
             }
           }
