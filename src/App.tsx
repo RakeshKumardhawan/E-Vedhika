@@ -10,13 +10,12 @@ import {
   Wallet, Building, MessageCircle, Handshake, Lightbulb, 
   AlertTriangle, Send, LogOut, ChevronDown, ChevronUp, Search,
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
-  Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, Sparkles, MessageSquare,
+  Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, MessageSquare,
   Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock,
   Users, AlertOctagon, CheckCircle2, ClipboardList, Zap, Clock, ArrowLeft, Loader2, XCircle, ChevronRight, Flag, ShieldCheck
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GoogleGenAI } from "@google/genai";
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import * as XLSX from 'xlsx';
@@ -134,7 +133,6 @@ interface Post {
   time: number;
   uid: string;
   status?: string;
-  aiSummary?: string;
 }
 
 interface Comment {
@@ -477,18 +475,22 @@ export default function App() {
 
   // Outside click listener for sidebar
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: MouseEvent | TouchEvent) {
       if (sidebarOpen && sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
         // If clicking on the menu toggle button, don't close it immediately 
         // to avoid toggling states conflicting (often handled via stopPropagation, but good to be safe)
         const target = event.target as Element;
-        if (!target.closest('.menu-toggle') && window.innerWidth < 1024) {
+        if (!target.closest('.menu-toggle')) {
            setSidebarOpen(false);
         }
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [sidebarOpen]);
 
   // Body scroll lock for sidebar
@@ -853,87 +855,65 @@ export default function App() {
         ))}
       </AnimatePresence>
 
-      <header className="sticky top-0 z-[1001]" style={{ background: 'var(--primary)', height: 'var(--header-h)', borderBottom: '3px solid var(--accent)', display: 'flex', alignItems: 'center', padding: '0 4%' }}>
-        <div className="brand-wrapper cursor-pointer" onClick={() => { setCurrentTab('home'); setSidebarOpen(false); }}>
-          {/* Logo Section */}
-          <div className="logo-container" id="evLogo">
-            <svg viewBox="0 0 64 64" width="40" height="40">
-              <g className="logo-ring" id="mainLogoRing">
-                <circle cx="32" cy="32" r="29" fill="none" stroke="#facc15" strokeWidth="2" strokeDasharray="5 8"/>
-              </g>
-              <circle cx="32" cy="32" r="24" fill="#0d3b66"/>
-              <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="700" fontFamily="Segoe UI, sans-serif" className="ev-logo-text">EV</text>
-            </svg>
+      <header className="sticky top-0 z-[1001] bg-[#0d3b66] border-b-4 border-[#fbbf24] shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 h-24 flex items-center gap-4">
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { setCurrentTab('home'); setSidebarOpen(false); }}>
+            <div className="w-12 h-12 rounded-full border-2 border-dashed border-[#fbbf24] flex items-center justify-center p-1 group-hover:rotate-12 transition-transform">
+              <div className="w-full h-full rounded-full bg-[#0d3b66] flex items-center justify-center text-white font-black text-sm">EV</div>
+            </div>
+            <div className="flex flex-col">
+              <div className="bg-[#0077b6] px-3 py-1 rounded-t-md">
+                <h1 className="text-2xl font-black italic tracking-tighter text-[#fbbf24] leading-none">E-VEDHIKA</h1>
+              </div>
+              <div className="bg-[#023e8a] px-3 py-0.5 rounded-b-md">
+                <p className="text-[8px] font-black text-white uppercase tracking-wider">All Problems One Solution</p>
+              </div>
+            </div>
           </div>
-          {/* Website Name Section */}
-          <div>
-            <h2 className="brand-title">E-VEDHIKA</h2>
-            <p className="sub-tagline">all problems one solution</p>
-          </div>
-        </div>
 
-        <div className="flex-1"></div>
+          <div className="flex-1"></div>
 
-        <div className="flex items-center gap-5">
-          {user && !user.isAnonymous && (
-             <div onClick={() => setShowProfileModal(true)} className="hidden sm:flex items-center gap-3 bg-gradient-to-r from-[#174b7c] to-transparent pl-1.5 pr-5 py-1.5 rounded-[16px] border border-accent/30 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_0_20px_rgba(250,204,21,0.25)] hover:border-accent/60 transition-all duration-300 relative overflow-hidden group cursor-pointer">
-                <div className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/10 to-accent/0 -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out"></div>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-[#d97706] flex items-center justify-center text-primary font-black text-lg shadow-inner border-[2px] border-white/20 relative z-10 shadow-[0_0_10px_rgba(250,204,21,0.5)] overflow-hidden">
-                   {user?.photoURL ? (
-                     <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
-                   ) : (
-                     <User size={18} className="text-primary" />
-                   )}
-                </div>
-                <div className="flex flex-col justify-center relative z-10">
-                  <span className="text-white text-[12px] font-black tracking-wide leading-tight drop-shadow-sm">{userProfile?.username || "Panchayat Member"}</span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_6px_#10b981] animate-pulse"></span>
-                    <span className="text-accent text-[9px] font-bold uppercase tracking-[0.15em] drop-shadow-sm">{isAdmin ? 'System Admin' : isEditor ? 'Editor' : 'Active User'}</span>
+          <div className="hidden md:flex items-center gap-3">
+             {user && !user.isAnonymous ? (
+               <div onClick={() => setShowProfileModal(true)} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-2xl border border-white/10 transition-all cursor-pointer">
+                  <div className="w-8 h-8 rounded-full bg-[#fbbf24] flex items-center justify-center text-[#0d3b66] font-black text-xs">
+                     {user.photoURL ? <img src={user.photoURL} className="w-full h-full rounded-full object-cover" /> : user.email?.charAt(0).toUpperCase()}
                   </div>
-                </div>
-             </div>
-          )}
+                  <span className="text-white text-xs font-bold">{userProfile?.username || "Guest"}</span>
+               </div>
+             ) : (
+               <button onClick={triggerLogin} className="bg-[#fbbf24] text-[#0d3b66] px-6 py-2 rounded-xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all">
+                  Join Portal
+               </button>
+             )}
+          </div>
         </div>
       </header>
 
-      <div className="latest-bar overflow-hidden">
-        <div className="latest-label">HOT UPDATES</div>
-        <div className="latest-text flex-1">
-          <span>
-            {updates.length > 0 
-              ? updates.map(u => u.text || (u as any).msg || (u as any).update).join('  •  ') 
-              : 'Empowering local governance through digital innovation... Telangana PR Portal is now live for all panchayats...'}
-          </span>
+      <div className="bg-white border-b border-slate-100 px-4 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="bg-[#dc2626] text-white px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest animate-pulse">Hot Updates</div>
+          <div className="hidden sm:block text-[11px] font-bold text-slate-500 max-w-md truncate">
+             {updates.length > 0 ? updates[0].text : 'Empowering local governance through digital innovation...'}
+          </div>
         </div>
+        <div className="text-[11px] font-black text-[#0d3b66] uppercase tracking-widest italic">Empowering</div>
       </div>
 
-      <nav className="nav-trigger-bar sticky top-0 z-[1000]">
-        <div className="trigger-left">
-          <button className="menu-toggle lg:hidden shrink-0" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <span></span>
-            <span></span>
-            <span></span>
+      <nav className="sticky top-0 z-[1000] bg-white shadow-sm px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <button className="bg-[#0d3b66] text-white p-2.5 rounded-lg shadow-md hover:opacity-90 transition-all" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          <Menu size={20} />
+        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowNotifications(!showNotifications)} className="p-2.5 text-slate-400 hover:text-[#0d3b66] hover:bg-slate-50 rounded-xl transition-all relative">
+            <Bell size={22} />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-white">{unreadCount}</span>
+            )}
           </button>
         </div>
-
-        <div className="flex-1"></div>
-
-        <div className="flex items-center gap-4">
-          <div 
-            className="notif-bell"
-            onClick={() => setShowNotifications(!showNotifications)}
-          >
-            <Bell size={20} />
-            {unreadCount > 0 && (
-              <span className="notif-badge" style={{ display: 'flex' }}>
-                {unreadCount}
-              </span>
-            )}
-          </div>
-
-        </div>
       </nav>
+
 
       {/* Sidebar Overlay for Mobile */}
       <AnimatePresence>
@@ -943,21 +923,23 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-black/40 z-[1050] lg:hidden"
+            className="fixed inset-0 bg-black/40 z-[1050]"
           />
         )}
       </AnimatePresence>
 
       <div className={`main-layout ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <aside ref={sidebarRef} className={`sidebar ${sidebarOpen ? 'z-[1100]' : ''}`}>
-          <div className="sidebar-inner relative">
+          <div className="sidebar-inner relative" onClick={(e) => {
+            if (e.target === e.currentTarget) setSidebarOpen(false);
+          }}>
             {sidebarOpen && (
               <button 
                 onClick={() => setSidebarOpen(false)}
-                className="md:hidden absolute top-0 right-0 p-2 text-slate-400 hover:text-primary transition-colors"
+                className="absolute top-2 right-2 p-3 bg-slate-100 text-slate-500 hover:text-primary rounded-full transition-all active:scale-90 z-[1200] shadow-sm flex items-center justify-center hover:bg-white border border-slate-200"
                 title="Close sidebar"
               >
-                <X size={20} />
+                <X size={20} strokeWidth={3} />
               </button>
             )}
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-4">Navigations</h3>
@@ -2273,39 +2255,49 @@ function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => v
   const [activeTool, setActiveTool] = useState<string | null>(null);
 
   return (
-    <div className="section-card card-blue relative">
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <h2 className="text-xl font-black mb-2 flex items-center gap-3">🏛️ Mana Panchayath</h2>
-          <p className="text-xs text-slate-500">Technical Workspace for PR Officers</p>
+    <div className="bg-white rounded-[16px] shadow-2xl border-t-[8px] border-[#0d3b66] relative overflow-hidden">
+      <div className="p-6 sm:p-8 flex flex-col sm:flex-row justify-between items-center border-b border-slate-100 gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-slate-100 rounded-2xl text-[#0d3b66]">
+            <Building size={32} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Mana Panchayath</h2>
+            <p className="text-sm font-bold text-slate-400">Technical Workspace for PR Officers</p>
+          </div>
         </div>
         {activeTool && (
           <button 
             onClick={() => setActiveTool(null)} 
-            className="px-4 py-2 bg-slate-100/50 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all"
+            className="px-6 py-2 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#0d3b66] rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
           >
-            ⬅️ Back to Tools
+            <div className="bg-[#0d3b66] text-white p-1 rounded-md">
+               <ArrowLeft size={10} />
+            </div>
+            Back to Tools
           </button>
         )}
       </div>
       
-      {!activeTool && (
-        <div className="mana-grid">
-          <ToolCard emoji="📈" title="DSR Analyzer" onClick={() => setActiveTool('dsr')} />
-          <ToolCard emoji="🗓️" title="Multi-Day Attendance" onClick={() => setActiveTool('multi')} />
-          <ToolCard emoji="🎓" title="Digital Training" onClick={() => setActiveTool('training')} />
-          <ToolCard emoji="📂" title="Forms Hub" onClick={() => setActiveTool('forms')} />
-        </div>
-      )}
+      <div className="p-6 sm:p-10">
+        {!activeTool && (
+          <div className="mana-grid">
+            <ToolCard emoji="📈" title="DSR Analyzer" onClick={() => setActiveTool('dsr')} />
+            <ToolCard emoji="🗓️" title="Multi-Day Attendance" onClick={() => setActiveTool('multi')} />
+            <ToolCard emoji="🎓" title="Digital Training" onClick={() => setActiveTool('training')} />
+            <ToolCard emoji="📂" title="Forms Hub" onClick={() => setActiveTool('forms')} />
+          </div>
+        )}
 
-      {activeTool && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 pt-4 border-t border-slate-100">
-          {activeTool === 'dsr' && <DSRAnalyzer addToast={addToast} user={user} />}
-          {activeTool === 'training' && <TrainingCenter />}
-          {activeTool === 'multi' && <MultiDayAnalyzer addToast={addToast} user={user} />}
-          {activeTool === 'forms' && <FormsHub addToast={addToast} user={user} />}
-        </motion.div>
-      )}
+        {activeTool && (
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="mt-4">
+            {activeTool === 'dsr' && <DSRAnalyzer addToast={addToast} user={user} />}
+            {activeTool === 'training' && <TrainingCenter />}
+            {activeTool === 'multi' && <MultiDayAnalyzer addToast={addToast} user={user} />}
+            {activeTool === 'forms' && <FormsHub addToast={addToast} user={user} />}
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2447,12 +2439,6 @@ function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, us
 function TrainingCenter() {
   return (
     <div className="space-y-4">
-      <SmartAssistant 
-        title="Digital Training AI Bot"
-        placeholder="How do I upload a DSR?"
-        icon={GraduationCap}
-        systemInstruction="You are a training assistant for Panchayat Raj. Help users with DSR, EPFO, and Aadhar data entry workflows."
-      />
       <div className="grid gap-3">
         {['DSR Workflow', 'EPFO Registration', 'Aadhar Seeding Guide'].map(guide => (
           <div key={guide} className="p-4 bg-slate-50 border rounded-2xl flex justify-between items-center cursor-pointer hover:bg-slate-100">
@@ -2485,176 +2471,276 @@ function ToolCard({ icon: Icon, emoji, title, onClick }: { icon?: any, emoji?: s
 
 function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: FirebaseUser | null }) {
   const [data, setData] = useState<any[]>([]);
+  const [rawJson, setRawJson] = useState<any[]>([]);
   const [stats, setStats] = useState({ total: 0, present: 0, dsr: 0 });
+  const [viewMode, setViewMode] = useState<'processed' | 'raw'>('processed');
 
   const onUpload = (e: any) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = (evt: any) => {
       const ab = evt.target?.result;
-      const wb = XLSX.read(ab, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
       
+      // Attempt to decode the buffer to check for HTML strings
+      let content = "";
+      try {
+        const decoder = new TextDecoder('utf-8');
+        content = decoder.decode(ab);
+      } catch (e) {
+        console.error("Text decoding failed", e);
+      }
+
+      let json: any[] = [];
+      if (content.includes('<table') || content.includes('<div') || content.includes('<html>')) {
+        // It's likely an HTML table saved as .xls/xlsx
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        
+        // Find the table that actually contains data headers
+        const tables = tempDiv.querySelectorAll('table');
+        let targetTable: HTMLTableElement | null = null;
+        
+        for (let i = 0; i < tables.length; i++) {
+          if (tables[i].textContent?.toLowerCase().includes('panchayat name')) {
+            targetTable = tables[i] as HTMLTableElement;
+            break;
+          }
+        }
+
+        if (targetTable) {
+          const tableWs = XLSX.utils.table_to_sheet(targetTable);
+          json = XLSX.utils.sheet_to_json(tableWs, { header: 1 });
+        } else if (tables.length > 0) {
+          // Fallback to the largest table if header not found
+          let maxRows = 0;
+          let bestTable = tables[0];
+          tables.forEach(t => {
+             if (t.rows.length > maxRows) {
+               maxRows = t.rows.length;
+               bestTable = t;
+             }
+          });
+          const tableWs = XLSX.utils.table_to_sheet(bestTable);
+          json = XLSX.utils.sheet_to_json(tableWs, { header: 1 });
+        } else {
+          const wb = XLSX.read(ab, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          json = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        }
+      } else {
+        const wb = XLSX.read(ab, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        json = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      }
+      
+      setRawJson(json);
       const rows: any[] = [];
       let present = 0, dsr = 0;
-      json.slice(2).forEach((r: any) => {
-        if (!r[1]) return;
-        const isPresent = String(r[3] || "").toLowerCase().includes('present');
-        const isEntered = String(r[5] || "").toLowerCase().includes('entered');
+      
+      // Find headers dynamically
+      let dataStartIndex = 0;
+      let mandalIdx = 3, gpIdx = 5, attIdx = 7, dsrIdx = 11;
+
+      for (let i = 0; i < Math.min(20, json.length); i++) {
+        const r = json[i] as any[];
+        if (!r || !Array.isArray(r)) continue;
+        const line = r.join(' ').toLowerCase();
+        if (line.includes('panchayat name') || line.includes('gram panchayat')) {
+          dataStartIndex = i + 1;
+          mandalIdx = r.findIndex(c => String(c).toLowerCase().includes('mandal name')) ;
+          if (mandalIdx === -1) mandalIdx = 3;
+          
+          gpIdx = r.findIndex(c => String(c).toLowerCase().includes('panchayat name')) ;
+          if (gpIdx === -1) gpIdx = 5;
+          
+          attIdx = r.findIndex(c => {
+            const val = String(c).toLowerCase();
+            return val.includes('attendance status') || val.includes('attendence status') || val.includes('attendance') || val.includes('attendence');
+          });
+          if (attIdx === -1) attIdx = 7;
+          
+          dsrIdx = r.findIndex(c => {
+             const val = String(c).toLowerCase();
+             return val.includes('dsr entry status') || val.includes('dsr entry') || val.includes('dsr');
+          });
+          if (dsrIdx === -1) dsrIdx = 11;
+          break;
+        }
+      }
+
+      json.slice(dataStartIndex).forEach((r: any) => {
+        if (!r || !r[gpIdx]) return;
+        const statusStr = String(r[attIdx] || "").toLowerCase();
+        const dsrStr = String(r[dsrIdx] || "").toLowerCase();
+        const isPresent = statusStr.includes('present');
+        const isEntered = dsrStr.includes('entered') || dsrStr.includes('yes');
+        
         if (isPresent) present++;
         if (isEntered) dsr++;
+        
         rows.push({
-          id: r[0], gp: r[2], mandal: r[1],
+          mandal: r[mandalIdx],
+          gp: r[gpIdx],
           att: isPresent ? "P" : "A",
           dsr: isEntered ? "✅" : "❌"
         });
       });
       setData(rows);
       setStats({ total: rows.length, present, dsr });
-      addToast("DSR File Processed! 🚀");
+      
+      if (rows.length === 0 && json.length > 0) {
+        addToast("File loaded, but rows couldn't be parsed. Checking Raw Preview...");
+        setViewMode('raw');
+        setData([{ _is_dummy: true }]); 
+      } else {
+        addToast("DSR File Processed! 🚀");
+      }
     };
     reader.readAsArrayBuffer(file);
   };
 
+  const hasData = data.length > 0 && !(data.length === 1 && data[0]._is_dummy);
+
   return (
     <div className="space-y-6">
-      <div className="p-6 bg-slate-50 border-2 border-dashed rounded-3xl text-center">
-        <Upload className="mx-auto mb-4 text-slate-400" size={40} />
-        <p className="text-sm font-bold text-slate-600 mb-4">Drop Daily DSR Excel here</p>
-        <input type="file" onChange={onUpload} className="hidden" id="dsrUp" />
-        <label htmlFor="dsrUp" className="bg-primary text-white px-8 py-3 rounded-2xl font-black cursor-pointer shadow-md inline-block">CHOOSE FILE</label>
+      <div className="p-12 sm:p-20 bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-[40px] text-center relative overflow-hidden group">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-100/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <div className="relative z-10">
+          <div className="w-20 h-20 bg-slate-200 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner text-slate-400">
+            <Upload size={40} strokeWidth={1.5} />
+          </div>
+          <h4 className="text-lg font-black text-[#0d3b66] uppercase tracking-[0.1em] mb-2">Upload Daily DSR Raw File</h4>
+          <p className="text-xs font-bold text-slate-400 mb-10 uppercase tracking-widest">Excel Format (.xlsx / .csv) from Portal</p>
+          <input type="file" onChange={onUpload} className="hidden" id="dsrUp" />
+          <label 
+            htmlFor="dsrUp" 
+            className="bg-[#0f3460] text-white px-12 py-5 rounded-2xl font-black cursor-pointer shadow-2xl hover:bg-[#16213e] hover:-translate-y-1 transition-all inline-block text-[11px] uppercase tracking-widest active:scale-95"
+          >
+             Browse Files
+          </label>
+        </div>
       </div>
 
-      {data.length > 0 && (
+      {(data.length > 0 || rawJson.length > 0) && (
         <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+               <button 
+                 onClick={() => setViewMode('processed')} 
+                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'processed' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+               >
+                 Processed Data
+               </button>
+               <button 
+                 onClick={() => setViewMode('raw')} 
+                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === 'raw' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+               >
+                 Raw File Preview
+               </button>
+            </div>
+            {(data.length > 0) && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
+                 <span className={`w-2 h-2 rounded-full ${hasData ? 'bg-green-500' : 'bg-amber-500'} animate-pulse`}></span>
+                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                   {hasData ? 'Valid Data detected' : 'Check File Format'}
+                 </span>
+              </div>
+            )}
+          </div>
+
           {!user ? (
-             <div className="p-6 bg-amber-50 text-amber-700 rounded-2xl border border-amber-200 text-center">
-                 <Lock className="mx-auto mb-2 opacity-50" size={32} />
-                 <h4 className="font-bold mb-1">Preview Locked</h4>
-                 <p className="text-xs">Data uploaded successfully! Please login to view the full DSR preview and analytics.</p>
+             <div className="p-8 bg-amber-50 text-amber-700 rounded-[32px] border border-amber-200 text-center">
+                 <Lock className="mx-auto mb-4 opacity-50" size={40} />
+                 <h4 className="text-lg font-black uppercase tracking-tighter mb-2">Access Synchronization Required</h4>
+                 <p className="text-xs font-medium leading-relaxed max-w-sm mx-auto">
+                    The raw data has been parsed successfully but viewing detailed analytics requires an active office session. Please login to decrypt the GP records.
+                 </p>
+                 <button onClick={() => window.scrollTo(0, 0)} className="mt-6 px-8 py-3 bg-amber-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-amber-600/20">Login to Unlock</button>
              </div>
           ) : (
-             <>
-                <div className="grid grid-cols-3 gap-3">
-                  <StatCard label="Total" val={stats.total} color="blue" />
-                  <StatCard label="Present" val={stats.present} color="green" />
-                  <StatCard label="Entries" val={stats.dsr} color="amber" />
-                </div>
+             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                {viewMode === 'processed' ? (
+                  <>
+                    {hasData ? (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                          <StatCard label="Total Staff" val={stats.total} color="blue" />
+                          <StatCard label="Physical Presence" val={stats.present} color="green" />
+                          <StatCard label="DSR Compliance" val={stats.dsr} color="amber" />
+                        </div>
 
-                <div className="table-responsive bg-white rounded-2xl border shadow-sm">
-                  <table className="text-[12px]">
-                    <thead className="bg-slate-50">
-                      <tr><th>Mandal</th><th>Gram Panchayat</th><th>Att</th><th>DSR</th></tr>
-                    </thead>
-                    <tbody>
-                      {data.map((row, i) => (
-                        <tr key={i} className="hover:bg-slate-50 transition-colors">
-                          <td>{row.mandal}</td>
-                          <td className="font-bold text-primary">{row.gp}</td>
-                          <td className={row.att === 'P' ? 'text-success font-black' : 'text-danger font-black'}>{row.att}</td>
-                          <td className="text-lg">{row.dsr}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-             </>
+                        <div className="bg-white rounded-[32px] border border-slate-100 shadow-xl shadow-slate-100/40 overflow-hidden">
+                          <div className="overflow-x-auto custom-scrollbar">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                  <th className="p-6">Mandal</th>
+                                  <th className="p-6">Gram Panchayat</th>
+                                  <th className="p-6">Attendance</th>
+                                  <th className="p-6">DSR Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-50">
+                                {data.filter(r => !r._is_dummy).map((row, i) => (
+                                  <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
+                                    <td className="p-6 text-xs font-bold text-slate-500">{row.mandal}</td>
+                                    <td className="p-6 text-sm font-black text-primary uppercase tracking-tight">{row.gp}</td>
+                                    <td className="p-6">
+                                      <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${row.att === 'P' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        {row.att === 'P' ? 'Present' : 'Absent'}
+                                      </span>
+                                    </td>
+                                    <td className="p-6 text-xl">{row.dsr}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-12 text-center bg-white rounded-[32px] border border-slate-100">
+                         <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-300">
+                           <AlertOctagon size={32} />
+                         </div>
+                         <h4 className="text-xl font-black text-primary tracking-tight">Processing Anomaly</h4>
+                         <p className="text-sm font-bold text-slate-400 mt-2">We couldn't extract structure from this file format. Please check "Raw File Preview" to verify headers.</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="bg-slate-900 rounded-[32px] p-8 overflow-hidden shadow-2xl relative">
+                    <div className="flex items-center justify-between mb-6">
+                       <h4 className="text-white/40 text-[10px] font-black uppercase tracking-[0.2em]">Source Code: Raw Excel Buffer</h4>
+                       <span className="text-green-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                          <code className="bg-white/10 px-2 py-1 rounded">UTF-8</code> DECRYPTED
+                       </span>
+                    </div>
+                    <div className="max-h-[500px] overflow-auto custom-scrollbar-dark font-mono text-xs leading-relaxed text-blue-400/80">
+                         <table className="w-full text-left">
+                           <tbody>
+                             {rawJson.map((row, idx) => (
+                               <tr key={idx} className="hover:bg-white/5 border-b border-white/5">
+                                 <td className="p-2 text-white/20 select-none w-8">{idx + 1}</td>
+                                 {Array.isArray(row) ? row.map((cell, cidx) => (
+                                   <td key={cidx} className="p-3 whitespace-nowrap min-w-[120px] text-[11px] border-r border-white/5 last:border-0">
+                                     {typeof cell === 'string' && (cell.includes('<') || cell.includes('>')) 
+                                       ? cell.replace(/<[^>]*>?/gm, '').trim() 
+                                       : String(cell)}
+                                   </td>
+                                 )) : <td className="p-3" colSpan={20}>{JSON.stringify(row)}</td>}
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                    </div>
+                  </div>
+                )}
+             </motion.div>
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function PostAISummary({ post, isOwner }: { post: Post, isOwner: boolean }) {
-  const [summary, setSummary] = useState<string>(post.aiSummary || '');
-  const [loading, setLoading] = useState<boolean>(false);
-
-  useEffect(() => {
-    // If we already have a summary from Firestore, use it
-    if (post.aiSummary) {
-      setSummary(post.aiSummary);
-      return;
-    }
-
-    // Only generate if we have an API key and there's content to summarize
-    const contentToSummarize = post.content || (post as any).message || (post as any).text || (post as any).desc;
-    if (!contentToSummarize || contentToSummarize.length < 50) return; // Don't summarize very short posts
-    
-    // Check if process.env.GEMINI_API_KEY is available
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return;
-
-    let isMounted = true;
-    
-    const generateSummary = async () => {
-      setLoading(true);
-      try {
-        const ai = new GoogleGenAI({ apiKey });
-        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: [{ role: 'user', parts: [{ text: `Summarize this post in no more than two sentences: ${contentToSummarize}` }] }],
-          config: { 
-            systemInstruction: "You are a helpful assistant that generates concise summaries. Keep the summary under two sentences."
-          }
-        });
-        
-        if (response.text && isMounted) {
-          setSummary(response.text);
-          // Save it back to Firestore so we don't regenerate it next time
-          // Only attempt if the user is owner/admin to prevent permission denied errors
-          if (auth.currentUser && isOwner) {
-            try {
-              await updateDoc(doc(db, 'posts', post.id), { aiSummary: response.text });
-            } catch (err: any) {
-              console.error("Failed to save AI summary to Firestore", err);
-            }
-          }
-        }
-      } catch (err: any) {
-        const errStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err) || '');
-        if (isMounted) {
-          // Gracefully handle rate limit (429) errors
-          if (errStr.includes('429') || err?.status === 429 || errStr.includes('RESOURCE_EXHAUSTED')) {
-            setSummary("AI Summary currently unavailable due to API rate limits.");
-          } else {
-            console.error("Failed to generate AI summary", err);
-          }
-        }
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    
-    generateSummary();
-    
-    return () => { isMounted = false; };
-  }, [post.id, post.aiSummary, post.content, isOwner]);
-
-  if (!summary && !loading) return null;
-
-  return (
-    <div className="bg-slate-50 border border-purple-100 p-4 rounded-2xl mb-4 relative overflow-hidden group">
-      <div className="absolute top-0 right-0 p-2 text-purple-300 group-hover:text-purple-400 transition-colors">
-        <Sparkles size={16} />
-      </div>
-      <div className="flex gap-2">
-        <div className="mt-0.5">
-          <Bot size={16} className="text-purple-500" />
-        </div>
-        <div className="flex-1">
-          <h5 className="text-[10px] font-black uppercase tracking-widest text-purple-600 mb-1">AI Summary</h5>
-          {loading ? (
-            <div className="flex items-center gap-2 text-slate-400 text-sm italic">
-              <Loader2 size={12} className="animate-spin" /> Generating summary...
-            </div>
-          ) : (
-            <p className="text-sm font-medium text-slate-700 leading-relaxed">{summary}</p>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -2793,8 +2879,6 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
       </div>
       
       <h4 className="post-title !mt-0">{post.title || 'Platform Update'}</h4>
-      
-      <PostAISummary post={post} isOwner={isOwner} />
       
       <div className={`post-body mb-4 ${isExpanded ? '' : 'line-clamp-4'} whitespace-pre-wrap`}>
         <ReactMarkdown remarkPlugins={[remarkBreaks]}>{post.content || (post as any).message || (post as any).text || (post as any).desc || ''}</ReactMarkdown>
@@ -3142,7 +3226,6 @@ function KnowledgeHubSection() {
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-black text-primary">📚 TPRA 2018 Digital Guide</h2>
-      <SmartAssistant title="Act Assistant" icon={Book} placeholder="Ask about Section 32..." systemInstruction="You search the Telangana Panchayat Raj Act 2018. If users ask about sections, give precise answers based on the act." />
       <div className="grid gap-3">
         {chapters.map(c => (
           <details key={c.title} className="bg-white border rounded-2xl overflow-hidden shadow-sm">
@@ -3151,60 +3234,6 @@ function KnowledgeHubSection() {
           </details>
         ))}
       </div>
-    </div>
-  );
-}
-
-function SmartAssistant({ systemInstruction, placeholder, title, icon: Icon }: { systemInstruction: string, placeholder: string, title: string, icon: any }) {
-  const [queryVal, setQueryVal] = useState('');
-  const [answer, setAnswer] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const ask = async () => {
-    if (!queryVal.trim()) return;
-    setLoading(true);
-    setAnswer('');
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [{ role: 'user', parts: [{ text: queryVal }] }],
-        config: { 
-          systemInstruction: String(systemInstruction)
-        }
-      });
-      setAnswer(response.text || "I couldn't find an answer. Please try again.");
-    } catch (err) {
-      console.error(err);
-      setAnswer("Assistant unavailable. Please check API key.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="bg-slate-900 text-white p-6 rounded-[32px] shadow-2xl space-y-6 relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-accent opacity-5 blur-3xl rounded-full -mr-16 -mt-16"></div>
-      <div className="flex items-center gap-3 font-black text-accent text-lg" style={{ color: '#fbbf24' }}>
-        <Icon size={24} strokeWidth={2.5} /> {title}
-      </div>
-      <div className="flex gap-2 relative z-10">
-        <input 
-          value={queryVal} 
-          onChange={e => setQueryVal(e.target.value)} 
-          onKeyDown={e => e.key === 'Enter' && ask()}
-          placeholder={placeholder} 
-          className="bg-slate-800 border-2 border-slate-700/50 text-white text-sm placeholder:text-slate-500 mb-0 focus:border-accent transition-colors" 
-        />
-        <button onClick={ask} disabled={loading} className="bg-accent text-slate-900 px-6 rounded-2xl font-black flex items-center justify-center transition-all active:scale-95 shadow-[0_0_20px_rgba(251,191,36,0.3)]" style={{ background: '#fbbf24' }}>
-          {loading ? <RefreshCw className="animate-spin" size={20} /> : <Send size={20} />}
-        </button>
-      </div>
-      {answer && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-[13px] text-slate-200 leading-relaxed pt-4 border-t border-white/10">
-           <ReactMarkdown remarkPlugins={[remarkBreaks]}>{answer}</ReactMarkdown>
-        </motion.div>
-      )}
     </div>
   );
 }
@@ -3399,10 +3428,6 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
          
          <h1 className="text-3xl md:text-5xl font-black text-primary leading-tight tracking-tight">{post.title}</h1>
          
-         <div className="mt-6 mb-2">
-            <PostAISummary post={post} isOwner={isAdmin || auth.currentUser?.uid === post.uid} />
-         </div>
-
          <div className="flex items-center gap-3 text-sm font-bold text-slate-600">
            <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white border-2 border-white shadow-sm ring-2 ring-slate-50 overflow-hidden">
              {post.userPhoto ? (

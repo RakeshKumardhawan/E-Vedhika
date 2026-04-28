@@ -8,16 +8,10 @@ export default defineConfig(({mode}) => {
   return {
     base: '',
     plugins: [react(), tailwindcss()],
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
-    },
-    build: {
-      outDir: '.dist',
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
