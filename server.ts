@@ -9,8 +9,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-// Serve static files from the '.dist' directory
-const distPath = path.join(__dirname, '.dist');
+// Serve static files from the 'dist' directory
+const distPath = path.join(__dirname, 'dist');
 app.use(express.static(distPath));
 
 // API routes can go here if needed in the future

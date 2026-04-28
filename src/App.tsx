@@ -2629,14 +2629,22 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
           const headerRow = rows[bestHeaderRowIdx] || [];
           headerRow.forEach((val, c) => {
             const s = String(val || '').toLowerCase().trim();
-            // GP Detection - checking for common variations
-            if (gpCol === -1 && (s.includes('gram') || s === 'gp' || s.includes('panchayat') || s.includes('habitation') || s.includes('village') || (s.includes('name') && !s.includes('mandal') && !s.includes('dist')))) {
-              if (!s.includes('code') && !s.includes('id')) gpCol = c;
+            // GP Detection - checking for many variations
+            if (gpCol === -1 && (
+              s.includes('gram') || s === 'gp' || s.includes('panchayat') || 
+              s.includes('habitation') || s.includes('village') || 
+              (s.includes('name') && !s.includes('mandal') && !s.includes('dist')) || 
+              s.includes('పంచాయతీ')
+            )) {
+              if (!s.includes('code') && !s.includes('id') && !s.includes('date')) gpCol = c;
             }
             if (mandalCol === -1 && (s.includes('mandal') || s.includes('block') || s.includes('మండలం') || s.includes('తాలూకా'))) mandalCol = c;
             
             // Status vs DSR disambiguation
-            if (statusCol === -1 && (s === 'status' || s === 'attendance' || s.includes('p/a') || s.includes('ప్రజెంట్') || s.includes('హాజరు') || s.includes('attend'))) {
+            if (statusCol === -1 && (
+              s === 'status' || s === 'attendance' || s.includes('p/a') || 
+              s.includes('ప్రజెంట్') || s.includes('హాజరు') || s.includes('attend')
+            )) {
               statusCol = c;
             }
             if (dsrCol === -1 && (s.includes('dsr') || s.includes('report') || s.includes('రిపోర్ట్') || s.includes('upload'))) {
@@ -2648,12 +2656,17 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
           if (statusCol === -1 || gpCol === -1) {
             for (let c = 0; c < Math.min(headerRow.length, 30); c++) {
                // Look ahead a few rows for samples
-               for (let rCheck = bestHeaderRowIdx + 1; rCheck < Math.min(rows.length, bestHeaderRowIdx + 10); rCheck++) {
-                 const sample = String(rows[rCheck]?.[c] || '').toLowerCase().trim();
+               for (let rCheck = bestHeaderRowIdx + 1; rCheck < Math.min(rows.length, bestHeaderRowIdx + 15); rCheck++) {
+                 const cellVal = rows[rCheck]?.[c];
+                 if (cellVal === undefined || cellVal === null) continue;
+                 const sample = String(cellVal).toLowerCase().trim();
+                 
                  if (statusCol === -1 && (sample === 'p' || sample === 'a' || sample === 'present' || sample === 'absent' || sample === '1' || sample === '0' || sample === 'yes' || sample === 'no')) {
                    statusCol = c;
                  }
-                 if (gpCol === -1 && sample.length > 3 && isNaN(Number(sample)) && !['mandal', 'mandal name', 'district', 'sl.no', 'sl no', 's.no'].includes(sample)) {
+                 if (gpCol === -1 && sample.length > 3 && isNaN(Number(sample)) && 
+                     !['mandal', 'mandal name', 'district', 'sl.no', 'sl no', 's.no'].includes(sample) &&
+                     !sample.includes('202')) {
                    gpCol = c;
                  }
                }
@@ -2661,29 +2674,29 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
           }
 
           let rowsAdded = 0;
-          if (gpCol !== -1) {
-            for (let r = bestHeaderRowIdx + 1; r < rows.length; r++) {
-              const row = rows[r];
-              if (!row || !Array.isArray(row)) continue;
-              
-              // Raw rows accumulation
-              updatedRawRows.push([file.name, sheetName, ...row]);
+          for (let r = bestHeaderRowIdx + 1; r < rows.length; r++) {
+            const row = rows[r];
+            if (!row || !Array.isArray(row)) continue;
+            
+            // Raw rows accumulation - ALWAYS DO THIS TO ALLOW DEBUGGING
+            updatedRawRows.push([file.name, sheetName, ...row]);
 
+            if (gpCol !== -1) {
               const gp = String(row[gpCol] || '').trim();
-              if (!gp || gp.length < 2 || gp.toLowerCase().includes('total')) continue;
+              if (!gp || gp.length < 2 || gp.toLowerCase().includes('total') || gp.toLowerCase().includes('grand')) continue;
 
               const mandal = mandalCol !== -1 ? String(row[mandalCol] || '').trim() : 'Unknown';
               const rawStatus = statusCol !== -1 ? String(row[statusCol] || '').toLowerCase() : '';
               const rawDsr = dsrCol !== -1 ? String(row[dsrCol] || '').toLowerCase() : '';
 
               let symbol = "-";
-              if (rawStatus.includes('present') || rawStatus === 'p' || rawStatus.includes('✅') || rawStatus === '1') symbol = "P";
-              else if (rawStatus.includes('absent') || rawStatus === 'a' || rawStatus.includes('no') || rawStatus === '0') symbol = "A";
+              if (rawStatus.includes('present') || rawStatus === 'p' || rawStatus.includes('✅') || rawStatus === '1' || rawStatus === 'y' || rawStatus.includes('yes')) symbol = "P";
+              else if (rawStatus.includes('absent') || rawStatus === 'a' || rawStatus.includes('no') || rawStatus === '0' || rawStatus === 'n') symbol = "A";
               else if (rawStatus.includes('meeting') || rawStatus === 'm') symbol = "M";
               else if (rawStatus.includes('training') || rawStatus === 't') symbol = "T";
               else if (rawStatus.includes('leave') || rawStatus === 'l') symbol = "L";
               
-              if (symbol === "-" && rawStatus.length > 0 && rawStatus.length < 4) symbol = "P";
+              if (symbol === "-" && rawStatus.length > 0 && rawStatus.length < 3) symbol = "P";
 
               const key = gp.toUpperCase();
               if (!newAggregated.has(key)) {
@@ -2691,7 +2704,7 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
               }
               const entry = newAggregated.get(key)!;
               entry.attendance[fileDate] = symbol;
-              entry.dsr[fileDate] = rawDsr.includes('entered') || rawDsr.includes('yes') || rawDsr.includes('✅') || rawDsr.includes('uploaded');
+              entry.dsr[fileDate] = rawDsr.includes('entered') || rawDsr.includes('yes') || rawDsr.includes('✅') || rawDsr.includes('uploaded') || rawDsr.includes('done');
               rowsAdded++;
             }
           }
