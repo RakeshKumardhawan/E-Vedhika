@@ -2633,23 +2633,30 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
             if (gpCol === -1 && (s.includes('gram') || s === 'gp' || s.includes('panchayat') || s.includes('habitation') || s.includes('village') || (s.includes('name') && !s.includes('mandal') && !s.includes('dist')))) {
               if (!s.includes('code') && !s.includes('id')) gpCol = c;
             }
-            if (mandalCol === -1 && (s.includes('mandal') || s.includes('block') || s.includes('మండలం'))) mandalCol = c;
+            if (mandalCol === -1 && (s.includes('mandal') || s.includes('block') || s.includes('మండలం') || s.includes('తాలూకా'))) mandalCol = c;
             
             // Status vs DSR disambiguation
-            if (statusCol === -1 && (s === 'status' || s === 'attendance' || s.includes('p/a') || s.includes('ప్రజెంట్'))) {
+            if (statusCol === -1 && (s === 'status' || s === 'attendance' || s.includes('p/a') || s.includes('ప్రజెంట్') || s.includes('హాజరు') || s.includes('attend'))) {
               statusCol = c;
             }
-            if (dsrCol === -1 && (s.includes('dsr') || s.includes('report') || s.includes('రిపోర్ట్'))) {
+            if (dsrCol === -1 && (s.includes('dsr') || s.includes('report') || s.includes('రిపోర్ట్') || s.includes('upload'))) {
               dsrCol = c;
             }
           });
 
           // Fallback: search for columns by sample values if headers failed
           if (statusCol === -1 || gpCol === -1) {
-            for (let c = 0; c < Math.min(headerRow.length, 20); c++) {
-               const sample = String(rows[bestHeaderRowIdx + 1]?.[c] || '').toLowerCase();
-               if (statusCol === -1 && (sample === 'p' || sample === 'a' || sample === 'present' || sample === 'absent')) statusCol = c;
-               if (gpCol === -1 && sample.length > 5 && !sample.includes(' ') && isNaN(Number(sample))) gpCol = c;
+            for (let c = 0; c < Math.min(headerRow.length, 30); c++) {
+               // Look ahead a few rows for samples
+               for (let rCheck = bestHeaderRowIdx + 1; rCheck < Math.min(rows.length, bestHeaderRowIdx + 10); rCheck++) {
+                 const sample = String(rows[rCheck]?.[c] || '').toLowerCase().trim();
+                 if (statusCol === -1 && (sample === 'p' || sample === 'a' || sample === 'present' || sample === 'absent' || sample === '1' || sample === '0' || sample === 'yes' || sample === 'no')) {
+                   statusCol = c;
+                 }
+                 if (gpCol === -1 && sample.length > 3 && isNaN(Number(sample)) && !['mandal', 'mandal name', 'district', 'sl.no', 'sl no', 's.no'].includes(sample)) {
+                   gpCol = c;
+                 }
+               }
             }
           }
 
