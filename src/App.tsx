@@ -2629,18 +2629,29 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
           const headerRow = rows[bestHeaderRowIdx] || [];
           headerRow.forEach((val, c) => {
             const s = String(val || '').toLowerCase().trim();
-            if (gpCol === -1 && (s.includes('gram') || s === 'gp' || s.includes('panchayat') || s.includes('habitation') || s.includes('village') || (s.includes('name') && !s.includes('mandal')))) gpCol = c;
-            if (mandalCol === -1 && (s.includes('mandal') || s.includes('block'))) mandalCol = c;
-            if (statusCol === -1 && (s.includes('status') || s.includes('attend') || s.includes('present') || s.includes('p/a'))) statusCol = c;
-            if (dsrCol === -1 && (s.includes('dsr') || s.includes('report') || s.includes('entry'))) dsrCol = c;
+            // GP Detection - checking for common variations
+            if (gpCol === -1 && (s.includes('gram') || s === 'gp' || s.includes('panchayat') || s.includes('habitation') || s.includes('village') || (s.includes('name') && !s.includes('mandal') && !s.includes('dist')))) {
+              if (!s.includes('code') && !s.includes('id')) gpCol = c;
+            }
+            if (mandalCol === -1 && (s.includes('mandal') || s.includes('block') || s.includes('మండలం'))) mandalCol = c;
+            
+            // Status vs DSR disambiguation
+            if (statusCol === -1 && (s === 'status' || s === 'attendance' || s.includes('p/a') || s.includes('ప్రజెంట్'))) {
+              statusCol = c;
+            }
+            if (dsrCol === -1 && (s.includes('dsr') || s.includes('report') || s.includes('రిపోర్ట్'))) {
+              dsrCol = c;
+            }
           });
 
-          // Extreme Fallback
-          if (gpCol === -1) gpCol = headerRow.findIndex(v => String(v || '').length > 3 && !String(v).toLowerCase().includes('id'));
-          if (statusCol === -1) statusCol = headerRow.findIndex(v => {
-             const sv = String(v || '').toLowerCase();
-             return sv.includes('p') || sv.includes('a') || sv.includes('att') || sv.includes('stat');
-          });
+          // Fallback: search for columns by sample values if headers failed
+          if (statusCol === -1 || gpCol === -1) {
+            for (let c = 0; c < Math.min(headerRow.length, 20); c++) {
+               const sample = String(rows[bestHeaderRowIdx + 1]?.[c] || '').toLowerCase();
+               if (statusCol === -1 && (sample === 'p' || sample === 'a' || sample === 'present' || sample === 'absent')) statusCol = c;
+               if (gpCol === -1 && sample.length > 5 && !sample.includes(' ') && isNaN(Number(sample))) gpCol = c;
+            }
+          }
 
           let rowsAdded = 0;
           if (gpCol !== -1) {
@@ -2797,19 +2808,21 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
   });
 
   const totalGPs = filteredData.length;
-  let totalPresent = 0;
-  let totalDsr = 0;
-  let totalOpportunities = totalGPs * allDates.length;
+  let totalPresentCount = 0;
+  let totalDsrReported = 0;
+  let totalRows = filteredData.length * allDates.length;
+  
   filteredData.forEach(([gp, info]) => {
     allDates.forEach(d => {
       if (info.attendance[d] === 'P') {
-        totalPresent++;
-        if (info.dsr[d]) totalDsr++;
+        totalPresentCount++;
+        if (info.dsr[d]) totalDsrReported++;
       }
     });
   });
-  const avgAttendance = totalOpportunities > 0 ? Math.round((totalPresent / totalOpportunities) * 100) : 0;
-  const dsrCompliance = totalPresent > 0 ? Math.round((totalDsr / totalPresent) * 100) : 0;
+
+  const avgAttendance = totalRows > 0 ? Math.round((totalPresentCount / totalRows) * 100) : 0;
+  const dsrCompliance = totalPresentCount > 0 ? Math.round((totalDsrReported / totalPresentCount) * 100) : 0;
 
   return (
     <div className="space-y-6">
