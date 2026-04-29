@@ -2620,33 +2620,47 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
         let sheetsToProcess: { sheetName: string, rows: any[][] }[] = [];
         
         try {
-          const workbook = XLSX.read(dataBuffer, { type: 'array' });
-          for (const sheetName of workbook.SheetNames) {
-             const rows: any[][] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '', raw: false }) as any[][];
-             if (rows.length > 0) sheetsToProcess.push({ sheetName, rows });
+          let text = new window.TextDecoder('utf-8').decode(dataBuffer);
+          let isHtml = false;
+          
+          if (!text.toLowerCase().includes('<tr') && !text.toLowerCase().includes('<table')) {
+            const utf16Text = new window.TextDecoder('utf-16le').decode(dataBuffer);
+            if (utf16Text.toLowerCase().includes('<tr') || utf16Text.toLowerCase().includes('<table')) {
+               text = utf16Text;
+               isHtml = true;
+            }
+          } else {
+            isHtml = true;
+          }
+
+          if (isHtml) {
+             const parser = new DOMParser();
+             const doc = parser.parseFromString(text, 'text/html');
+             const trs = doc.querySelectorAll('tr');
+             const rows = Array.from(trs).map(tr => 
+               Array.from(tr.querySelectorAll('th, td')).map(td => td.textContent?.trim().replace(/\s+/g, ' ') || '')
+             );
+             if (rows.length > 0) sheetsToProcess.push({ sheetName: "HTML_" + file.name, rows });
+          } else {
+             const workbook = XLSX.read(dataBuffer, { type: 'array' });
+             for (const sheetName of workbook.SheetNames) {
+                const rows: any[][] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '', raw: false }) as any[][];
+                if (rows.length > 0) sheetsToProcess.push({ sheetName, rows });
+             }
           }
         } catch (e) {
-          console.error("XLSX read failed for file", file.name);
-        }
-
-        // HTML Fallback for Government Portal Reports
-        if (sheetsToProcess.length === 0) {
-          try {
-            let text = new window.TextDecoder('utf-8').decode(dataBuffer);
-            if (!text.toLowerCase().includes('<tr') && !text.toLowerCase().includes('<table')) {
-              text = new window.TextDecoder('utf-16le').decode(dataBuffer);
-            }
-            if (text.toLowerCase().includes('<table') || text.toLowerCase().includes('<tr')) {
-               const parser = new DOMParser();
-               const doc = parser.parseFromString(text, 'text/html');
-               const trs = doc.querySelectorAll('tr');
-               const rows = Array.from(trs).map(tr => 
-                 Array.from(tr.querySelectorAll('th, td')).map(td => td.textContent?.trim().replace(/\s+/g, ' ') || '')
-               );
-               if (rows.length > 0) sheetsToProcess.push({ sheetName: "HTML_" + file.name, rows });
-            }
-          } catch(e) {
-            console.error("HTML Fallback error", e);
+          console.error("File parsing failed for", file.name, e);
+          // Fallback to basic XLSX if something threw error
+          if (sheetsToProcess.length === 0) {
+             try {
+               const workbook = XLSX.read(dataBuffer, { type: 'array' });
+               for (const sheetName of workbook.SheetNames) {
+                  const rows: any[][] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '', raw: false }) as any[][];
+                  if (rows.length > 0) sheetsToProcess.push({ sheetName, rows });
+               }
+             } catch(e2) {
+               console.error("Fallback XLSX failed", e2);
+             }
           }
         }
 
@@ -2862,23 +2876,23 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
     
     // Row 1
     const row1 = ['Telangana State'];
-    for(let i=0; i < allDates.length * 2 + 6; i++) row1.push('');
+    for(let i=0; i < allDates.length * 2 + 3; i++) row1.push('');
     aoa.push(row1);
 
     // Row 2
     const reportDate = allDates[0] ? new Date(allDates[0].split('-').reverse().join('-')).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : '';
     const row2 = [`Report On Attendance Status & DSR Raw Data ${reportDate}`];
-    for(let i=0; i < allDates.length * 2 + 6; i++) row2.push('');
+    for(let i=0; i < allDates.length * 2 + 3; i++) row2.push('');
     aoa.push(row2);
 
     // Row 3 (Status heading)
-    const row3 = ['', '', '', '', '', '', ''];
+    const row3 = ['', '', '', ''];
     row3.push('Attendace Status');
     for(let i=0; i < allDates.length * 2 - 1; i++) row3.push('');
     aoa.push(row3);
 
     // Row 4 (Headers)
-    const row4 = ['S.No', 'District Name', 'Division Name', 'Mandal Name', 'Mandal LGD', 'Panchayat Name', 'Panchayat LGD'];
+    const row4 = ['S.No', 'District Name', 'Mandal Name', 'Panchayat Name'];
     allDates.forEach(() => {
        row4.push('First Attendance');
        row4.push('First Attendance');
@@ -2890,11 +2904,8 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
       const row = [
         idx + 1, 
         info.district,
-        info.division,
         info.mandal,
-        info.mandalLgd || '',
-        info.gp,
-        info.panchayatLgd || ''
+        info.gp
       ];
       allDates.forEach(d => {
         const time = info.times[d] || '';
@@ -2908,11 +2919,11 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     
     // Merge cells for headers
-    const totalCols = allDates.length * 2 + 7;
+    const totalCols = allDates.length * 2 + 4;
     ws['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }, // Telangana State
       { s: { r: 1, c: 0 }, e: { r: 1, c: totalCols - 1 } }, // Report Title
-      { s: { r: 2, c: 7 }, e: { r: 2, c: totalCols - 1 } }  // Attendace Status
+      { s: { r: 2, c: 4 }, e: { r: 2, c: totalCols - 1 } }  // Attendace Status
     ];
 
     const wb = XLSX.utils.book_new();
@@ -3092,23 +3103,20 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
               <table className="w-full text-left text-[10px] border-collapse min-w-[1400px]">
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-[#004085] text-white text-center border-b border-black">
-                    <th colSpan={sortedDates.length * 2 + 7} className="p-1 font-bold text-xs">Telangana State</th>
+                    <th colSpan={sortedDates.length * 2 + 4} className="p-1 font-bold text-xs">Telangana State</th>
                   </tr>
                   <tr className="bg-[#004085] text-white text-center border-b border-black">
-                    <th colSpan={sortedDates.length * 2 + 7} className="p-1 font-bold text-[11px]">Report On Attendance Status & DSR Raw Data {sortedDates[0] ? new Date(sortedDates[0].split('-').reverse().join('-')).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : ''}</th>
+                    <th colSpan={sortedDates.length * 2 + 4} className="p-1 font-bold text-[11px]">Report On Attendance Status & DSR Raw Data {sortedDates[0] ? new Date(sortedDates[0].split('-').reverse().join('-')).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : ''}</th>
                   </tr>
                   <tr className="bg-[#1a528d] text-white text-[10px]">
-                    <th colSpan={7} className="border border-black bg-white"></th>
+                    <th colSpan={4} className="border border-black bg-white"></th>
                     <th colSpan={sortedDates.length * 2} className="p-1 text-center font-bold border border-black uppercase tracking-wider">Attendace Status</th>
                   </tr>
                   <tr className="bg-[#1a528d] text-white font-bold text-[9px] text-left">
                     <th className="p-1.5 border border-black w-10">S.No</th>
                     <th className="p-1.5 border border-black min-w-[100px]">District Name</th>
-                    <th className="p-1.5 border border-black min-w-[100px]">Division Name</th>
                     <th className="p-1.5 border border-black min-w-[100px]">Mandal Name</th>
-                    <th className="p-1.5 border border-black w-20">Mandal LGD</th>
                     <th className="p-1.5 border border-black min-w-[140px]">Panchayat Name</th>
-                    <th className="p-1.5 border border-black w-24">Panchayat LGD</th>
                     {sortedDates.map(d => (
                        <React.Fragment key={d}>
                          <th className="p-1.5 border border-black min-w-[100px]">First Attendance</th>
@@ -3139,11 +3147,8 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                           <tr key={`${(info.mandal || '').toUpperCase()}_${(info.gp || '').toUpperCase()}`} className="hover:bg-blue-50/40 text-black border-b border-slate-200 group">
                             <td className="p-1.5 border border-black text-center font-medium bg-slate-50 text-slate-500 group-hover:text-blue-600 transition-colors">{gpIndexMap.get(`${(info.mandal || '').toUpperCase()}_${(info.gp || '').toUpperCase()}`)}</td>
                             <td className="p-1.5 border border-black uppercase text-[9px] tracking-tight">{info.district}</td>
-                            <td className="p-1.5 border border-black uppercase text-[9px] tracking-tight">{info.division}</td>
                             <td className="p-1.5 border border-black uppercase bg-slate-50 text-[9px] font-bold tracking-tight">{info.mandal}</td>
-                            <td className="p-1.5 border border-black text-center font-mono text-[9px] text-slate-500">{info.mandalLgd}</td>
                             <td className="p-1.5 border border-black font-extrabold text-slate-900 bg-blue-50/20 text-[10px]">{info.gp}</td>
-                            <td className="p-1.5 border border-black text-center font-mono text-[9px] text-slate-500">{info.panchayatLgd}</td>
                             {sortedDates.map(d => {
                               const status = info.attendance[d] || '-';
                               const time = info.times[d] || '-';
