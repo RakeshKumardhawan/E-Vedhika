@@ -686,44 +686,44 @@ export default function App() {
         <div style="text-align: left; margin-bottom: 10px; font-weight: 800; font-size: 11px; color: #64748b; text-transform: uppercase;">Email Login</div>
         <input id="swal-input1" class="swal2-input" placeholder="Email" style="margin-top: 0;">
         <input id="swal-input2" type="password" class="swal2-input" placeholder="Password">
+        <button id="email-login-btn" class="swal2-confirm swal2-styled" style="background-color: #0d3b66; width: 100%; margin: 15px 0 0 0; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-weight: 800; text-transform: uppercase; font-size: 11px; padding: 12px 24px;">
+           Sign In / Register
+        </button>
         <div style="margin: 15px 0; display: flex; align-items: center; gap: 10px;">
            <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
            <span style="font-size: 10px; font-weight: 800; color: #94a3b8;">OR</span>
            <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
         </div>
-        <button id="google-login-btn" class="swal2-confirm swal2-styled" style="background-color: #ea4335; width: 100%; margin: 0; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 12px; font-weight: 800; text-transform: uppercase; font-size: 11px;">
-           <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="white"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="white"/><path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" fill="white"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="white"/></svg>
-           Sign in with Google
-        </button>
       `,
       focusConfirm: false,
       showCancelButton: true,
-      confirmButtonText: 'Sign In / Register',
-      confirmButtonColor: '#0d3b66',
+      confirmButtonText: '<div style="display: flex; align-items: center; justify-content: center; gap: 10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="white"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="white"/><path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" fill="white"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="white"/></svg> Sign in with Google</div>',
+      confirmButtonColor: '#ea4335',
       customClass: {
         confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3',
         cancelButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
       },
       didRender: () => {
-         const googleBtn = document.getElementById('google-login-btn');
-         if (googleBtn) {
-           googleBtn.addEventListener('click', () => {
+         const emailBtn = document.getElementById('email-login-btn');
+         if (emailBtn) {
+           emailBtn.addEventListener('click', () => {
              Swal.clickConfirm();
-             (window as any).isGoogleLogin = true;
+             (window as any).isEmailLogin = true;
            });
          }
       },
       preConfirm: () => {
-        if ((window as any).isGoogleLogin) {
-          delete (window as any).isGoogleLogin;
-          return { method: 'google' };
+        if ((window as any).isEmailLogin) {
+          delete (window as any).isEmailLogin;
+          const email = (document.getElementById('swal-input1') as HTMLInputElement).value;
+          const password = (document.getElementById('swal-input2') as HTMLInputElement).value;
+          if (!email || !password) {
+            Swal.showValidationMessage('Please enter email and password');
+            return false;
+          }
+          return { method: 'email', email, password };
         }
-        const email = (document.getElementById('swal-input1') as HTMLInputElement).value;
-        const password = (document.getElementById('swal-input2') as HTMLInputElement).value;
-        if (!email || !password) {
-          Swal.showValidationMessage('Please enter both email and password');
-        }
-        return { method: 'email', email, password };
+        return { method: 'google' };
       }
     }).then(async (result) => {
       if (result.isConfirmed) {
@@ -872,22 +872,70 @@ export default function App() {
         ))}
       </AnimatePresence>
 
-      <header className="sticky top-0 z-[1001]" style={{ background: 'var(--primary)', height: 'var(--header-h)', borderBottom: '3px solid var(--accent)', display: 'flex', alignItems: 'center', padding: '0 4%' }}>
-        <div className="brand-wrapper cursor-pointer" onClick={() => { setCurrentTab('home'); setSidebarOpen(false); }}>
-          {/* Logo Section */}
-          <div className="logo-container" id="evLogo">
-            <svg viewBox="0 0 64 64" width="40" height="40">
-              <g className="logo-ring" id="mainLogoRing">
-                <circle cx="32" cy="32" r="29" fill="none" stroke="#facc15" strokeWidth="2" strokeDasharray="5 8"/>
-              </g>
-              <circle cx="32" cy="32" r="24" fill="#0d3b66"/>
-              <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="700" fontFamily="Segoe UI, sans-serif" className="ev-logo-text">EV</text>
+      <header className="sticky top-0 z-[1001] shadow-2xl" style={{ 
+        background: '#103052', 
+        height: 'var(--header-h)', 
+        borderBottom: '3px solid var(--accent)', 
+        display: 'flex', 
+        alignItems: 'center', 
+        padding: '0 4%' 
+      }}>
+        <div className="brand-wrapper cursor-pointer flex items-center gap-4" onClick={() => { setCurrentTab('home'); setSidebarOpen(false); }}>
+          {/* లోగో HTML స్ట్రక్చర్ */}
+          <div className="logo-pro cursor-pointer transition-transform hover:scale-105 active:scale-95 duration-200">
+            {/* యానిమేటెడ్ పార్టికల్స్ */}
+            <div className="logo-particles">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            
+            {/* SVG లోగో */}
+            <svg viewBox="0 0 64 64" width="48" height="48">
+              <defs>
+                {/* కలర్ గ్రేడియంట్స్ */}
+                <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#22c55e"/>
+                  <stop offset="100%" stopColor="#0ea5e9"/>
+                </linearGradient>
+                <linearGradient id="ringG" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#22c55e"/>
+                  <stop offset="50%" stopColor="#facc15"/>
+                  <stop offset="100%" stopColor="#0ea5e9"/>
+                </linearGradient>
+              </defs>
+              
+              {/* బయటి రింగ్ */}
+              <circle className="logo-ring" cx="32" cy="32" r="29" fill="none" stroke="url(#ringG)" strokeWidth="2.5" strokeDasharray="10 5"/>
+              
+              {/* లోపలి సర్కిల్స్ */}
+              <circle cx="32" cy="32" r="25" fill="url(#g)"/>
+              <circle cx="32" cy="32" r="21" fill="#0d3b66"/>
+              
+              {/* EV టెక్స్ట్ */}
+              <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="900" fontFamily="Segoe UI">EV</text>
             </svg>
           </div>
           {/* Website Name Section */}
-          <div>
-            <h2 className="brand-title">E-VEDHIKA</h2>
-            <p className="sub-tagline">all problems one solution</p>
+          <div className="flex flex-col justify-center translate-y-[-2px]">
+            <h2 className="brand-title" style={{ 
+              color: '#fbe947', 
+              background: 'none',
+              WebkitTextFillColor: 'initial',
+              WebkitBackgroundClip: 'initial',
+              filter: 'none',
+              animation: 'none',
+              fontSize: '24px',
+              fontWeight: '900',
+              letterSpacing: '1px',
+              fontFamily: '"Arial Black", Impact, sans-serif',
+              lineHeight: '1',
+             }}>E<span style={{color: '#facc15'}}>-</span>VEDHIKA</h2>
+            <div className="flex items-center mt-[1px]">
+              <span style={{ fontSize: '9px', fontWeight: '800', letterSpacing: '1px', color: '#94a3b8', textTransform: 'uppercase' }}>
+                all problems one solution
+              </span>
+            </div>
           </div>
         </div>
 
@@ -988,6 +1036,7 @@ export default function App() {
             <MenuButton label="Live Chat" emoji="💬" active={currentTab === 'chat'} onClick={() => {setCurrentTab('chat'); setSidebarOpen(false);}} />
             <MenuButton label="Union Corner" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
             <MenuButton label="Public suggestions & Feedback" emoji="💡" active={currentTab === 'suggestions'} onClick={() => {setCurrentTab('suggestions'); setSidebarOpen(false);}} />
+            <MenuButton label="What's New! 🚀" emoji="✨" active={currentTab === 'changelog'} onClick={() => {setCurrentTab('changelog'); setSidebarOpen(false);}} />
           </div>
         </aside>
 
@@ -1227,54 +1276,86 @@ export default function App() {
               </motion.div>
             )}
 
-            {currentTab === 'suggestions' && (() => {
-              const visibleSuggestions = isAdmin ? suggestions : suggestions.filter(s => s.status?.toLowerCase() === 'approved');
-              const hasPending = suggestions.length > visibleSuggestions.length;
-              return (
+            {currentTab === 'changelog' && (
+              <motion.div key="changelog" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="max-w-4xl mx-auto space-y-6">
+                <div className="section-card card-blue !p-8 relative overflow-hidden">
+                   <div className="absolute top-0 right-0 p-8 opacity-10"><Zap size={100} /></div>
+                   <h2 className="text-3xl font-black text-primary mb-2 flex items-center gap-3"><Zap className="text-amber-500" /> What's New on E-Vedhika!</h2>
+                   <p className="text-sm font-bold text-slate-500">Stay updated with the latest features, fixes, and updates to the platform.</p>
+                </div>
+                
+                <div className="bg-white rounded-[32px] p-6 lg:p-10 shadow-xl border border-slate-100 flex flex-col gap-8 relative before:absolute before:inset-y-10 before:left-[43px] lg:before:left-[55px] before:w-[2px] before:bg-slate-100">
+                  {updates.length === 0 ? (
+                     <div className="text-center p-10 text-slate-400 font-bold">No updates broadcasted yet.</div>
+                  ) : (
+                     [...updates].sort((a, b) => (b.time || 0) - (a.time || 0)).map((u, i) => (
+                       <div key={i} className="relative flex gap-6 z-10 pl-2 lg:pl-4">
+                         <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-blue-50 border-4 border-white shadow-sm flex items-center justify-center shrink-0">
+                           <Zap size={16} className="text-blue-500" />
+                         </div>
+                         <div className="flex-1 pt-2 lg:pt-3">
+                           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
+                             <h3 className="text-sm sm:text-base font-black text-slate-800">System Update</h3>
+                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-md w-max">
+                               {new Date(u.time || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                             </span>
+                           </div>
+                           <div className="text-sm font-medium text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100 leading-relaxed shadow-sm">
+                             <ReactMarkdown components={{
+                                p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                                strong: ({node, ...props}) => <strong className="font-black text-slate-800" {...props} />
+                             }}>{String(u.text || '')}</ReactMarkdown>
+                           </div>
+                         </div>
+                       </div>
+                     ))
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {currentTab === 'suggestions' && (
               <motion.div key="suggestions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <div className="section-card card-gold">
                   <h2 className="text-2xl font-black text-primary mb-6">💡 Community Voice</h2>
                   <div className="bg-slate-50 rounded-2xl p-4 max-h-[600px] overflow-y-auto mb-6 custom-scrollbar">
-                    {visibleSuggestions.length > 0 ? (
-                      <div className="space-y-6">
-                        {Array.from(new Set(visibleSuggestions.map(s => s.category || 'General'))).map(category => (
-                          <div key={category}>
-                             <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 border-b border-slate-200 pb-1">{category}</h4>
-                             <div className="space-y-3">
-                               {visibleSuggestions.filter(s => (s.category || 'General') === category).map(s => (
-                                 <div key={s.id} className="bg-white p-4 rounded-xl border border-slate-200 border-l-4 border-l-[#a855f7]">
-                                   <div className="flex justify-between items-center mb-2">
-                                     <span className="text-[10px] font-black text-[#a855f7] uppercase block">👤 {s.name || 'Portal User'}</span>
-                                     <span className="text-[10px] text-slate-400 font-bold">
-                                       {new Date(s.time || Date.now()).toLocaleDateString()}
-                                       {isAdmin && s.status?.toLowerCase() !== 'approved' && (
-                                          <span className="ml-2 bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[8px] uppercase">{s.status || 'pending'}</span>
-                                       )}
-                                       {isAdmin && s.status?.toLowerCase() === 'approved' && (
-                                          <span className="ml-2 bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[8px] uppercase">Approved</span>
-                                       )}
-                                     </span>
-                                   </div>
-                                   <p className="text-sm font-medium text-slate-700">
-                                     {(s.text || s.suggestion || (s as any).msg || (s as any).content || '').length > 200 ? `${(s.text || s.suggestion || (s as any).msg || (s as any).content || '').substring(0, 200)}...` : (s.text || s.suggestion || (s as any).msg || (s as any).content || '')}
-                                     {(s.text || s.suggestion || (s as any).msg || (s as any).content || '').length > 200 && (
-                                       <span onClick={() => setSelectedSuggestion(s)} className="text-xs font-bold text-[#a855f7] ml-2 cursor-pointer hover:underline">Read more</span>
-                                     )}
-                                   </p>
-                                 </div>
-                               ))}
-                             </div>
-                          </div>
-                        ))}
+                    {suggestions.length > 0 ? (
+                      <div className="space-y-4">
+                        {suggestions.map(s => {
+                          const displayContent = s.text || s.suggestion || (s as any).msg || (s as any).content || (s as any).message || '';
+                          const displayTitle = (s as any).title || '';
+                          return (
+                            <div key={s.id} className="bg-white p-5 rounded-2xl border border-slate-200 border-l-4 border-l-[#a855f7] shadow-md hover:shadow-lg transition-shadow">
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="flex flex-col gap-1">
+                                  {s.category && <span className="text-[10px] font-black text-[#a855f7] uppercase tracking-widest">{s.category}</span>}
+                                  {displayTitle && <h3 className="font-black text-slate-800 text-sm leading-tight">{displayTitle}</h3>}
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[10px] font-black text-slate-500 uppercase block">👤 {s.name || 'Portal User'}</span>
+                                  <span className="text-[10px] text-slate-400 font-bold">
+                                    {new Date(Number(s.time || Date.now())).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-[13px] font-medium text-slate-600 whitespace-pre-wrap leading-relaxed">
+                                {displayContent}
+                              </div>
+                              {isAdmin && (
+                                <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
+                                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${s.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    Status: {s.status || 'pending'}
+                                  </span>
+                                  <button onClick={() => setCurrentTab('admin')} className="text-[9px] font-black text-blue-500 uppercase hover:underline">Manage in Admin</button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="text-center py-10">
-                        <p className="font-bold text-slate-400">No approved public suggestions shared yet.</p>
-                        {!isAdmin && hasPending && (
-                           <p className="text-xs text-amber-500 mt-2 font-bold animate-pulse">
-                             There are {hasPending} pending suggestions. Please log in as Admin to review them.
-                           </p>
-                        )}
+                        <p className="font-bold text-slate-400">No public suggestions shared yet.</p>
                       </div>
                     )}
                   </div>
@@ -1285,8 +1366,7 @@ export default function App() {
                   </button>
                 </div>
               </motion.div>
-              );
-            })()}
+            )}
 
             {currentTab === 'problems' && (
               <motion.div key="problems" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
