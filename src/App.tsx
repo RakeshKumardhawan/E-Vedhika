@@ -645,9 +645,18 @@ export default function App() {
   };
 
   const handleGoogleLogin = async () => {
+    const loginWaitToast = "Google లాగిన్ ప్రాసెస్ అవుతోంది... దయచేసి వేచి ఉండండి.";
+    addToast(loginWaitToast);
+    
+    // Warning timeout if it takes too long
+    const slowLoginWarning = setTimeout(() => {
+      addToast("లాగిన్ ఆలస్యం అవుతోంది. ఒకవేళ పాపప్ రాకపోతే, యాప్‌ను కొత్త ట్యాబ్‌లో (పైన కుడివైపు అమ్ము గుర్తు) ఓపెన్ చేయండి.");
+    }, 8000);
+
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
+      clearTimeout(slowLoginWarning);
       
       try {
         await addDoc(collection(db, 'security_logs'), {
@@ -661,7 +670,12 @@ export default function App() {
       
       addToast("Google Login Success!");
     } catch (err: any) {
-      addToast("Login Failed: " + err.message);
+      clearTimeout(slowLoginWarning);
+      if (err.code === 'auth/cancelled-popup-request' || err.code === 'auth/popup-closed-by-user' || err.code === 'auth/popup-blocked') {
+         addToast("Login Failed: Popup closed or blocked. Try opening the app in a new tab (arrow on top right) if this persists.");
+      } else {
+         addToast("Login Failed: " + err.message);
+      }
     }
   };
 
@@ -1478,14 +1492,14 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
              </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-             <div>
-               <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Mandal *</label>
-               <select value={mandal} onChange={e => setMandal(e.target.value)} required className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" disabled={!district}>
-                  <option value="">Select Mandal</option>
-                  {mandals.map(m => <option key={m}>{m}</option>)}
-               </select>
-             </div>
+              <div className="grid grid-cols-2 gap-3">
+                 <div>
+                   <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Mandal *</label>
+                   <select value={mandal} onChange={e => setMandal(e.target.value)} required className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" disabled={!district}>
+                      <option value="">Select Mandal</option>
+                      {mandals.map((m, idx) => <option key={`${m}_${idx}`} value={m}>{m}</option>)}
+                   </select>
+                 </div>
              <div>
                <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Village / GP</label>
                <input value={village} onChange={e => setVillage(e.target.value)} className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" placeholder="Village" />
@@ -2552,6 +2566,8 @@ function FormsHub({ addToast, user }: { addToast: (s:string) => void, user: Fire
 }
 
 function StatusCell({ status }: { status: string }) {
+  if (status === 'P-I') return <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black border border-emerald-200" title="Present (Intime: <= 9:00 AM)">✅ INTIME</span>;
+  if (status === 'P-L') return <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-[10px] font-black border border-orange-200" title="Present (Late: > 9:00 AM)">⚠️ LATE</span>;
   if (status === 'P') return <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black border border-emerald-200">✅ PRESENT</span>;
   if (status === 'A') return <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-[10px] font-black border border-rose-200">❌ ABSENT</span>;
   if (status === 'M') return <span className="bg-cyan-100 text-cyan-700 px-3 py-1 rounded-full text-[10px] font-black border border-cyan-200">🤝 MEETING</span>;
@@ -2561,14 +2577,32 @@ function StatusCell({ status }: { status: string }) {
 }
 
 function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
-  const [aggregatedData, setAggregatedData] = useState<Map<string, { mandal: string, attendance: Record<string, string>, dsr: Record<string, boolean> }>>(new Map());
+  const [aggregatedData, setAggregatedData] = useState<Map<string, { gp: string, mandal: string, district: string, division: string, mandalLgd: string, panchayatLgd: string, attendance: Record<string, string>, times: Record<string, string>, dsr: Record<string, boolean> }>>(new Map());
   const [allDates, setAllDates] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [mandalFilter, setMandalFilter] = useState("All");
   const [rawRows, setRawRows] = useState<any[][]>([]);
-  const [parserDebug, setParserDebug] = useState<{file: string, sheet: string, date: string, gpColIdx: number, gpColName: string, statusColIdx: number, statusColName: string, rowsFound: number}[]>([]);
+  const [parserDebug, setParserDebug] = useState<{file: string, sheet: string, date: string, gpColIdx: number, gpColName: string, statusColIdx: number, statusColName: string, rowsFound: number, datesFound: number}[]>([]);
   const [showDebug, setShowDebug] = useState(false);
+  const [expandedMandals, setExpandedMandals] = useState<Set<string>>(new Set());
+  const [showStats, setShowStats] = useState(true);
+
+  const toggleMandal = (m: string) => {
+    const next = new Set(expandedMandals);
+    if (next.has(m)) next.delete(m);
+    else next.add(m);
+    setExpandedMandals(next);
+  };
+
+  const toggleAllMandals = (expand: boolean) => {
+    if (expand) {
+      const mandals = Array.from(new Set(Array.from(aggregatedData.values()).map(v => v.mandal)));
+      setExpandedMandals(new Set(mandals));
+    } else {
+      setExpandedMandals(new Set());
+    }
+  };
 
   const onUpload = async (e: any) => {
     const files = Array.from(e.target.files) as File[];
@@ -2577,167 +2611,186 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
     setIsAnalyzing(true);
     const newAggregated = new Map(aggregatedData);
     const datesFound = new Set(allDates);
-    const updatedRawRows: any[][] = [];
-    const debugLogs: any[] = [];
+    const updatedRawRows: any[][] = [...rawRows];
+    const debugLogs: any[] = [...parserDebug];
 
     try {
       for (const file of files) {
         const dataBuffer = await file.arrayBuffer();
-        const workbook = XLSX.read(dataBuffer, { type: 'array' });
+        const sheetsToProcess: { sheetName: string, rows: any[][] }[] = [];
+        try {
+          const workbook = XLSX.read(dataBuffer, { type: 'array' });
+          for (const sheetName of workbook.SheetNames) {
+             const rows: any[][] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '', raw: false }) as any[][];
+             if (rows.length > 0) sheetsToProcess.push({ sheetName, rows });
+          }
+        } catch (e) {
+          console.error("XLSX read failed for file", file.name);
+        }
+
+        // HTML Fallback for Government Portal Reports (Common for .xls files)
+        if (sheetsToProcess.length === 0) {
+          try {
+            const text = new TextDecoder().decode(dataBuffer);
+            if (text.includes('<table') || text.includes('<html>')) {
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(text, 'text/html');
+              const trs = doc.querySelectorAll('tr');
+              const rows = Array.from(trs).map(tr => 
+                Array.from(tr.querySelectorAll('th, td')).map(td => td.textContent?.trim() || '')
+              );
+              if (rows.length > 0) sheetsToProcess.push({ sheetName: file.name, rows });
+            }
+          } catch(e) {}
+        }
+
+        if (sheetsToProcess.length === 0) continue;
         
-        for (const sheetName of workbook.SheetNames) {
-          const sheet = workbook.Sheets[sheetName];
-          const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        for (const { sheetName, rows } of sheetsToProcess) {
           if (rows.length < 1) continue;
 
-          // 1. DATE EXTRACTION
-          let fileDate = "Unknown";
-          const sheetDateMatch = sheetName.match(/(\d{2}[-.]\d{2}[-.]\d{4})|(\d{4}[-.]\d{2}[-.]\d{2})/);
-          if (sheetDateMatch) {
-              fileDate = sheetDateMatch[0];
-          } else {
-            for (let r = 0; r < Math.min(rows.length, 20); r++) {
-              const rowStr = rows[r]?.join(' ') || '';
-              const match = rowStr.match(/(\d{2}[-/.]\d{2}[-/.]\d{2,4})|(\d{2}[-/.]\w+[-/.]\d{2,4})/);
-              if (match) { fileDate = match[0]; break; }
-            }
-          }
-          if (fileDate === "Unknown") {
-               const nameMatch = file.name.match(/(\d{2}[-.]\d{2}[-.]\d{4})|(\d{4}[-.]\d{2}[-.]\d{2})/);
-               fileDate = nameMatch ? nameMatch[0] : (sheetName.toLowerCase().includes('sheet') ? file.name.split('.')[0] : sheetName);
-          }
-          datesFound.add(fileDate);
+          // 1. HEADER DETECTION
+          let headerRowIdx = -1;
+          let gpCol = -1, mandalCol = -1, districtCol = -1, divisionCol = -1, mLgdCol = -1, pLgdCol = -1;
+          let dataStartCol = -1;
 
-          // 2. HEADER DETECTION
-          let bestHeaderRowIdx = -1;
-          let maxS = 0;
           for (let r = 0; r < Math.min(rows.length, 50); r++) {
             const row = rows[r];
             if (!row || !Array.isArray(row)) continue;
-            const rowStr = row.map(c => String(c || '').toLowerCase()).join(' ');
-            let s = 0;
-            if (rowStr.includes('mandal') || rowStr.includes('block')) s += 2;
-            if (rowStr.includes('panchayat') || rowStr.includes('gp') || rowStr.includes('habitation') || rowStr.includes('village')) s += 2;
-            if (rowStr.includes('status') || rowStr.includes('attend')) s += 1;
-            if (s > maxS) { maxS = s; bestHeaderRowIdx = r; }
-          }
-          if (bestHeaderRowIdx === -1) bestHeaderRowIdx = rows.findIndex(r => r && r.length > 2);
-          if (bestHeaderRowIdx === -1) bestHeaderRowIdx = 0;
-
-          // 3. COLUMN MAPPING
-          let mandalCol = -1, gpCol = -1, statusCol = -1, dsrCol = -1;
-          const headerRow = rows[bestHeaderRowIdx] || [];
-          headerRow.forEach((val, c) => {
-            const s = String(val || '').toLowerCase().trim();
-            // GP Detection - checking for many variations
-            if (gpCol === -1 && (
-              s.includes('gram') || s === 'gp' || s.includes('panchayat') || 
-              s.includes('habitation') || s.includes('village') || 
-              (s.includes('name') && !s.includes('mandal') && !s.includes('dist')) || 
-              s.includes('పంచాయతీ')
-            )) {
-              if (!s.includes('code') && !s.includes('id') && !s.includes('date')) gpCol = c;
-            }
-            if (mandalCol === -1 && (s.includes('mandal') || s.includes('block') || s.includes('మండలం') || s.includes('తాలూకా'))) mandalCol = c;
+            const rStr = row.map(c => String(c || '').toLowerCase().replace(/\s+/g, ' '));
             
-            // Status vs DSR disambiguation
-            if (statusCol === -1 && (
-              s === 'status' || s === 'attendance' || s.includes('p/a') || 
-              s.includes('ప్రజెంట్') || s.includes('హాజరు') || s.includes('attend')
-            )) {
-              statusCol = c;
+            if (rStr.some(c => c.includes('panchayat') || c.includes('gp ') || c.includes('gram'))) {
+              headerRowIdx = r;
+              gpCol = rStr.findIndex(c => (c.includes('panchayat') || c.includes('gp ') || c.includes('gram')) && !c.includes('lgd'));
+              mandalCol = rStr.findIndex(c => (c.includes('mandal') || c.includes('block')) && !c.includes('lgd'));
+              districtCol = rStr.findIndex(c => c.includes('district'));
+              divisionCol = rStr.findIndex(c => c.includes('division'));
+              mLgdCol = rStr.findIndex(c => c.includes('mandal lgd'));
+              pLgdCol = rStr.findIndex(c => c.includes('panchayat lgd'));
+              
+              if (gpCol === -1) gpCol = rStr.findIndex(c => c.includes('name'));
+              if (gpCol === -1) gpCol = 0; // Fallback to first column
+
+              // Find first column likely to be attendance data
+              dataStartCol = Math.max(gpCol, pLgdCol, mLgdCol, mandalCol, districtCol, divisionCol) + 1;
+              break;
             }
-            if (dsrCol === -1 && (s.includes('dsr') || s.includes('report') || s.includes('రిపోర్ట్') || s.includes('upload'))) {
-              dsrCol = c;
-            }
+          }
+
+          const dbgIdx = debugLogs.length;
+          debugLogs.push({
+             file: file.name,
+             sheet: sheetName,
+             date: 'N/A',
+             gpColIdx: gpCol,
+             gpColName: headerRowIdx >= 0 ? String(rows[headerRowIdx]?.[gpCol] || 'N/A') : 'No Header',
+             statusColIdx: -1,
+             statusColName: 'N/A',
+             rowsFound: 0,
+             datesFound: 0
           });
 
-          // Fallback: search for columns by sample values if headers failed
-          if (statusCol === -1 || gpCol === -1) {
-            for (let c = 0; c < Math.min(headerRow.length, 40); c++) {
-               // Look ahead more rows for samples
-               for (let rCheck = bestHeaderRowIdx + 1; rCheck < Math.min(rows.length, bestHeaderRowIdx + 20); rCheck++) {
-                 const cellVal = rows[rCheck]?.[c];
-                 if (cellVal === undefined || cellVal === null) continue;
-                 const sample = String(cellVal).toLowerCase().trim();
-                 
-                 // Greedy Status Detection: Match 'P', 'A', 'PRESENT', 'ABSENT', '1', '0', 'YES', 'NO', '✅'
-                 if (statusCol === -1 && (
-                   sample === 'p' || sample === 'a' || sample === 'present' || 
-                   sample === 'absent' || sample === '1' || sample === '0' || 
-                   sample === 'yes' || sample === 'no' || sample === '✅' ||
-                   sample.includes('ప్రజెంట్') || sample.includes('గేర్హాజరు')
-                 )) {
-                   statusCol = c;
-                 }
-                 
-                 // Greedy GP Detection: Any string > 3 chars that isn't a date, number, or known header
-                 if (gpCol === -1 && sample.length > 3 && isNaN(Number(sample)) && 
-                     !['mandal', 'mandal name', 'district', 'sl.no', 'sl no', 's.no', 'serial no'].includes(sample) &&
-                     !sample.includes('202') && !sample.includes('/') && !sample.includes('-') && !sample.includes(':') && !sample.includes('time')) {
-                   gpCol = c;
-                 }
-               }
-            }
+          if (headerRowIdx === -1) {
+             console.log("No header found in", file.name, sheetName, rows.slice(0, 10));
+             continue;
           }
 
           let rowsAdded = 0;
-          for (let r = bestHeaderRowIdx + 1; r < rows.length; r++) {
+          let curDistrict = 'Unknown', curDivision = 'Unknown', curMandal = 'Unknown', curMLgd = '-';
+
+          for (let r = headerRowIdx + 1; r < rows.length; r++) {
             const row = rows[r];
             if (!row || !Array.isArray(row)) continue;
-            
-            // Raw rows accumulation - ALWAYS DO THIS TO ALLOW DEBUGGING
+
+            const gpNameRaw = String(row[gpCol] || '').trim();
+            // Skip sub-headers or empty GP rows
+            if (!gpNameRaw || gpNameRaw.toLowerCase().includes('total') || gpNameRaw.toLowerCase().includes('attendance')) continue;
+
             updatedRawRows.push([file.name, sheetName, ...row]);
 
-            if (gpCol !== -1) {
-              const gpRaw = String(row[gpCol] || '').trim();
-              if (!gpRaw || gpRaw.length < 2 || gpRaw.toLowerCase().includes('total') || gpRaw.toLowerCase().includes('grand')) continue;
-
-              const mandal = mandalCol !== -1 ? String(row[mandalCol] || '').trim() : 'Unknown';
-              const rawStatus = statusCol !== -1 ? String(row[statusCol] || '').toLowerCase() : '';
-              const rawDsr = dsrCol !== -1 ? String(row[dsrCol] || '').toLowerCase() : '';
-
-              let symbol = "-";
-              if (rawStatus.includes('present') || rawStatus === 'p' || rawStatus.includes('✅') || rawStatus === '1' || rawStatus === 'y' || rawStatus.includes('yes') || rawStatus.includes('working')) symbol = "P";
-              else if (rawStatus.includes('absent') || rawStatus === 'a' || rawStatus.includes('no') || rawStatus === '0' || rawStatus === 'n' || rawStatus.includes('off')) symbol = "A";
-              else if (rawStatus.includes('meeting') || rawStatus === 'm') symbol = "M";
-              else if (rawStatus.includes('training') || rawStatus === 't') symbol = "T";
-              else if (rawStatus.includes('leave') || rawStatus === 'l') symbol = "L";
-              
-              if (symbol === "-" && rawStatus.length > 0 && rawStatus.length < 3) symbol = "P";
-
-              const key = gpRaw.toUpperCase();
-              if (!newAggregated.has(key)) {
-                newAggregated.set(key, { mandal: mandal.toUpperCase(), attendance: {}, dsr: {} });
-              }
-              const entry = newAggregated.get(key)!;
-              entry.attendance[fileDate] = symbol;
-              entry.dsr[fileDate] = rawDsr.includes('entered') || rawDsr.includes('yes') || rawDsr.includes('✅') || rawDsr.includes('uploaded') || rawDsr.includes('done') || rawDsr === '1' || rawDsr === 'true';
-              rowsAdded++;
+            if (districtCol !== -1 && String(row[districtCol] || '').trim()) curDistrict = String(row[districtCol]).trim();
+            if (divisionCol !== -1 && String(row[divisionCol] || '').trim()) curDivision = String(row[divisionCol]).trim();
+            if (mandalCol !== -1 && String(row[mandalCol] || '').trim()) curMandal = String(row[mandalCol]).trim();
+            if (mLgdCol !== -1 && String(row[mLgdCol] || '').trim()) curMLgd = String(row[mLgdCol]).trim();
+            
+            const pLgd = pLgdCol !== -1 ? String(row[pLgdCol] || '').trim() : '-';
+            const key = `${curMandal.toUpperCase()}_${gpNameRaw.toUpperCase()}`;
+            
+            if (!newAggregated.has(key)) {
+              newAggregated.set(key, { 
+                gp: gpNameRaw, 
+                mandal: curMandal,
+                district: curDistrict,
+                division: curDivision,
+                mandalLgd: curMLgd,
+                panchayatLgd: pLgd,
+                attendance: {}, times: {}, dsr: {} 
+              });
             }
+            const entry = newAggregated.get(key)!;
+
+            // HORIZONTAL MULTI-DAY SCAN (Government Portal Format)
+            const headers = rows[headerRowIdx] || [];
+            for (let c = 0; c < row.length; c++) {
+              if (c === gpCol || c === mandalCol || c === districtCol || c === mLgdCol || c === pLgdCol) continue;
+              
+              const val = String(row[c] || '').trim();
+              const headerVal = String(headers[c] || '').trim();
+              
+              const dateRegex = /(\d{1,4}[-./ ]+\d{1,4}[-./ ]+\d{2,4}|\d{1,4}[-./ ]+[A-Za-z]{3,10}[-./ ]+\d{2,4})/i;
+              
+              const dateMatch = val.match(dateRegex);
+              if (dateMatch && val.includes(':')) {
+                const dateKey = dateMatch[0].replace(/\//g, '-').replace(/\./g, '-');
+                datesFound.add(dateKey);
+                entry.times[dateKey] = val;
+                
+                // Status is usually the column immediately to the left of the time column
+                if (c > 0) {
+                  const statusVal = String(row[c-1] || '').trim();
+                  if (statusVal && statusVal.length < 20 && !statusVal.includes(':') && !statusVal.includes('202')) {
+                    entry.attendance[dateKey] = statusVal;
+                  }
+                }
+              } 
+              else if (val && !val.includes(':') && !val.includes('202')) {
+                // Check if current or previous column header has a date (Alternative horizontal format)
+                const hMatch = headerVal.match(dateRegex);
+                if (hMatch) {
+                   const dKey = hMatch[0].replace(/\//g, '-').replace(/\./g, '-');
+                   datesFound.add(dKey);
+                   entry.attendance[dKey] = val;
+                }
+                if (c > 0) {
+                   const prevHMatch = String(headers[c-1] || '').match(dateRegex);
+                   if (prevHMatch) {
+                      const dKey = prevHMatch[0].replace(/\//g, '-').replace(/\./g, '-');
+                      datesFound.add(dKey);
+                      if (!entry.attendance[dKey]) {
+                         entry.attendance[dKey] = val;
+                      }
+                   }
+                }
+              }
+            }
+            rowsAdded++;
           }
 
-          debugLogs.push({
-            file: file.name,
-            sheet: sheetName,
-            date: fileDate,
-            gpColIdx: gpCol,
-            gpColName: gpCol !== -1 ? String(headerRow[gpCol]) : "NOT FOUND",
-            statusColIdx: statusCol,
-            statusColName: statusCol !== -1 ? String(headerRow[statusCol]) : "NOT FOUND",
-            rowsFound: rowsAdded
-          });
+          if (debugLogs[dbgIdx]) {
+            debugLogs[dbgIdx].rowsFound = rowsAdded;
+            debugLogs[dbgIdx].datesFound = datesFound.size;
+          }
         }
       }
 
-      setAggregatedData(newAggregated);
       setAllDates(Array.from(datesFound).sort());
-      setParserDebug(debugLogs);
+      setAggregatedData(newAggregated);
       setRawRows(updatedRawRows);
-      addToast(`Analyzed all sheets in ${files.length} files!`);
+      setParserDebug(debugLogs);
+      addToast(`Analyzed ${files.length} reports successfully!`);
     } catch (err) {
       console.error(err);
-      addToast("Error parsing files.");
+      addToast("Failed to analyze files");
     } finally {
       setIsAnalyzing(false);
     }
@@ -2766,13 +2819,13 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
   const downloadMandalSummary = () => {
     if (aggregatedData.size === 0) return;
     const mandalSummary = new Map<string, { total: number, present: number }>();
-    filteredData.forEach(([gp, info]) => {
+    filteredData.forEach((info) => {
       const m = info.mandal;
       if (!mandalSummary.has(m)) mandalSummary.set(m, { total: 0, present: 0 });
       const s = mandalSummary.get(m)!;
       allDates.forEach(d => {
         s.total++;
-        if (info.attendance[d] === 'P') s.present++;
+        if (String(info.attendance[d] || '').toLowerCase().startsWith('p')) s.present++;
       });
     });
     const exportData = Array.from(mandalSummary.entries()).map(([m, s]) => ({
@@ -2790,13 +2843,20 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 
   const downloadGPSummary = () => {
     if (aggregatedData.size === 0) return;
-    const exportData = filteredData.map(([gp, info]) => {
-      const row: any = { 'GP Name': gp, 'Mandal': info.mandal };
+    const exportData = filteredData.map((info, idx) => {
+      const row: any = { 
+        'S.No': idx + 1, 
+        'District': info.district,
+        'Division': info.division,
+        'Mandal': info.mandal,
+        'Panchayat Name': info.gp 
+      };
       let presentDays = 0;
       allDates.forEach(d => {
+        const time = info.times[d] || '';
         const s = info.attendance[d] || '-';
-        row[d] = s;
-        if (s === 'P') presentDays++;
+        row[`Attendance Datetime ${d}`] = time || s;
+        if (String(s).toLowerCase().startsWith('p')) presentDays++;
       });
       row['Present Days'] = presentDays;
       row['Attendance %'] = allDates.length > 0 ? Math.round((presentDays / allDates.length) * 100) : 0;
@@ -2812,44 +2872,64 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
   const downloadMultiPdf = () => {
     if (aggregatedData.size === 0) return;
     const doc = new jsPDF('l', 'mm', 'a4');
-    const head = [['GP Name', 'Mandal', ...allDates]];
-    const body = filteredData.map(([gp, info]) => [
-      gp,
+    const head = [['S.No', 'District', 'Mandal', 'Panchayat Name', ...allDates.map(d => `Attendance\n${d}`)]];
+    const body = filteredData.map((info, idx) => [
+      idx + 1,
+      info.district,
       info.mandal,
-      ...allDates.map(d => info.attendance[d] || '-')
+      info.gp,
+      ...allDates.map(d => {
+        const s = info.attendance[d] || '-';
+        const t = info.times[d] || '';
+        return t ? t : s;
+      })
     ]);
     autoTable(doc, {
       head: head,
       body: body,
-      styles: { fontSize: 6 },
+      styles: { fontSize: 5 },
       theme: 'grid'
     });
     doc.save(`MultiDay_Comparative_${new Date().toLocaleDateString()}.pdf`);
   };
 
   const mandals = Array.from(new Set(Array.from(aggregatedData.values()).map(info => info.mandal))).sort();
-  const filteredData = Array.from(aggregatedData.entries()).filter(([gp, info]) => {
-    const matchesSearch = gp.includes(searchTerm.toUpperCase()) || info.mandal.includes(searchTerm.toUpperCase());
-    const matchesMandal = mandalFilter === 'All' || info.mandal === mandalFilter;
-    return matchesSearch && matchesMandal;
-  });
-
-  const totalGPs = filteredData.length;
-  let totalPresentCount = 0;
-  let totalDsrReported = 0;
-  let totalRows = filteredData.length * allDates.length;
-  
-  filteredData.forEach(([gp, info]) => {
-    allDates.forEach(d => {
-      if (info.attendance[d] === 'P') {
-        totalPresentCount++;
-        if (info.dsr[d]) totalDsrReported++;
-      }
+  const filteredData = Array.from(aggregatedData.values())
+    .filter((info) => {
+      const target = `${info.gp} ${info.mandal} ${info.district} ${info.division}`.toUpperCase();
+      const matchesSearch = target.includes(searchTerm.toUpperCase());
+      const matchesMandal = mandalFilter === 'All' || info.mandal === mandalFilter;
+      return matchesSearch && matchesMandal;
+    })
+    .sort((a, b) => {
+       const mIdA = (a.mandal || '').toUpperCase();
+       const mIdB = (b.mandal || '').toUpperCase();
+       if (mIdA !== mIdB) return mIdA.localeCompare(mIdB);
+       return (a.gp || '').toUpperCase().localeCompare((b.gp || '').toUpperCase());
     });
+
+  const totalGPCount = filteredData.length;
+  const groupedByMandal: Record<string, typeof filteredData> = {};
+  filteredData.forEach(item => {
+    const mKey = (item.mandal || 'UNKNOWN').toUpperCase();
+    if (!groupedByMandal[mKey]) groupedByMandal[mKey] = [];
+    groupedByMandal[mKey].push(item);
+  });
+  const mandalList = Object.keys(groupedByMandal).sort();
+
+  const gpIndexMap = new Map<string, number>();
+  filteredData.forEach((item, idx) => {
+    gpIndexMap.set(`${(item.mandal || '').toUpperCase()}_${(item.gp || '').toUpperCase()}`, idx + 1);
   });
 
-  const avgAttendance = totalRows > 0 ? Math.round((totalPresentCount / totalRows) * 100) : 0;
-  const dsrCompliance = totalPresentCount > 0 ? Math.round((totalDsrReported / totalPresentCount) * 100) : 0;
+  const sortedDates = [...allDates].sort((a, b) => {
+    const parse = (s: string) => {
+      const parts = s.split('-');
+      if (parts.length === 3) return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
+      return 0;
+    };
+    return parse(a) - parse(b);
+  });
 
   return (
     <div className="space-y-6">
@@ -2859,145 +2939,190 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
         <label htmlFor="multi-up" className="bg-primary text-white px-8 py-3 rounded-2xl font-black text-xs uppercase cursor-pointer hover:scale-105 transition-transform inline-flex items-center gap-2">
           {isAnalyzing ? <RefreshCw className="animate-spin" size={14} /> : <Upload size={14} />} {aggregatedData.size > 0 ? "Upload More Reports" : "Upload Multiple Daily Reports"}
         </label>
+        {aggregatedData.size > 0 && (
+          <button 
+            onClick={() => setAggregatedData(new Map())}
+            className="ml-4 bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl font-black text-xs uppercase hover:bg-rose-100 transition-colors"
+          >
+            Clear Data
+          </button>
+        )}
+        <button 
+          onClick={() => setShowDebug(!showDebug)}
+          className="ml-4 bg-slate-200 text-slate-600 px-6 py-3 rounded-2xl font-black text-xs uppercase hover:bg-slate-300 transition-colors"
+        >
+          {showDebug ? 'Hide Debug' : 'Show Debug'}
+        </button>
       </div>
 
-      {aggregatedData.size > 0 && (
+      {showDebug && parserDebug.length > 0 && (
+        <div className="p-4 bg-slate-900 rounded-2xl text-[10px] font-mono text-emerald-400 space-y-2 overflow-auto max-h-64 border border-white/10 text-left">
+          <div className="text-white font-bold mb-2 uppercase tracking-widest text-xs">Parser Analysis History</div>
+          {parserDebug.map((d, i) => (
+            <div key={i} className="border-b border-white/5 pb-2">
+              <span className="text-blue-400 font-bold">[{d.file} / {d.sheet}]</span> 
+              <br/>
+              Header Row: {d.gpColName !== 'No Header' ? 'Found' : 'Missing'} | GP Col Name: {d.gpColName} | GPs Parsed: {d.rowsFound}
+              <br/>
+              <span className={d.datesFound > 0 ? 'text-emerald-400' : 'text-rose-400'}>Report Dates Found: {d.datesFound}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {aggregatedData.size > 0 && allDates.length === 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-2xl flex flex-col items-center justify-center text-center">
+           <h4 className="font-black text-xl mb-2">No Dates Detected</h4>
+           <p className="text-sm">We successfully found the Gram Panchayats in your report, but we could not find any attendance dates. Please ensure the columns contain dates in standard format (e.g., DD/MM/YYYY, DD-MMM-YYYY). Check the debug panel for more info.</p>
+        </div>
+      )}
+
+      {aggregatedData.size > 0 && allDates.length > 0 && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-6 rounded-[32px] border shadow-sm flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total GPs</h4>
-                <div className="text-3xl font-black text-primary">{totalGPs}</div>
-              </div>
-              <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center">
-                <Users size={24} />
-              </div>
-            </div>
-            
-            <div className="bg-white p-6 rounded-[32px] border shadow-sm">
-               <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Attendance</h4>
-                  <span className="text-sm font-black text-emerald-600">{avgAttendance}%</span>
-               </div>
-               <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${avgAttendance}%` }}
-                    className="h-full bg-emerald-500 rounded-full"
-                  />
-               </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-[32px] border shadow-sm">
-               <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-xs font-black text-indigo-400 uppercase tracking-widest">DSR Compliance</h4>
-                  <span className="text-sm font-black text-indigo-600">{dsrCompliance}%</span>
-               </div>
-               <div className="h-3 bg-indigo-50 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${dsrCompliance}%` }}
-                    className="h-full bg-indigo-500 rounded-full"
-                  />
-               </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-               <div className="flex items-center gap-2">
-                 <button 
-                  onClick={() => setShowDebug(!showDebug)}
-                  className="text-[10px] font-black text-slate-400 uppercase hover:text-primary transition-colors flex items-center gap-1"
-                 >
-                   {showDebug ? 'Hide Debug' : 'Show Debug Info'}
-                 </button>
-               </div>
-               {showDebug && parserDebug.length > 0 && (
-                 <div className="p-4 bg-slate-900 rounded-2xl text-[9px] font-mono text-emerald-400 space-y-1 overflow-auto max-h-48 border border-white/10">
-                   <div className="text-white font-bold mb-2 uppercase tracking-widest text-[10px]">Parser Analysis History</div>
-                   {parserDebug.map((d, i) => (
-                     <div key={i} className="border-b border-white/5 pb-1">
-                       <span className="text-blue-400">[{d.file} / {d.sheet}]</span> 
-                       <br/>
-                       Date: {d.date} | GP Col: {d.gpColName} ({d.gpColIdx}) | Status Col: {d.statusColName} ({d.statusColIdx}) | <span className={d.rowsFound > 0 ? 'text-emerald-400' : 'text-rose-400'}>Rows: {d.rowsFound}</span>
-                     </div>
-                   ))}
-                 </div>
-               )}
-            </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 py-2">
-             <button 
-               onClick={downloadMandalSummary}
-               className="flex items-center justify-center gap-2 bg-blue-50 text-blue-700 border border-blue-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-blue-100 hover:border-blue-200 active:scale-95 transition-all"
-             >
-               <Download size={14} /> Mandal Summary
-             </button>
-             <button 
-               onClick={downloadGPSummary}
-               className="flex items-center justify-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-slate-100 active:scale-95 transition-all"
-             >
-               <Download size={14} /> GP Comparative
-             </button>
-             <button 
-               onClick={downloadRawExcel}
-               className="flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-emerald-100 hover:border-emerald-200 active:scale-95 transition-all"
-             >
-               <Download size={14} /> Combined Raw (XL)
-             </button>
-             <button 
-               onClick={downloadRawPdf}
-               className="flex items-center justify-center gap-2 bg-rose-50 text-rose-700 border border-rose-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-rose-100 hover:border-rose-200 active:scale-95 transition-all"
-             >
-               <Download size={14} /> Raw PDF (500)
-             </button>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-3">
-               <input className="flex-1 bg-white border p-3 rounded-xl text-sm" placeholder="Search GP or Mandal..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-               <select className="bg-white border p-3 rounded-xl text-sm font-bold" value={mandalFilter} onChange={e => setMandalFilter(e.target.value)}>
+          <div className="flex flex-col md:flex-row gap-4 items-end px-2">
+             <div className="flex-1 w-full">
+                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block ml-1 tracking-widest">Global Search</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input className="w-full bg-white border pl-10 p-3 rounded-xl text-sm shadow-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all border-slate-300" placeholder="Search District, Mandal, GP..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                </div>
+             </div>
+             <div className="w-full md:w-64">
+                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block ml-1 tracking-widest">Filter by Mandal</label>
+                <select className="w-full bg-white border p-3 rounded-xl text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all border-slate-300" value={mandalFilter} onChange={e => setMandalFilter(e.target.value)}>
                   <option value="All">All Mandals</option>
-                  {mandals.map(m => <option key={m} value={m}>{m}</option>)}
-               </select>
-            </div>
+                  {mandals.map((m, idx) => <option key={`${m}_${idx}`} value={m}>{m}</option>)}
+                </select>
+             </div>
+             <div className="flex gap-2">
+                <button 
+                  onClick={() => toggleAllMandals(true)}
+                  className="bg-primary/10 text-primary px-4 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-primary/20 transition-colors border border-primary/20"
+                >
+                  Expand All
+                </button>
+                <button 
+                  onClick={() => toggleAllMandals(false)}
+                  className="bg-slate-100 text-slate-600 px-4 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-slate-200 transition-colors border border-slate-200"
+                >
+                  Collapse All
+                </button>
+             </div>
+          </div>
 
-          <div className="bg-white border rounded-[24px] shadow-sm overflow-hidden">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="bg-white p-5 rounded-[24px] border shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-bold"><Users size={20} /></div>
+                <div>
+                   <div className="text-[10px] uppercase font-black text-slate-400 leading-none mb-1">Gram Panchayats</div>
+                   <div className="text-2xl font-black text-slate-800">{totalGPCount}</div>
+                </div>
+             </div>
+             <div className="bg-white p-5 rounded-[24px] border shadow-sm flex items-center gap-4">
+                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center font-bold"><Calendar size={20} /></div>
+                <div>
+                   <div className="text-[10px] uppercase font-black text-slate-400 leading-none mb-1">Report Dates</div>
+                   <div className="text-2xl font-black text-slate-800">{sortedDates.length}</div>
+                </div>
+             </div>
+             <div className="col-span-2 flex gap-3">
+               <button onClick={downloadMandalSummary} className="flex-1 bg-white border border-slate-200 p-4 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-1">
+                 <Download size={18} /> Mandal Summary (XL)
+               </button>
+               <button onClick={downloadGPSummary} className="flex-1 bg-white border border-slate-200 p-4 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-1">
+                 <Download size={18} /> GP Comparative (XL)
+               </button>
+             </div>
+          </div>
+
+          <div className="bg-white border rounded-[8px] shadow-2xl overflow-hidden border-slate-800">
             <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-400 font-black uppercase tracking-widest border-b">
-                    <th className="p-4 border-r">GP (Mandal)</th>
-                    {allDates.map(d => <th key={d} className="p-4 text-center border-r min-w-[100px]">{d}</th>)}
+              <table className="w-full text-left text-[10px] border-collapse min-w-[1400px]">
+                <thead className="sticky top-0 z-20">
+                  <tr className="bg-[#004085] text-white text-center border-b border-black">
+                    <th colSpan={sortedDates.length * 2 + 7} className="p-1 font-bold text-xs">Telangana State</th>
+                  </tr>
+                  <tr className="bg-[#004085] text-white text-center border-b border-black">
+                    <th colSpan={sortedDates.length * 2 + 7} className="p-1 font-bold text-[11px]">Report On Attendance Status & DSR Raw Data</th>
+                  </tr>
+                  <tr className="bg-[#1a528d] text-white text-[10px]">
+                    <th colSpan={7} className="border border-black"></th>
+                    <th colSpan={sortedDates.length * 2} className="p-1 text-center font-bold border border-black uppercase tracking-wider">Attendace Status</th>
+                  </tr>
+                  <tr className="bg-[#1a528d] text-white font-bold text-[9px] text-center uppercase tracking-tighter">
+                    <th className="p-1.5 border border-black w-10">S.No</th>
+                    <th className="p-1.5 border border-black min-w-[100px]">District Name</th>
+                    <th className="p-1.5 border border-black min-w-[100px]">Division Name</th>
+                    <th className="p-1.5 border border-black min-w-[100px]">Mandal Name</th>
+                    <th className="p-1.5 border border-black w-20">Mandal LGD</th>
+                    <th className="p-1.5 border border-black min-w-[140px]">Panchayat Name</th>
+                    <th className="p-1.5 border border-black w-24">Panchayat LGD</th>
+                    {sortedDates.map(d => (
+                       <React.Fragment key={d}>
+                         <th className="p-1.5 border border-black min-w-[90px]">First Attendance ({d})</th>
+                         <th className="p-1.5 border border-black min-w-[120px]">Time ({d})</th>
+                       </React.Fragment>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y">
-                  {filteredData.map(([gp, info]) => (
-                    <tr key={gp} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-4 border-r font-black text-primary">
-                        {gp}
-                        <div className="text-[10px] text-slate-400 font-medium">{info.mandal}</div>
-                      </td>
-                      {allDates.map(d => (
-                        <td key={d} className="p-4 text-center border-r">
-                   <div className="flex flex-col items-center gap-1">
-                      <StatusCell status={info.attendance[d] || '-'} />
-                      {info.attendance[d] === 'P' && (
-                        <span className={`text-[8px] font-black uppercase px-1.5 rounded ${info.dsr[d] ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600'}`}>
-                          {info.dsr[d] ? 'DSR ✅' : 'DSR ❌'}
-                        </span>
-                      )}
-                   </div>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-black bg-white">
+                  {mandalList.map((mName) => {
+                    const isEx = expandedMandals.has(mName);
+                    const items = groupedByMandal[mName];
+                    return (
+                      <React.Fragment key={mName}>
+                        <tr 
+                          className="bg-slate-200 hover:bg-slate-300 cursor-pointer border-b border-black group" 
+                          onClick={() => toggleMandal(mName)}
+                        >
+                          <td className="p-1.5 border border-black text-center font-bold text-blue-800">
+                            {isEx ? <ChevronDown size={14} className="mx-auto" /> : <ChevronRight size={14} className="mx-auto" />}
+                          </td>
+                          <td colSpan={sortedDates.length * 2 + 6} className="p-1.5 border border-black font-black text-[#004085] uppercase text-[12px] group-hover:bg-slate-300 flex items-center gap-2">
+                            <span>{mName}</span>
+                            <span className="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200 shadow-sm">{items.length} Gram Panchayats</span>
+                          </td>
+                        </tr>
+                        {isEx && items.map((info) => (
+                          <tr key={`${(info.mandal || '').toUpperCase()}_${(info.gp || '').toUpperCase()}`} className="hover:bg-blue-50/40 text-black border-b border-slate-200 group">
+                            <td className="p-1.5 border border-black text-center font-medium bg-slate-50 text-slate-500 group-hover:text-blue-600 transition-colors">{gpIndexMap.get(`${(info.mandal || '').toUpperCase()}_${(info.gp || '').toUpperCase()}`)}</td>
+                            <td className="p-1.5 border border-black uppercase text-[9px] tracking-tight">{info.district}</td>
+                            <td className="p-1.5 border border-black uppercase text-[9px] tracking-tight">{info.division}</td>
+                            <td className="p-1.5 border border-black uppercase bg-slate-50 text-[9px] font-bold tracking-tight">{info.mandal}</td>
+                            <td className="p-1.5 border border-black text-center font-mono text-[9px] text-slate-500">{info.mandalLgd}</td>
+                            <td className="p-1.5 border border-black font-extrabold text-slate-900 bg-blue-50/20 text-[10px]">{info.gp}</td>
+                            <td className="p-1.5 border border-black text-center font-mono text-[9px] text-slate-500">{info.panchayatLgd}</td>
+                            {sortedDates.map(d => {
+                              const status = info.attendance[d] || '-';
+                              const time = info.times[d] || '-';
+                              const statusLower = status.toLowerCase();
+                              let color = "text-slate-400";
+                              if (statusLower.includes('present') || statusLower === 'p') color = "text-emerald-700 font-bold";
+                              else if (statusLower.includes('absent') || statusLower === 'a') color = "text-rose-700 font-bold";
+                              else if (statusLower.includes('leave')) color = "text-amber-700 font-bold";
+                              else if (statusLower !== '-') color = "text-blue-700 font-bold";
+
+                              return (
+                                <React.Fragment key={d}>
+                                  <td className={`p-1.5 border border-black text-center whitespace-nowrap text-[9px] ${color}`}>
+                                    {status === '-' ? '-' : (status.length > 15 ? status.substring(0, 15)+'...' : status)}
+                                  </td>
+                                  <td className="p-1.5 border border-black text-center whitespace-nowrap font-medium text-slate-600 text-[9px]">
+                                    {time}
+                                  </td>
+                                </React.Fragment>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         </div>
-      </div>
       )}
     </div>
   );
@@ -3040,7 +3165,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
   const [data, setData] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [rawJson, setRawJson] = useState<any[]>([]);
-  const [stats, setStats] = useState({ total: 0, present: 0, dsr: 0, meeting: 0, training: 0, leave: 0 });
+  const [stats, setStats] = useState({ total: 0, present: 0, dsr: 0, meeting: 0, training: 0, leave: 0, before901: 0, after900: 0 });
   const [mandalSummaries, setMandalSummaries] = useState<Record<string, any>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -3140,7 +3265,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
       const finalGpIdx = gpIdx !== -1 ? gpIdx : 5;
 
       const processed: any[] = [];
-      let present = 0, dsr = 0, meeting = 0, training = 0, leave = 0;
+      let present = 0, dsr = 0, meeting = 0, training = 0, leave = 0, before901 = 0, after900 = 0;
       const mandalStats = new Map<string, { total: number, onTime: number, late: number, pending: number, meeting: number, training: number, leave: number }>();
 
       allRows.slice(bestHeaderIdx + 1).forEach((r) => {
@@ -3159,6 +3284,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
         const isT = attStatusRaw.includes("training") || attStatusRaw === "t";
         const isL = attStatusRaw.includes("leave") || attStatusRaw === "l";
         const isD = dsrStatusRaw.includes("entered") || dsrStatusRaw.includes("yes") || dsrStatusRaw.includes("✅") || dsrStatusRaw.includes("uploaded");
+        const attTimeStr = String(r[attTimeIdx] || "");
 
         // Time Check (10:30 AM)
         let isOnTime = false;
@@ -3178,8 +3304,27 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
           }
         }
 
+        let isAttBefore901 = false;
+        let isAttAfter900 = false;
+        if (isP && attTimeStr) {
+          const attTimeMatch = attTimeStr.match(/(\d{1,2}):(\d{2})/);
+          if (attTimeMatch) {
+            let hour = parseInt(attTimeMatch[1]);
+            const min = parseInt(attTimeMatch[2]);
+            const isPM = attTimeStr.toLowerCase().includes('pm');
+            if (isPM && hour < 12) hour += 12;
+            if (!isPM && hour === 12) hour = 0;
+            
+            const totalMinutes = hour * 60 + min;
+            if (totalMinutes <= (9 * 60)) isAttBefore901 = true;
+            if (totalMinutes > (9 * 60)) isAttAfter900 = true;
+          }
+        }
+
         if (isP) {
           present++;
+          if (isAttBefore901) before901++;
+          if (isAttAfter900) after900++;
           if (isD) dsr++;
         } else if (isM) meeting++;
         else if (isT) training++;
@@ -3213,7 +3358,9 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
           isLeave: isL,
           isEntered: isD,
           isOnTime,
-          isLate
+          isLate,
+          isAttBefore901,
+          isAttAfter900
         });
       });
 
@@ -3224,7 +3371,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
 
       setData(processed);
       setFilteredData(processed);
-      setStats({ total: processed.length, present, dsr, meeting, training, leave });
+      setStats({ total: processed.length, present, dsr, meeting, training, leave, before901, after900 });
       // @ts-ignore
       setMandalSummaries(Object.fromEntries(mandalStats));
       addToast(`విజయవంతంగా ప్రాసెస్ చేయబడింది! ${processed.length} గ్రామ పంచాయతీలు దొరికాయి. 🚀`);
@@ -3319,6 +3466,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
     else if (activeFilter === 'M') filtered = filtered.filter(r => r.isMeeting);
     else if (activeFilter === 'T') filtered = filtered.filter(r => r.isTraining);
     else if (activeFilter === 'L') filtered = filtered.filter(r => r.isLeave);
+    else if (activeFilter === 'B9') filtered = filtered.filter(r => r.isAttBefore901);
+    else if (activeFilter === 'A9') filtered = filtered.filter(r => r.isAttAfter900);
 
     setFilteredData(filtered);
   }, [searchTerm, activeFilter, data]);
@@ -3335,9 +3484,11 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
 
       {data.length > 0 && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
             <button onClick={() => setActiveFilter(null)} className="text-left w-full"><StatCard label="Total" val={stats.total} color="blue" /></button>
             <button onClick={() => setActiveFilter('P')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'P' ? 'ring-2 ring-emerald-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Present" val={stats.present} color="emerald" /></button>
+            <button title="ఉదయం 9:00 కంటే ముందు విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('B9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'B9' ? 'ring-2 ring-indigo-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Intime" val={stats.before901} color="indigo" /></button>
+            <button title="ఉదయం 9:01 తర్వాత విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('A9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'A9' ? 'ring-2 ring-rose-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Late" val={stats.after900} color="rose" /></button>
             <button onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR" val={stats.dsr} color="blue" /></button>
             <button onClick={() => setActiveFilter('M')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'M' ? 'ring-2 ring-cyan-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Meeting" val={stats.meeting} color="cyan" /></button>
             <button onClick={() => setActiveFilter('T')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'T' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Training" val={stats.training} color="amber" /></button>
@@ -3457,9 +3608,9 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(mandalSummaries).map(([mandal, mStats]: [string, any]) => (
+              {Object.entries(mandalSummaries).map(([mandal, mStats]: [string, any], mIdx) => (
                 <button 
-                  key={mandal}
+                  key={`${mandal}_${mIdx}`}
                   onClick={() => setSearchTerm(mandal)}
                   className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md hover:border-primary/30 transition-all text-left group"
                 >
@@ -4581,14 +4732,14 @@ function AuthModal({ onClose, addToast, handleGoogleLogin }: { onClose: () => vo
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Mandal *</label>
-                    <select value={mandal} onChange={e => setMandal(e.target.value)} required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" disabled={!district}>
-                       <option value="">Select Mandal</option>
-                       {mandals.map(m => <option key={m}>{m}</option>)}
-                    </select>
-                  </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div>
+                     <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Mandal *</label>
+                     <select value={mandal} onChange={e => setMandal(e.target.value)} required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" disabled={!district}>
+                        <option value="">Select Mandal</option>
+                        {mandals.map((m, idx) => <option key={`${m}_${idx}`} value={m}>{m}</option>)}
+                     </select>
+                   </div>
                   <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Village / GP</label>
                     <input value={village} onChange={e => setVillage(e.target.value)} placeholder="Enter Village" className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
