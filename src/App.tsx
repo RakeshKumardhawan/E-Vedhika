@@ -2638,9 +2638,34 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
              const doc = parser.parseFromString(text, 'text/html');
              const trs = doc.querySelectorAll('tr');
              const rows = Array.from(trs).map(tr => 
-               Array.from(tr.querySelectorAll('th, td')).map(td => td.textContent?.trim().replace(/\s+/g, ' ') || '')
+               Array.from(tr.querySelectorAll('th, td')).map(td => {
+                 let val = td.textContent?.trim().replace(/\s+/g, ' ') || '';
+                 if (val.includes('</th>') || val.includes('</td>') || val.includes('<th') || val.includes('<td')) {
+                   // Clean up if tags leaked into textContent
+                   val = val.replace(/<\/?[^>]+(>|$)/g, "").trim();
+                 }
+                 return val;
+               })
              );
-             if (rows.length > 0) sheetsToProcess.push({ sheetName: "HTML_" + file.name, rows });
+             if (rows.length > 0) {
+                // Check if it's a "one column" row that actually has tags in it (meaning querySelectorAll failed)
+                const firstRow = rows[0];
+                if (firstRow.length === 1 && (firstRow[0].includes('<tr') || firstRow[0].includes('<td'))) {
+                   // Simple regex fallback for badly malformed HTML
+                   const betterRows = text.split(/<\/tr>/i).map(trStr => {
+                     return trStr.split(/<\/td>|<\/th>/i).map(tdStr => {
+                       return tdStr.replace(/<\/?[^>]+(>|$)/g, "").trim();
+                     }).filter(c => c !== '');
+                   }).filter(r => r.length > 0);
+                   if (betterRows.length > 0) {
+                      sheetsToProcess.push({ sheetName: "HTML_REGEX_" + file.name, rows: betterRows });
+                   } else {
+                      sheetsToProcess.push({ sheetName: "HTML_" + file.name, rows });
+                   }
+                } else {
+                   sheetsToProcess.push({ sheetName: "HTML_" + file.name, rows });
+                }
+             }
           } else {
              const workbook = XLSX.read(dataBuffer, { type: 'array' });
              for (const sheetName of workbook.SheetNames) {
@@ -2893,9 +2918,9 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 
     // Row 4 (Headers)
     const row4 = ['S.No', 'District Name', 'Mandal Name', 'Panchayat Name'];
-    allDates.forEach(() => {
-       row4.push('First Attendance');
-       row4.push('First Attendance');
+    allDates.forEach((d) => {
+       row4.push(`First Attendance Status (${d})`);
+       row4.push(`First Attendance Time (${d})`);
     });
     aoa.push(row4);
 
@@ -2912,6 +2937,29 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
         const s = info.attendance[d] || '-';
         row.push(s);
         row.push(time || s); // Usually the time, but if empty fallback to status string or '-'
+      });
+      aoa.push(row);
+    });
+
+    // Summary Rows
+    const statuses = [
+      { label: 'Total Present', prefix: 'P' },
+      { label: 'Total Absent', prefix: 'A' },
+      { label: 'Total Leave', prefix: 'L' },
+      { label: 'Total Meeting', prefix: 'M' },
+      { label: 'Total Training', prefix: 'T' }
+    ];
+
+    statuses.forEach(st => {
+      const row = ['', '', '', st.label];
+      allDates.forEach(d => {
+        let count = 0;
+        filteredData.forEach(info => {
+           const s = String(info.attendance[d] || '').toUpperCase();
+           if (s.startsWith(st.prefix)) count++;
+        });
+        row.push(count);
+        row.push(''); // Time column empty for summary
       });
       aoa.push(row);
     });
@@ -3119,8 +3167,8 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                     <th className="p-1.5 border border-black min-w-[140px]">Panchayat Name</th>
                     {sortedDates.map(d => (
                        <React.Fragment key={d}>
-                         <th className="p-1.5 border border-black min-w-[100px]">First Attendance</th>
-                         <th className="p-1.5 border border-black min-w-[120px]">First Attendance</th>
+                         <th className="p-1.5 border border-black min-w-[100px]">First Attendance Status ({d})</th>
+                         <th className="p-1.5 border border-black min-w-[120px]">First Attendance Time ({d})</th>
                        </React.Fragment>
                     ))}
                   </tr>
@@ -3138,7 +3186,7 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                           <td className="p-1.5 border border-black text-center font-bold text-blue-800">
                             {isEx ? <ChevronDown size={14} className="mx-auto" /> : <ChevronRight size={14} className="mx-auto" />}
                           </td>
-                          <td colSpan={sortedDates.length * 2 + 6} className="p-1.5 border border-black font-black text-[#004085] uppercase text-[12px] group-hover:bg-slate-300 flex items-center gap-2">
+                          <td colSpan={sortedDates.length * 2 + 3} className="p-1.5 border border-black font-black text-[#004085] uppercase text-[12px] group-hover:bg-slate-300 flex items-center gap-2">
                             <span>{mName}</span>
                             <span className="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200 shadow-sm">{items.length} Gram Panchayats</span>
                           </td>
@@ -3176,6 +3224,31 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                     )
                   })}
                 </tbody>
+                <tfoot className="bg-slate-100 font-bold text-[10px]">
+                  {[{ label: 'Total Present', prefix: 'P', color: 'text-emerald-700' },
+                    { label: 'Total Absent', prefix: 'A', color: 'text-rose-700' },
+                    { label: 'Total Leave', prefix: 'L', color: 'text-amber-700' },
+                    { label: 'Total Meeting', prefix: 'M', color: 'text-cyan-700' },
+                    { label: 'Total Training', prefix: 'T', color: 'text-amber-700' }
+                  ].map((st, idx) => (
+                    <tr key={idx}>
+                      <td colSpan={4} className="p-1.5 border border-black text-right uppercase text-[#004085]">{st.label}</td>
+                      {sortedDates.map(d => {
+                        let count = 0;
+                        filteredData.forEach(info => {
+                           const s = String(info.attendance[d] || '').toUpperCase();
+                           if (s.startsWith(st.prefix)) count++;
+                        });
+                        return (
+                          <React.Fragment key={d}>
+                            <td className={`p-1.5 border border-black text-center ${st.color}`}>{count}</td>
+                            <td className="p-1.5 border border-black"></td>
+                          </React.Fragment>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tfoot>
               </table>
             </div>
           </div>
