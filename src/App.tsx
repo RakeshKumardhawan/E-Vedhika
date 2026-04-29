@@ -2617,7 +2617,8 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
     try {
       for (const file of files) {
         const dataBuffer = await file.arrayBuffer();
-        const sheetsToProcess: { sheetName: string, rows: any[][] }[] = [];
+        let sheetsToProcess: { sheetName: string, rows: any[][] }[] = [];
+        
         try {
           const workbook = XLSX.read(dataBuffer, { type: 'array' });
           for (const sheetName of workbook.SheetNames) {
@@ -2628,23 +2629,31 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
           console.error("XLSX read failed for file", file.name);
         }
 
-        // HTML Fallback for Government Portal Reports (Common for .xls files)
+        // HTML Fallback for Government Portal Reports
         if (sheetsToProcess.length === 0) {
           try {
-            const text = new TextDecoder().decode(dataBuffer);
-            if (text.includes('<table') || text.includes('<html>')) {
-              const parser = new DOMParser();
-              const doc = parser.parseFromString(text, 'text/html');
-              const trs = doc.querySelectorAll('tr');
-              const rows = Array.from(trs).map(tr => 
-                Array.from(tr.querySelectorAll('th, td')).map(td => td.textContent?.trim() || '')
-              );
-              if (rows.length > 0) sheetsToProcess.push({ sheetName: file.name, rows });
+            let text = new window.TextDecoder('utf-8').decode(dataBuffer);
+            if (!text.toLowerCase().includes('<tr') && !text.toLowerCase().includes('<table')) {
+              text = new window.TextDecoder('utf-16le').decode(dataBuffer);
             }
-          } catch(e) {}
+            if (text.toLowerCase().includes('<table') || text.toLowerCase().includes('<tr')) {
+               const parser = new DOMParser();
+               const doc = parser.parseFromString(text, 'text/html');
+               const trs = doc.querySelectorAll('tr');
+               const rows = Array.from(trs).map(tr => 
+                 Array.from(tr.querySelectorAll('th, td')).map(td => td.textContent?.trim().replace(/\s+/g, ' ') || '')
+               );
+               if (rows.length > 0) sheetsToProcess.push({ sheetName: "HTML_" + file.name, rows });
+            }
+          } catch(e) {
+            console.error("HTML Fallback error", e);
+          }
         }
 
-        if (sheetsToProcess.length === 0) continue;
+        if (sheetsToProcess.length === 0) {
+          addToast(`No data found in ${file.name}`);
+          continue;
+        }
         
         for (const { sheetName, rows } of sheetsToProcess) {
           if (rows.length < 1) continue;
@@ -2691,12 +2700,15 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
           });
 
           if (headerRowIdx === -1) {
-             console.log("No header found in", file.name, sheetName, rows.slice(0, 10));
+             console.log("No header found in", file.name, sheetName);
+             console.log("First few rows:", rows.slice(0, 10));
              continue;
           }
 
-          let rowsAdded = 0;
+          console.log(`[${file.name}] Header Row at ${headerRowIdx}:`, rows[headerRowIdx]);
+          console.log(`[${file.name}] Data Row 1:`, rows[headerRowIdx + 1]);
           let curDistrict = 'Unknown', curDivision = 'Unknown', curMandal = 'Unknown', curMLgd = '-';
+          let rowsAdded = 0;
 
           for (let r = headerRowIdx + 1; r < rows.length; r++) {
             const row = rows[r];
@@ -2743,12 +2755,15 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
               if (dateMatch && val.includes(':')) {
                 const dateKey = dateMatch[0].replace(/\//g, '-').replace(/\./g, '-');
                 datesFound.add(dateKey);
-                entry.times[dateKey] = val;
+                
+                if (!entry.times[dateKey]) {
+                   entry.times[dateKey] = val;
+                }
                 
                 // Status is usually the column immediately to the left of the time column
-                if (c > 0) {
+                if (c > 0 && !entry.attendance[dateKey]) {
                   const statusVal = String(row[c-1] || '').trim();
-                  if (statusVal && statusVal.length < 20 && !statusVal.includes(':') && !statusVal.includes('202')) {
+                  if (statusVal && statusVal.length < 50 && !statusVal.includes(':') && !statusVal.includes('202')) {
                     entry.attendance[dateKey] = statusVal;
                   }
                 }
@@ -2843,26 +2858,63 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 
   const downloadGPSummary = () => {
     if (aggregatedData.size === 0) return;
-    const exportData = filteredData.map((info, idx) => {
-      const row: any = { 
-        'S.No': idx + 1, 
-        'District': info.district,
-        'Division': info.division,
-        'Mandal': info.mandal,
-        'Panchayat Name': info.gp 
-      };
-      let presentDays = 0;
+    const aoa: any[][] = [];
+    
+    // Row 1
+    const row1 = ['Telangana State'];
+    for(let i=0; i < allDates.length * 2 + 6; i++) row1.push('');
+    aoa.push(row1);
+
+    // Row 2
+    const reportDate = allDates[0] ? new Date(allDates[0].split('-').reverse().join('-')).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : '';
+    const row2 = [`Report On Attendance Status & DSR Raw Data ${reportDate}`];
+    for(let i=0; i < allDates.length * 2 + 6; i++) row2.push('');
+    aoa.push(row2);
+
+    // Row 3 (Status heading)
+    const row3 = ['', '', '', '', '', '', ''];
+    row3.push('Attendace Status');
+    for(let i=0; i < allDates.length * 2 - 1; i++) row3.push('');
+    aoa.push(row3);
+
+    // Row 4 (Headers)
+    const row4 = ['S.No', 'District Name', 'Division Name', 'Mandal Name', 'Mandal LGD', 'Panchayat Name', 'Panchayat LGD'];
+    allDates.forEach(() => {
+       row4.push('First Attendance');
+       row4.push('First Attendance');
+    });
+    aoa.push(row4);
+
+    // Data rows
+    filteredData.forEach((info, idx) => {
+      const row = [
+        idx + 1, 
+        info.district,
+        info.division,
+        info.mandal,
+        info.mandalLgd || '',
+        info.gp,
+        info.panchayatLgd || ''
+      ];
       allDates.forEach(d => {
         const time = info.times[d] || '';
         const s = info.attendance[d] || '-';
-        row[`Attendance Datetime ${d}`] = time || s;
-        if (String(s).toLowerCase().startsWith('p')) presentDays++;
+        row.push(s);
+        row.push(time || s); // Usually the time, but if empty fallback to status string or '-'
       });
-      row['Present Days'] = presentDays;
-      row['Attendance %'] = allDates.length > 0 ? Math.round((presentDays / allDates.length) * 100) : 0;
-      return row;
+      aoa.push(row);
     });
-    const ws = XLSX.utils.json_to_sheet(exportData);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    
+    // Merge cells for headers
+    const totalCols = allDates.length * 2 + 7;
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }, // Telangana State
+      { s: { r: 1, c: 0 }, e: { r: 1, c: totalCols - 1 } }, // Report Title
+      { s: { r: 2, c: 7 }, e: { r: 2, c: totalCols - 1 } }  // Attendace Status
+    ];
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "GP Comparative");
     XLSX.writeFile(wb, `MultiDay_GP_Comparative_${new Date().toLocaleDateString()}.xlsx`);
@@ -3043,13 +3095,13 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                     <th colSpan={sortedDates.length * 2 + 7} className="p-1 font-bold text-xs">Telangana State</th>
                   </tr>
                   <tr className="bg-[#004085] text-white text-center border-b border-black">
-                    <th colSpan={sortedDates.length * 2 + 7} className="p-1 font-bold text-[11px]">Report On Attendance Status & DSR Raw Data</th>
+                    <th colSpan={sortedDates.length * 2 + 7} className="p-1 font-bold text-[11px]">Report On Attendance Status & DSR Raw Data {sortedDates[0] ? new Date(sortedDates[0].split('-').reverse().join('-')).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : ''}</th>
                   </tr>
                   <tr className="bg-[#1a528d] text-white text-[10px]">
-                    <th colSpan={7} className="border border-black"></th>
+                    <th colSpan={7} className="border border-black bg-white"></th>
                     <th colSpan={sortedDates.length * 2} className="p-1 text-center font-bold border border-black uppercase tracking-wider">Attendace Status</th>
                   </tr>
-                  <tr className="bg-[#1a528d] text-white font-bold text-[9px] text-center uppercase tracking-tighter">
+                  <tr className="bg-[#1a528d] text-white font-bold text-[9px] text-left">
                     <th className="p-1.5 border border-black w-10">S.No</th>
                     <th className="p-1.5 border border-black min-w-[100px]">District Name</th>
                     <th className="p-1.5 border border-black min-w-[100px]">Division Name</th>
@@ -3059,8 +3111,8 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                     <th className="p-1.5 border border-black w-24">Panchayat LGD</th>
                     {sortedDates.map(d => (
                        <React.Fragment key={d}>
-                         <th className="p-1.5 border border-black min-w-[90px]">First Attendance ({d})</th>
-                         <th className="p-1.5 border border-black min-w-[120px]">Time ({d})</th>
+                         <th className="p-1.5 border border-black min-w-[100px]">First Attendance</th>
+                         <th className="p-1.5 border border-black min-w-[120px]">First Attendance</th>
                        </React.Fragment>
                     ))}
                   </tr>
@@ -3180,28 +3232,29 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
       let allRows: any[][] = [];
       
       try {
-        // Attempt standard Excel parsing
-        const workbook = XLSX.read(dataBuffer, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-      } catch (e) {
-        console.error("XLSX parsing failed", e);
-      }
-
-      // HTML Fallback (Common for govt portal .xls extensions)
-      if (allRows.length < 5 || (allRows[0] && allRows[0].length < 2)) {
-        try {
-          const text = new TextDecoder().decode(dataBuffer);
-          if (text.includes('<table') || text.includes('<html>')) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(text, 'text/html');
-            const trs = doc.querySelectorAll('tr');
+        const text = new window.TextDecoder('utf-8').decode(dataBuffer);
+        if (text.includes('<html') || text.includes('<table') || text.includes('<style')) {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(text, 'text/html');
+          const trs = doc.querySelectorAll('tr');
+          if (trs.length > 0) {
             allRows = Array.from(trs).map(tr => 
-              Array.from(tr.querySelectorAll('td, th')).map(td => td.textContent?.trim() || '')
+              Array.from(tr.querySelectorAll('td, th')).map(td => td.textContent?.trim().replace(/\s+/g, ' ') || '')
             );
           }
+        }
+      } catch (e) {
+        console.error("HTML fallback failed", e);
+      }
+
+      if (allRows.length === 0) {
+        try {
+          // Attempt standard Excel parsing
+          const workbook = XLSX.read(dataBuffer, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
         } catch (e) {
-          console.error("HTML fallback failed", e);
+          console.error("XLSX parsing failed", e);
         }
       }
 

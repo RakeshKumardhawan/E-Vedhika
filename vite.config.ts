@@ -9,7 +9,7 @@ export default defineConfig(({mode}) => {
     base: '',
     plugins: [react(), tailwindcss()],
     build: {
-      outDir: 'dist',
+      outDir: '.dist',
       emptyOutDir: true,
     },
     resolve: {
