@@ -181,8 +181,16 @@ header {
   letter-spacing: 0.5px;
 }
 .latest-text { flex: 1; overflow: hidden; font-weight: 500; color: var(--primary); }
-.latest-text span { display: inline-block; white-space: nowrap; animation: scrollLeft 25s linear infinite; }
-@keyframes scrollLeft { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+.latest-text span { 
+  display: inline-block; 
+  white-space: nowrap; 
+  padding-left: 100%;
+  animation: scrollLeft 30s linear infinite; 
+}
+@keyframes scrollLeft { 
+  0% { transform: translateX(0); } 
+  100% { transform: translateX(-100%); } 
+}
 
 /* NAVIGATION TRIGGER BAR */
 .nav-trigger-bar {

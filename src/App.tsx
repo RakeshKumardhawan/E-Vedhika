@@ -1542,9 +1542,11 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
         
         <div className="text-center mb-6">
            <h2 className="text-2xl font-black text-primary uppercase tracking-tighter">Profile Setup</h2>
-           <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.15em] mt-1">
-             {isForced ? "Complete your identity to continue" : "Update your portal credentials"}
-           </p>
+           <div className="flex justify-center mt-1">
+             <p className="bg-accent text-primary px-3 py-0.5 rounded-full text-[9px] font-black uppercase tracking-[0.12em] shadow-sm">
+               {isForced ? "Complete your identity to continue" : "Update your portal credentials & Workplace Details"}
+             </p>
+           </div>
         </div>
         
         <form onSubmit={handleSave} className="space-y-3">
@@ -1870,15 +1872,13 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
 
       {/* MAIN CONTENT */}
       <main className="flex-1 p-4 lg:p-10 bg-white overflow-y-auto custom-scrollbar flex flex-col relative w-full h-full">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-6 border-b border-slate-100 !bg-transparent !h-auto !p-0 !border-none">
-          <div className="flex items-center gap-4">
-            <button className="lg:hidden p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors" onClick={() => setAdminMenuOpen(true)}>
-              <span className="block w-5 h-0.5 bg-current mb-1"></span>
-              <span className="block w-5 h-0.5 bg-current mb-1"></span>
-              <span className="block w-5 h-0.5 bg-current"></span>
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 pb-8 border-b border-slate-100 !bg-transparent !h-auto !p-0">
+          <div className="flex items-center gap-5">
+            <button className="lg:hidden p-3 bg-white text-slate-600 rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition-colors" onClick={() => setAdminMenuOpen(true)}>
+              <Menu size={24} />
             </button>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-black text-primary uppercase tracking-tighter">
+              <h1 className="text-2xl lg:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
                 {activeSubTab === 'dash' && '📊 Dashboard'}
                 {activeSubTab === 'reports' && '🚩 Posts & Issues'}
                 {activeSubTab === 'users' && '👥 User Access'}
@@ -1887,7 +1887,13 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                 {activeSubTab === 'suggestions' && '💡 Suggestions'}
                 {activeSubTab === 'updates' && '⚡ Flash News'}
               </h1>
-              <p className="text-[9px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Status: Active Service Layer</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 ml-1">Administration & Monitoring Service</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 hidden sm:flex">
+             <div className="text-right">
+              <p className="text-sm font-black text-slate-800">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+              <p className="text-[10px] font-bold text-emerald-500 uppercase flex items-center justify-end gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Service Active</p>
             </div>
           </div>
         </header>
@@ -1899,11 +1905,11 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
             animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            <div className="section-card card-blue !p-8 flex flex-col justify-between group hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-blue-50/50 to-white">
+            <div className="section-card card-blue !p-5 flex flex-col justify-between group hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-blue-50/50 to-white">
               <div>
                  <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-blue-600 mb-6 shadow-sm group-hover:scale-110 transition-transform"><Users size={28} /></div>
                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">Registry Index</h3>
-                 <p className="text-5xl font-black text-blue-900 tracking-tighter leading-none">{allUsers.length}</p>
+                 <p className="text-3xl font-black text-blue-900 tracking-tighter leading-none">{allUsers.length}</p>
                  <p className="text-[10px] font-bold text-blue-600/60 mt-2 uppercase">Total Enrolled Citizens</p>
               </div>
               <div className="mt-8 pt-6 border-t border-blue-100/50 flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
@@ -1912,11 +1918,11 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               </div>
             </div>
 
-            <div className="section-card card-gold !p-8 flex flex-col justify-between group hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-amber-50/50 to-white">
+            <div className="section-card card-gold !p-5 flex flex-col justify-between group hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-amber-50/50 to-white">
               <div>
                  <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-amber-600 mb-6 shadow-sm group-hover:scale-110 transition-transform"><MessageSquare size={28} /></div>
                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">Curation Queue</h3>
-                 <p className="text-5xl font-black text-amber-900 tracking-tighter leading-none">{posts.filter(p => !p.status || p.status === 'pending').length + suggestions.filter(s => s.status?.toLowerCase() === 'pending').length}</p>
+                 <p className="text-3xl font-black text-amber-900 tracking-tighter leading-none bg-yellow-200 px-2 rounded-lg inline-block">{posts.filter(p => !p.status || p.status === 'pending').length + suggestions.filter(s => s.status?.toLowerCase() === 'pending').length}</p>
                  <p className="text-[10px] font-bold text-amber-600/60 mt-2 uppercase">Awaiting Moderation</p>
               </div>
               <div className="mt-8 pt-6 border-t border-amber-100/50 flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
@@ -1925,11 +1931,11 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               </div>
             </div>
 
-            <div className="section-card card-danger !p-8 flex flex-col justify-between group hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-rose-50/50 to-white">
+            <div className="section-card card-danger !p-5 flex flex-col justify-between group hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-rose-50/50 to-white">
               <div>
                  <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-rose-600 mb-6 shadow-sm group-hover:scale-110 transition-transform"><AlertTriangle size={28} /></div>
                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">Issue Tracker</h3>
-                 <p className="text-5xl font-black text-rose-900 tracking-tighter leading-none">{allProblems.filter(p => p.status !== 'solved').length}</p>
+                 <p className="text-3xl font-black text-rose-900 tracking-tighter leading-none">{allProblems.filter(p => p.status !== 'solved').length}</p>
                  <p className="text-[10px] font-bold text-rose-600/60 mt-2 uppercase">Open Support Tickets</p>
               </div>
               <div className="mt-8 pt-6 border-t border-rose-100/50 flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
@@ -2388,6 +2394,8 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
 
 function StatCard({ label, val, color }: { label: string, val: number, color: string }) {
   const themes: any = { 
+    indigo: { bg: '#eef2ff', border: '#e0e7ff', text: '#3730a3', icon: Clock },
+    rose: { bg: '#fff1f2', border: '#ffe4e6', text: '#9f1239', icon: AlertTriangle },
     blue: { bg: '#eff6ff', border: '#bfdbfe', text: '#1e40af', icon: Users },
     red: { bg: '#fef2f2', border: '#fecaca', text: '#991b1b', icon: AlertOctagon },
     green: { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534', icon: CheckCircle2 },
@@ -2691,8 +2699,8 @@ function FormsHub({ addToast, user }: { addToast: (s:string) => void, user: Fire
 }
 
 function StatusCell({ status }: { status: string }) {
-  if (status === 'P-I') return <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black border border-emerald-200" title="Present (Intime: <= 9:00 AM)">✅ INTIME</span>;
-  if (status === 'P-L') return <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-[10px] font-black border border-orange-200" title="Present (Late: > 9:00 AM)">⚠️ LATE</span>;
+  if (status === 'P-I') return <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black border border-emerald-200" title="Present (Intime: <= 9:00 AM)">✅ Attendance in time</span>;
+  if (status === 'P-L') return <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-[10px] font-black border border-orange-200" title="Present (Late: > 9:00 AM)">⚠️ Late Attendance</span>;
   if (status === 'P') return <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black border border-emerald-200">✅ PRESENT</span>;
   if (status === 'A') return <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-[10px] font-black border border-rose-200">❌ ABSENT</span>;
   if (status === 'M') return <span className="bg-cyan-100 text-cyan-700 px-3 py-1 rounded-full text-[10px] font-black border border-cyan-200">🤝 MEETING</span>;
@@ -3177,19 +3185,12 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
           {isAnalyzing ? <RefreshCw className="animate-spin" size={14} /> : <Upload size={14} />} {aggregatedData.size > 0 ? "Upload More Reports" : "Upload Multiple Daily Reports"}
         </label>
         {aggregatedData.size > 0 && (
-          <button 
-            onClick={() => setAggregatedData(new Map())}
-            className="ml-4 bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl font-black text-xs uppercase hover:bg-rose-100 transition-colors"
-          >
-            Clear Data
-          </button>
+          <div className="flex justify-center mt-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest gap-4">
+             <span>Reports Synced: {parserDebug.length} files</span>
+             <span>•</span>
+             <span>Real-time Comparative Engine Active</span>
+          </div>
         )}
-        <button 
-          onClick={() => setShowDebug(!showDebug)}
-          className="ml-4 bg-slate-200 text-slate-600 px-6 py-3 rounded-2xl font-black text-xs uppercase hover:bg-slate-300 transition-colors"
-        >
-          {showDebug ? 'Hide Debug' : 'Show Debug'}
-        </button>
       </div>
 
       {showDebug && parserDebug.length > 0 && (
@@ -3263,66 +3264,58 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                 </div>
              </div>
              <div className="col-span-2 flex gap-3">
-               <button onClick={downloadMandalSummary} className="flex-1 bg-white border border-slate-200 p-4 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-1">
-                 <Download size={18} /> Mandal Summary (XL)
+               <button onClick={downloadMandalSummary} className="flex-1 bg-white border border-slate-100 p-5 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-2 shadow-sm hover:shadow-md">
+                 <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 mb-1"><BarChart3 size={18}/></div>
+                 Mandal Summary (XL)
                </button>
-               <button onClick={downloadGPSummary} className="flex-1 bg-white border border-slate-200 p-4 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-1">
-                 <Download size={18} /> GP Comparative (XL)
+               <button onClick={downloadGPSummary} className="flex-1 bg-white border border-slate-100 p-5 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-2 shadow-sm hover:shadow-md">
+                 <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 mb-1"><Database size={18}/></div>
+                 GP Comparative (XL)
                </button>
              </div>
           </div>
 
-          <div className="bg-white border rounded-[8px] shadow-2xl overflow-hidden border-slate-800">
-            <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left text-[10px] border-collapse min-w-[1400px]">
+        <div className="bg-white border rounded-[24px] shadow-2xl overflow-hidden border-slate-100 ring-1 ring-slate-900/5">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left text-[10px] border-collapse min-w-[1400px]">
                 <thead className="sticky top-0 z-20">
-                  <tr className="bg-[#004085] text-white text-center border-b border-black">
-                    <th colSpan={sortedDates.length * 2 + 4} className="p-1 font-bold text-xs">Telangana State</th>
-                  </tr>
-                  <tr className="bg-[#004085] text-white text-center border-b border-black">
-                    <th colSpan={sortedDates.length * 2 + 4} className="p-1 font-bold text-[11px]">Report On Attendance Status & DSR Raw Data {sortedDates[0] ? new Date(sortedDates[0].split('-').reverse().join('-')).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'}) : ''}</th>
-                  </tr>
-                  <tr className="bg-[#1a528d] text-white text-[10px]">
-                    <th colSpan={4} className="border border-black bg-white"></th>
-                    <th colSpan={sortedDates.length * 2} className="p-1 text-center font-bold border border-black uppercase tracking-wider">Attendace Status</th>
-                  </tr>
-                  <tr className="bg-[#1a528d] text-white font-bold text-[9px] text-left">
-                    <th className="p-1.5 border border-black w-10">S.No</th>
-                    <th className="p-1.5 border border-black min-w-[100px]">District Name</th>
-                    <th className="p-1.5 border border-black min-w-[100px]">Mandal Name</th>
-                    <th className="p-1.5 border border-black min-w-[140px]">Panchayat Name</th>
+                  <tr className="bg-indigo-600 text-white font-bold text-[10px] text-left">
+                    <th className="p-2 border border-indigo-700 w-10">S.No</th>
+                    <th className="p-2 border border-indigo-700 min-w-[100px]">District Name</th>
+                    <th className="p-2 border border-indigo-700 min-w-[100px]">Mandal Name</th>
+                    <th className="p-2 border border-indigo-700 min-w-[140px]">Panchayat Name</th>
                     {sortedDates.map(d => (
                        <React.Fragment key={d}>
-                         <th className="p-1.5 border border-black min-w-[100px]">First Attendance Status ({d})</th>
-                         <th className="p-1.5 border border-black min-w-[120px]">First Attendance Time ({d})</th>
+                         <th className="p-2 border border-indigo-700 min-w-[100px] text-center">Attendance ({d})</th>
+                         <th className="p-2 border border-indigo-700 min-w-[120px] text-center">Time ({d})</th>
                        </React.Fragment>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-black bg-white">
+                <tbody className="divide-y divide-slate-100 bg-white">
                   {mandalList.map((mName) => {
                     const isEx = expandedMandals.has(mName);
                     const items = groupedByMandal[mName];
                     return (
                       <React.Fragment key={mName}>
                         <tr 
-                          className="bg-slate-200 hover:bg-slate-300 cursor-pointer border-b border-black group" 
+                          className="bg-slate-50 hover:bg-slate-100 cursor-pointer border-b border-slate-200 group transition-colors" 
                           onClick={() => toggleMandal(mName)}
                         >
-                          <td className="p-1.5 border border-black text-center font-bold text-blue-800">
+                          <td className="p-2 border border-slate-200 text-center font-bold text-indigo-600">
                             {isEx ? <ChevronDown size={14} className="mx-auto" /> : <ChevronRight size={14} className="mx-auto" />}
                           </td>
-                          <td colSpan={sortedDates.length * 2 + 3} className="p-1.5 border border-black font-black text-[#004085] uppercase text-[12px] group-hover:bg-slate-300 flex items-center gap-2">
+                          <td colSpan={sortedDates.length * 2 + 3} className="p-2.5 border border-slate-200 font-black text-slate-700 uppercase text-[11px] flex items-center gap-2">
                             <span>{mName}</span>
-                            <span className="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200 shadow-sm">{items.length} Gram Panchayats</span>
+                            <span className="text-[9px] bg-white text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100 shadow-sm">{items.length} GPs</span>
                           </td>
                         </tr>
                         {isEx && items.map((info) => (
-                          <tr key={`${(info.mandal || '').toUpperCase()}_${(info.gp || '').toUpperCase()}`} className="hover:bg-blue-50/40 text-black border-b border-slate-200 group">
-                            <td className="p-1.5 border border-black text-center font-medium bg-slate-50 text-slate-500 group-hover:text-blue-600 transition-colors">{gpIndexMap.get(`${(info.mandal || '').toUpperCase()}_${(info.gp || '').toUpperCase()}`)}</td>
-                            <td className="p-1.5 border border-black uppercase text-[9px] tracking-tight">{info.district}</td>
-                            <td className="p-1.5 border border-black uppercase bg-slate-50 text-[9px] font-bold tracking-tight">{info.mandal}</td>
-                            <td className="p-1.5 border border-black font-extrabold text-slate-900 bg-blue-50/20 text-[10px]">{info.gp}</td>
+                          <tr key={`${(info.mandal || '').toUpperCase()}_${(info.gp || '').toUpperCase()}`} className="hover:bg-indigo-50/50 text-slate-700 border-b border-slate-100 group transition-colors">
+                            <td className="p-2 border border-slate-200 text-center font-medium bg-slate-50 text-slate-400 group-hover:text-indigo-600">{gpIndexMap.get(`${(info.mandal || '').toUpperCase()}_${(info.gp || '').toUpperCase()}`)}</td>
+                            <td className="p-2 border border-slate-200 uppercase text-[9px] font-bold text-slate-500">{info.district}</td>
+                            <td className="p-2 border border-slate-200 uppercase bg-slate-50/50 text-[9px] font-black text-slate-600">{info.mandal}</td>
+                            <td className="p-2 border border-slate-200 font-black text-slate-800 bg-white text-[10px]">{info.gp}</td>
                             {sortedDates.map(d => {
                               const status = info.attendance[d] || '-';
                               const time = info.times[d] || '-';
@@ -3335,10 +3328,10 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 
                               return (
                                 <React.Fragment key={d}>
-                                  <td className={`p-1.5 border border-black text-center whitespace-nowrap text-[9px] ${color}`}>
+                                  <td className={`p-2 border border-slate-200 text-center whitespace-nowrap text-[9px] font-black ${color}`}>
                                     {status === '-' ? '-' : (status.length > 15 ? status.substring(0, 15)+'...' : status)}
                                   </td>
-                                  <td className="p-1.5 border border-black text-center whitespace-nowrap font-medium text-slate-600 text-[9px]">
+                                  <td className="p-2 border border-slate-200 text-center whitespace-nowrap font-bold text-slate-500 text-[9px]">
                                     {time}
                                   </td>
                                 </React.Fragment>
@@ -3607,7 +3600,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
           gp: gpRaw.toUpperCase(),
           attStatus: r[attStatusIdx] || (isP ? "Present" : isM ? "Meeting" : isT ? "Training" : isL ? "Leave" : "Absent"),
           attTime: r[attTimeIdx] || "-",
-          dsrStatus: r[dsrStatusIdx] || (isD ? (isOnTime ? "On Time" : "Late") : (isM ? "Meeting" : isT ? "Training" : isL ? "Leave" : "Pending")),
+          dsrStatus: r[dsrStatusIdx] || (isD ? (isOnTime ? "Attendance in time" : "Late Attendance") : (isM ? "Meeting" : isT ? "Training" : isL ? "Leave" : "Pending")),
           dsrTime: dsrTimeStr || "-",
           isPresent: isP,
           isMeeting: isM,
@@ -3666,7 +3659,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
       'GP Name': r.gp,
       'Attendance Status': r.attStatus,
       'Attendance Time': r.attTime,
-      'DSR Status': r.isMeeting ? 'Meeting' : r.isTraining ? 'Training' : r.isLeave ? 'Leave' : (r.isOnTime ? 'On Time' : r.isLate ? 'Late' : 'Pending'),
+      'DSR Status': r.isMeeting ? 'Meeting' : r.isTraining ? 'Training' : r.isLeave ? 'Leave' : (r.isOnTime ? 'Attendance in time' : r.isLate ? 'Late Attendance' : 'Pending'),
       'DSR Time': r.dsrTime
     }));
 
@@ -3744,8 +3737,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
             <button onClick={() => setActiveFilter(null)} className="text-left w-full"><StatCard label="Total" val={stats.total} color="blue" /></button>
             <button onClick={() => setActiveFilter('P')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'P' ? 'ring-2 ring-emerald-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Present" val={stats.present} color="emerald" /></button>
-            <button title="ఉదయం 9:00 కంటే ముందు విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('B9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'B9' ? 'ring-2 ring-indigo-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Intime" val={stats.before901} color="indigo" /></button>
-            <button title="ఉదయం 9:01 తర్వాత విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('A9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'A9' ? 'ring-2 ring-rose-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Late" val={stats.after900} color="rose" /></button>
+            <button title="ఉదయం 9:00 కంటే ముందు విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('B9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'B9' ? 'ring-2 ring-indigo-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Attendance in time" val={stats.before901} color="indigo" /></button>
+            <button title="ఉదయం 9:01 తర్వాత విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('A9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'A9' ? 'ring-2 ring-rose-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Late Attendance" val={stats.after900} color="rose" /></button>
             <button onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR" val={stats.dsr} color="blue" /></button>
             <button onClick={() => setActiveFilter('M')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'M' ? 'ring-2 ring-cyan-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Meeting" val={stats.meeting} color="cyan" /></button>
             <button onClick={() => setActiveFilter('T')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'T' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Training" val={stats.training} color="amber" /></button>
@@ -3967,7 +3960,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
                                    ? 'bg-rose-100 text-rose-700' 
                                    : 'bg-amber-100 text-amber-700'
                              }`}>
-                                {row.isMeeting ? 'Meeting' : row.isTraining ? 'Training' : row.isLeave ? 'Leave' : row.isOnTime ? 'On Time' : row.isLate ? 'Late Submission' : 'Not Entered'}
+                                {row.isMeeting ? 'Meeting' : row.isTraining ? 'Training' : row.isLeave ? 'Leave' : row.isOnTime ? 'Attendance in time' : row.isLate ? 'Late Attendance' : 'Not Entered'}
                              </span>
                           </td>
                           <td className="p-4 text-center text-[10px] font-mono text-slate-500">{row.dsrTime || '-'}</td>
