@@ -3,60 +3,50 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // -------------------------------------------------------------------------
+    // HELPERS
+    // -------------------------------------------------------------------------
     function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
     function isAdmin() { 
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) || 
         request.auth.token.email.lower() == 'rakeshkumardhawan123@gmail.com'
       ); 
     }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
 
-    // Public Collections
-    match /posts/{postId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      
-      match /comments/{commentId} {
-        allow read: if true;
-        allow create: if isSignedIn();
-        allow update, delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      }
+    // COLLECTIONS
+    // -------------------------------------------------------------------------
+
+    match /admins/{adminId} {
+      allow read: if isValidId(adminId);
+      allow write: if false;
     }
 
-    match /updates/{id} {
+    match /updates/{updateId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    match /suggestions/{id} {
+    match /suggestions/{suggestionId} {
       allow read: if true;
-      allow create: if true; // ALLOW ANONYMOUS SUBMISSION
-      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create: if true; 
+      allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
     }
 
-    match /forms/{id} {
+    match /posts/{postId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-    }
-
-    match /chat/{id} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-    }
-
-    match /problems/{id} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-    }
-
-    match /requests/{id} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn();
+        allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      }
     }
 
     match /users/{userId} {
@@ -65,27 +55,40 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /admins/{adminId} {
+    match /chat/{msgId} {
       allow read: if true;
-      allow write: if false;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
     }
 
-    match /security_logs/{id} {
-      allow read, write: if isAdmin();
+    match /problems/{problemId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
     }
 
-    match /notifications/{id} {
-      allow read: if isSignedIn();
+    match /requests/{requestId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+    }
+
+    match /notifications/{notifId} {
+      allow read: if isSignedIn() && (existing().uid == request.auth.uid || isAdmin());
       allow create: if isAdmin();
-      allow update, delete: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow update, delete: if isSignedIn() && (existing().uid == request.auth.uid || isAdmin());
     }
 
-    match /usernames/{id} {
+    match /usernames/{username} {
       allow read: if true;
       allow write: if isSignedIn();
     }
 
-    // Default deny
+    match /security_logs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Default deny (fallback)
     match /{document=**} {
       allow read, write: if false;
     }

@@ -459,6 +459,18 @@ export default function App() {
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowProfileDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -942,8 +954,12 @@ export default function App() {
         <div className="flex-1"></div>
 
         <div className="flex items-center gap-5">
-          {user && !user.isAnonymous && (
-             <div onClick={() => setShowProfileModal(true)} className="hidden sm:flex items-center gap-3 bg-gradient-to-r from-[#174b7c] to-transparent pl-1.5 pr-5 py-1.5 rounded-[16px] border border-accent/30 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_0_20px_rgba(250,204,21,0.25)] hover:border-accent/60 transition-all duration-300 relative overflow-hidden group cursor-pointer">
+          {user && !user.isAnonymous ? (
+            <div className="relative" ref={dropdownRef}>
+              <div 
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)} 
+                className="hidden sm:flex items-center gap-3 bg-gradient-to-r from-[#174b7c] to-transparent pl-1.5 pr-5 py-1.5 rounded-[16px] border border-accent/30 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_0_20px_rgba(250,204,21,0.25)] hover:border-accent/60 transition-all duration-300 relative overflow-hidden group cursor-pointer"
+              >
                 <div className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/10 to-accent/0 -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out"></div>
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-[#d97706] flex items-center justify-center text-primary font-black text-lg shadow-inner border-[2px] border-white/20 relative z-10 shadow-[0_0_10px_rgba(250,204,21,0.5)] overflow-hidden">
                    {user?.photoURL ? (
@@ -959,18 +975,58 @@ export default function App() {
                     <span className="text-accent text-[9px] font-bold uppercase tracking-[0.15em] drop-shadow-sm">{isAdmin ? 'System Admin' : isEditor ? 'Editor' : 'Active User'}</span>
                   </div>
                 </div>
-             </div>
+                <ChevronDown size={14} className={`text-accent/50 group-hover:text-accent transition-transform duration-300 relative z-10 ${showProfileDropdown ? 'rotate-180' : ''}`} />
+              </div>
+
+              <AnimatePresence>
+                {showProfileDropdown && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    className="absolute right-0 mt-3 w-52 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[2000] p-2"
+                  >
+                    <button 
+                      onClick={() => { setShowProfileModal(true); setShowProfileDropdown(false); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-blue-50 transition-colors rounded-xl group text-left"
+                    >
+                      <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
+                        <User size={18} />
+                      </div>
+                      Edit Profile
+                    </button>
+                    <div className="h-px bg-slate-100 my-1 mx-2" />
+                    <button 
+                      onClick={() => { auth.signOut(); setShowProfileDropdown(false); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors rounded-xl group text-left"
+                    >
+                      <div className="p-2 bg-red-50 text-red-600 rounded-lg group-hover:bg-red-100 transition-colors">
+                        <LogOut size={18} />
+                      </div>
+                      Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <button 
+              onClick={triggerLogin}
+              className="bg-accent text-primary px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest hover:bg-white transition-all shadow-lg active:scale-95"
+            >
+              Login
+            </button>
           )}
         </div>
       </header>
 
       <div className="latest-bar overflow-hidden">
-        <div className="latest-label">HOT UPDATES</div>
+        <div className="latest-label">Latest Updates</div>
         <div className="latest-text flex-1">
           <span>
             {updates.length > 0 
               ? updates.map(u => u.text || (u as any).msg || (u as any).update).join('  •  ') 
-              : 'Empowering local governance through digital innovation... Telangana PR Portal is now live for all panchayats...'}
+              : '🔥 Welcome to E-Vedhika Portal...🔥'}
           </span>
         </div>
       </div>
@@ -1056,33 +1112,7 @@ export default function App() {
             <AnimatePresence mode="wait">
               {currentTab === 'home' && (
                 <motion.div key="home" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4 sm:space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    <div className="section-card card-blue !p-6">
-                      <span className="text-[11px] font-black text-slate-400 uppercase">Live Updates</span>
-                      <h2 className="text-3xl font-black text-primary mt-2">{posts.length}</h2>
-                    </div>
-                    <div className="section-card !border-t-danger !p-6 cursor-pointer hover:bg-red-50 transition-colors" onClick={() => { setCurrentTab('problems'); setSidebarOpen(false); }}>
-                      <span className="text-[11px] font-black text-slate-400 uppercase">Pending Issues</span>
-                      <h2 className="text-3xl font-black text-danger mt-2">{problemsGlobal.filter(p => p.status !== 'solved').length}</h2>
-                    </div>
-                    <div className="section-card card-gold !p-6 !bg-primary overflow-hidden relative">
-                      <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/5 rounded-full blur-2xl"></div>
-                      <div className="mt-2">
-                        {user && !user.isAnonymous ? (
-                           <div className="flex justify-between items-center">
-                             <span className="text-sm font-black text-white">Active session</span>
-                             <button onClick={() => signOut(auth)} className="text-xs bg-red-500 text-white px-4 py-1.5 rounded-full font-black uppercase shadow-md">Logout</button>
-                           </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <button onClick={triggerLogin} className="w-full bg-accent text-primary py-2.5 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-white transition-all shadow-md">
-                               Login / Create Account
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+
 
                   <div className="bg-white p-4 sm:p-6 rounded-[32px] shadow-sm border border-slate-100">
                     <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 sm:gap-6">
@@ -1331,10 +1361,13 @@ export default function App() {
                                   {s.category && <span className="text-[10px] font-black text-[#a855f7] uppercase tracking-widest">{s.category}</span>}
                                   {displayTitle && <h3 className="font-black text-slate-800 text-sm leading-tight">{displayTitle}</h3>}
                                 </div>
-                                <div className="text-right">
-                                  <span className="text-[10px] font-black text-slate-500 uppercase block">👤 {s.name || 'Portal User'}</span>
+                                <div className="text-right shrink-0">
+                                  <div className="flex items-center gap-1 justify-end">
+                                    <span className="text-[10px] font-black text-slate-500 uppercase">👤 {s.name || 'Portal User'}</span>
+                                    {(s as any).village && <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{(s as any).village}</span>}
+                                  </div>
                                   <span className="text-[10px] text-slate-400 font-bold">
-                                    {new Date(Number(s.time || Date.now())).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                    {new Date(Number(s.time || Date.now())).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                                   </span>
                                 </div>
                               </div>
@@ -1586,15 +1619,25 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
              </div>
           </div>
 
-          <div className="flex gap-3 mt-4">
+          <div className="flex flex-wrap gap-3 mt-4">
             {!isForced && (
-              <button 
-                type="button" 
-                onClick={onClose} 
-                className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all active:scale-95"
-              >
-                Cancel
-              </button>
+              <>
+                <button 
+                  type="button" 
+                  onClick={onClose} 
+                  className="flex-1 min-w-[120px] bg-slate-100 text-slate-600 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => { auth.signOut(); onClose(); }} 
+                  className="flex-1 min-w-[120px] bg-red-50 text-red-600 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-100 transition-all active:scale-95 border border-red-200 flex items-center justify-center gap-2"
+                >
+                  <LogOut size={16} />
+                  Logout
+                </button>
+              </>
             )}
             {isForced && (
               <button 
@@ -1606,10 +1649,12 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
               </button>
             )}
             <button 
+             type="submit"
              disabled={saving}
-             className="flex-[2] bg-primary text-white py-3 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg hover:shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
+             className="w-full bg-primary text-white py-4 rounded-xl font-black uppercase text-sm tracking-[0.2em] shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all active:scale-98 disabled:opacity-50 flex items-center justify-center gap-3"
+             style={{ background: '#0d3b66' }}
             >
-              {saving ? <Loader2 className="animate-spin mx-auto" size={16} /> : 'Save Profile Changes'}
+              {saving ? <Loader2 className="animate-spin" size={20} /> : 'Save Profile Changes'}
             </button>
           </div>
         </form>

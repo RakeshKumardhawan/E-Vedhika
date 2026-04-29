@@ -162,13 +162,24 @@ header {
 /* TICKER */
 .latest-bar { 
   background: #fff; 
-  padding: 8px 4%; 
+  padding: 1px 4%; 
   display: flex; 
   align-items: center; 
-  border-bottom: 1px solid #e2e8f0;
-  font-size: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 9px;
 }
-.latest-label { background: var(--danger); color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 800; margin-right: 12px; white-space: nowrap; font-size: 10px; }
+.latest-label { 
+  background: var(--danger); 
+  color: #fff; 
+  padding: 1px 6px; 
+  border-radius: 6px; 
+  font-weight: 800; 
+  margin-right: 10px; 
+  white-space: nowrap; 
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 .latest-text { flex: 1; overflow: hidden; font-weight: 500; color: var(--primary); }
 .latest-text span { display: inline-block; white-space: nowrap; animation: scrollLeft 25s linear infinite; }
 @keyframes scrollLeft { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
