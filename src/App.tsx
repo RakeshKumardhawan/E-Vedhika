@@ -2879,7 +2879,8 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
       const s = mandalSummary.get(m)!;
       allDates.forEach(d => {
         s.total++;
-        if (String(info.attendance[d] || '').toLowerCase().startsWith('p')) s.present++;
+        const attStr = String(info.attendance[d] || '').toLowerCase();
+        if (attStr.startsWith('p') || attStr.includes('ప్రెసెంట్') || attStr.includes('హాజరు')) s.present++;
       });
     });
     const exportData = Array.from(mandalSummary.entries()).map(([m, s]) => ({
@@ -2943,20 +2944,20 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 
     // Summary Rows
     const statuses = [
-      { label: 'Total Present', prefix: 'P' },
-      { label: 'Total Absent', prefix: 'A' },
-      { label: 'Total Leave', prefix: 'L' },
-      { label: 'Total Meeting', prefix: 'M' },
-      { label: 'Total Training', prefix: 'T' }
+      { label: 'Total Present', matches: (s: string) => s.startsWith('p') || s.includes('ప్రెసెంట్') || s.includes('హాజరు') || s.includes('✅') },
+      { label: 'Total Absent', matches: (s: string) => s.startsWith('a') || s.includes('గైర్హాజరు') || s.includes('absent') },
+      { label: 'Total Leave', matches: (s: string) => s.startsWith('l') || s.includes('సెలవు') || s.includes('leave') },
+      { label: 'Total Meeting', matches: (s: string) => s.startsWith('m') || s.includes('సమావేశం') || s.includes('meeting') },
+      { label: 'Total Training', matches: (s: string) => s.startsWith('t') || s.includes('శిక్షణ') || s.includes('training') }
     ];
 
     statuses.forEach(st => {
-      const row = ['', '', '', st.label];
+      const row: (string | number)[] = ['', '', '', st.label];
       allDates.forEach(d => {
         let count = 0;
         filteredData.forEach(info => {
-           const s = String(info.attendance[d] || '').toUpperCase();
-           if (s.startsWith(st.prefix)) count++;
+           const s = String(info.attendance[d] || '').toLowerCase();
+           if (st.matches(s)) count++;
         });
         row.push(count);
         row.push(''); // Time column empty for summary
@@ -3225,19 +3226,19 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                   })}
                 </tbody>
                 <tfoot className="bg-slate-100 font-bold text-[10px]">
-                  {[{ label: 'Total Present', prefix: 'P', color: 'text-emerald-700' },
-                    { label: 'Total Absent', prefix: 'A', color: 'text-rose-700' },
-                    { label: 'Total Leave', prefix: 'L', color: 'text-amber-700' },
-                    { label: 'Total Meeting', prefix: 'M', color: 'text-cyan-700' },
-                    { label: 'Total Training', prefix: 'T', color: 'text-amber-700' }
+                  {[{ label: 'Total Present', color: 'text-emerald-700', matches: (s: string) => s.startsWith('p') || s.includes('ప్రెసెంట్') || s.includes('హాజరు') || s.includes('✅') },
+                    { label: 'Total Absent', color: 'text-rose-700', matches: (s: string) => s.startsWith('a') || s.includes('గైర్హాజరు') || s.includes('absent') },
+                    { label: 'Total Leave', color: 'text-amber-700', matches: (s: string) => s.startsWith('l') || s.includes('సెలవు') || s.includes('leave') },
+                    { label: 'Total Meeting', color: 'text-cyan-700', matches: (s: string) => s.startsWith('m') || s.includes('సమావేశం') || s.includes('meeting') },
+                    { label: 'Total Training', color: 'text-amber-700', matches: (s: string) => s.startsWith('t') || s.includes('శిక్షణ') || s.includes('training') }
                   ].map((st, idx) => (
                     <tr key={idx}>
                       <td colSpan={4} className="p-1.5 border border-black text-right uppercase text-[#004085]">{st.label}</td>
                       {sortedDates.map(d => {
                         let count = 0;
                         filteredData.forEach(info => {
-                           const s = String(info.attendance[d] || '').toUpperCase();
-                           if (s.startsWith(st.prefix)) count++;
+                           const s = String(info.attendance[d] || '').toLowerCase();
+                           if (st.matches(s)) count++;
                         });
                         return (
                           <React.Fragment key={d}>
@@ -3410,10 +3411,10 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
         const dsrStatusRaw = String(r[dsrStatusIdx] || "").toLowerCase();
         const dsrTimeStr = String(r[dsrTimeIdx] || "");
 
-        const isP = attStatusRaw.includes("present") || attStatusRaw === "p" || attStatusRaw.includes("✅");
-        const isM = attStatusRaw.includes("meeting") || attStatusRaw === "m";
-        const isT = attStatusRaw.includes("training") || attStatusRaw === "t";
-        const isL = attStatusRaw.includes("leave") || attStatusRaw === "l";
+        const isP = attStatusRaw.includes("present") || attStatusRaw.startsWith("p") || attStatusRaw.includes("✅") || attStatusRaw.includes("ప్రెసెంట్") || attStatusRaw.includes("హాజరు");
+        const isM = attStatusRaw.includes("meeting") || attStatusRaw.startsWith("m") || attStatusRaw.includes("సమావేశం");
+        const isT = attStatusRaw.includes("training") || attStatusRaw.startsWith("t") || attStatusRaw.includes("శిక్షణ");
+        const isL = attStatusRaw.includes("leave") || attStatusRaw.startsWith("l") || attStatusRaw.includes("సెలవు");
         const isD = dsrStatusRaw.includes("entered") || dsrStatusRaw.includes("yes") || dsrStatusRaw.includes("✅") || dsrStatusRaw.includes("uploaded");
         const attTimeStr = String(r[attTimeIdx] || "");
 
