@@ -1208,7 +1208,6 @@ export default function App() {
             {(isAdmin || isEditor) && (
                <MenuButton label="Admin Panel" emoji="⚙️" active={false} onClick={() => {navigate('/Evdka'); setSidebarOpen(false);}} />
             )}
-            <MenuButton label="Hidden Admin Login" emoji="🔑" active={false} onClick={() => {navigate('/Evdka'); setSidebarOpen(false);}} />
           </div>
         </aside>
 
