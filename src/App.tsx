@@ -184,10 +184,14 @@ const TELANGANA_DATA: Record<string, string[]> = {
 interface Suggestion {
   id: string;
   name: string;
+  author?: string;
+  village?: string;
+  mobile?: string;
   text?: string;
+  msg?: string;
   suggestion?: string;
   category?: string;
-  status: 'pending' | 'approved' | 'Deleted';
+  status: string;
   time: number;
   uid?: string;
   resolvedAt?: number;
@@ -423,6 +427,29 @@ function cleanStringData(val: any) {
   return String(val).trim();
 }
 
+function getValidTime(obj: any): number {
+  if (!obj) return Date.now();
+  if (obj.time) {
+    if (typeof obj.time === 'number') return obj.time;
+    if (obj.time.seconds) return obj.time.seconds * 1000;
+  }
+  if (obj.createdAt) {
+    if (typeof obj.createdAt === 'number') return obj.createdAt;
+    if (obj.createdAt.seconds) return obj.createdAt.seconds * 1000;
+  }
+  if (obj.timestamp) {
+    if (typeof obj.timestamp === 'number') return obj.timestamp;
+    if (obj.timestamp.seconds) return obj.timestamp.seconds * 1000;
+  }
+  if (obj.date) {
+    if (typeof obj.date === 'string' || typeof obj.date === 'number') {
+      const parsed = new Date(obj.date).getTime();
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+  return Date.now();
+}
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -461,6 +488,25 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const suggestionsScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let interval: any;
+    if (currentTab === 'suggestions' && suggestions.length > 0) {
+      interval = setInterval(() => {
+        const box = suggestionsScrollRef.current;
+        if (!box) return;
+        
+        box.scrollTop++;
+        
+        // When we scroll to the bottom, reset to top
+        if (box.scrollTop >= box.scrollHeight - box.clientHeight) {
+          box.scrollTop = 0;
+        }
+      }, 40);
+    }
+    return () => clearInterval(interval);
+  }, [currentTab, suggestions.length]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -545,7 +591,7 @@ export default function App() {
       snap.forEach(d => uArr.push({ id: d.id, ...(d.data() as any) } as Update));
       setUpdates(uArr);
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'updates'));
-
+    
     const unsubSuggestions = onSnapshot(collection(db, 'suggestions'), (snap) => {
       const sArr: Suggestion[] = [];
       snap.forEach(d => sArr.push({ id: d.id, ...(d.data() as any) } as Suggestion));
@@ -671,6 +717,21 @@ export default function App() {
       clearTimeout(slowLoginWarning);
       
       try {
+        const docRef = doc(db, 'users', result.user.uid);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) {
+           await setDoc(docRef, {
+             name: result.user.displayName || 'System User',
+             email: result.user.email,
+             photoURL: result.user.photoURL,
+             time: Date.now()
+           });
+        }
+      } catch (e) {
+        // Silent fail
+      }
+
+      try {
         await addDoc(collection(db, 'security_logs'), {
            admin: result.user.email,
            action: `Google Login (${navigator.userAgent.substring(0, 50)}...)`,
@@ -750,7 +811,14 @@ export default function App() {
              addToast("Welcome back!");
            } catch (err: any) {
              try {
-               await createUserWithEmailAndPassword(auth, result.value.email, result.value.password);
+               const cred = await createUserWithEmailAndPassword(auth, result.value.email, result.value.password);
+               try {
+                 await setDoc(doc(db, 'users', cred.user.uid), {
+                   email: result.value.email,
+                   name: result.value.email.split('@')[0],
+                   time: Date.now()
+                 });
+               } catch(e) {}
                try { await addDoc(collection(db, 'security_logs'), { admin: result.value.email, action: `Account Registration (${navigator.userAgent.substring(0, 50)}...)`, time: Date.now() }); } catch(e){}
                addToast("Signed up successfully!");
              } catch (e: any) {
@@ -787,7 +855,51 @@ export default function App() {
     return searchOk && (p.category === currentFilter || p.subCategory === currentFilter);
   });
 
-  if (location.pathname === '/Evdka' && isEditor) {
+  if (location.pathname === '/Evdka') {
+    if (!isEditor) {
+      return (
+        <div className="h-[100dvh] overflow-hidden bg-slate-950 font-sans selection:bg-accent/20 selection:text-primary antialiased flex flex-col justify-center items-center p-4">
+           <AnimatePresence>
+            {toasts.map(t => (
+               <motion.div
+                 key={t.id}
+                 initial={{ opacity: 0, y: -20 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 exit={{ opacity: 0 }}
+                 className="fixed top-4 right-4 z-[9999] bg-primary text-white px-6 py-3 rounded-2xl shadow-xl font-bold flex items-center gap-3"
+                 style={{ background: '#0d3b66' }}
+               >
+                 <div className="w-1.5 h-1.5 rounded-full bg-accent" style={{ background: '#fbbf24' }}></div>
+                 {t.msg}
+               </motion.div>
+            ))}
+           </AnimatePresence>
+
+           <div className="text-center relative z-10 w-full max-w-sm">
+              <h1 className="text-3xl font-black mb-4 text-white uppercase tracking-tighter">System Admin</h1>
+              {!user ? (
+                 <div className="bg-slate-900 border-2 border-slate-800 p-8 rounded-3xl w-full shadow-2xl">
+                    <p className="text-slate-400 font-bold mb-6 text-sm">Please identify yourself to access the administration console.</p>
+                    <button onClick={handleGoogleLogin} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl transition-all uppercase tracking-widest text-xs shadow-[0_0_20px_rgba(37,99,235,0.3)]">
+                       Google Identity Verification
+                    </button>
+                    <button onClick={() => navigate('/')} className="mt-8 text-slate-500 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest border border-slate-800 px-6 py-2 rounded-xl">Return to Public Portal</button>
+                 </div>
+              ) : (
+                 <div className="bg-slate-900 border-2 border-red-900/50 p-8 rounded-3xl w-full shadow-2xl">
+                    <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+                       <Lock size={32} className="text-red-400" />
+                    </div>
+                    <h2 className="text-xl font-bold text-red-400 mb-2 uppercase">Access Denied</h2>
+                    <p className="text-slate-400 text-xs font-bold mb-6">Your account ({user.email}) does not have administrative privileges.</p>
+                    <button onClick={() => auth.signOut()} className="w-full border border-slate-700 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-all text-xs mb-3 uppercase tracking-wider">Sign Out</button>
+                    <button onClick={() => navigate('/')} className="w-full text-slate-500 hover:text-slate-300 transition-colors text-[10px] uppercase tracking-widest font-bold">Return to Public Portal</button>
+                 </div>
+              )}
+           </div>
+        </div>
+      );
+    }
     return (
       <div className="h-[100dvh] overflow-hidden bg-slate-950 font-sans selection:bg-accent/20 selection:text-primary antialiased">
          <AnimatePresence>
@@ -1091,8 +1203,8 @@ export default function App() {
             <MenuButton label="Schemes info and govt" emoji="📢" active={currentTab === 'schemes'} onClick={() => {setCurrentTab('schemes'); setSidebarOpen(false);}} />
             <MenuButton label="Live Chat" emoji="💬" active={currentTab === 'chat'} onClick={() => {setCurrentTab('chat'); setSidebarOpen(false);}} />
             <MenuButton label="Union Corner" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
-            <MenuButton label="Public suggestions & Feedback" emoji="💡" active={currentTab === 'suggestions'} onClick={() => {setCurrentTab('suggestions'); setSidebarOpen(false);}} />
             <MenuButton label="What's New! 🚀" emoji="✨" active={currentTab === 'changelog'} onClick={() => {setCurrentTab('changelog'); setSidebarOpen(false);}} />
+            <MenuButton label="💡 Public suggestions & Feedback" emoji="💡" active={currentTab === 'suggestions'} onClick={() => {setCurrentTab('suggestions'); setSidebarOpen(false);}} />
           </div>
         </aside>
 
@@ -1179,6 +1291,14 @@ export default function App() {
                       />
                     )}
 
+                    {showSuggestionForm && (
+                      <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-[24px] shadow-2xl custom-scrollbar relative">
+                           <SuggestionForm addToast={addToast} onCancel={() => setShowSuggestionForm(false)} />
+                        </div>
+                      </div>
+                    )}
+
                     {(showProfileModal || showForcedProfileSetup) && (
                       <EditProfileModal 
                         onClose={() => {
@@ -1202,40 +1322,6 @@ export default function App() {
                       />
                     )}
 
-                    {showSuggestionForm && (
-                      <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-                        <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-[24px] shadow-2xl custom-scrollbar relative">
-                           <SuggestionForm addToast={addToast} onCancel={() => setShowSuggestionForm(false)} />
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedSuggestion && (
-                      <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedSuggestion(null)}>
-                        <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-[24px] shadow-2xl p-6 relative" onClick={e => e.stopPropagation()}>
-                          <button onClick={() => setSelectedSuggestion(null)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition-colors">
-                            <X size={16} />
-                          </button>
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-black text-xl">
-                              👤
-                            </div>
-                            <div>
-                              <h3 className="font-black text-slate-800 leading-tight">{selectedSuggestion.name || 'Portal User'}</h3>
-                              <p className="text-xs font-bold text-slate-400">
-                                {new Date(selectedSuggestion.time || Date.now()).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                             <h4 className="text-[10px] font-black text-[#a855f7] uppercase tracking-widest mb-2">{selectedSuggestion.category || 'General'}</h4>
-                             <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap leading-relaxed">
-                               {selectedSuggestion.text || selectedSuggestion.suggestion || (selectedSuggestion as any).msg || (selectedSuggestion as any).content}
-                             </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   <div className="space-y-10">
@@ -1327,7 +1413,7 @@ export default function App() {
                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
                              <h3 className="text-sm sm:text-base font-black text-slate-800">System Update</h3>
                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-md w-max">
-                               {new Date(u.time || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                               {new Date(getValidTime(u)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                              </span>
                            </div>
                            <div className="text-sm font-medium text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100 leading-relaxed shadow-sm">
@@ -1344,59 +1430,79 @@ export default function App() {
               </motion.div>
             )}
 
+
             {currentTab === 'suggestions' && (
               <motion.div key="suggestions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <div className="section-card card-gold">
-                  <h2 className="text-2xl font-black text-primary mb-6">💡 Community Voice</h2>
-                  <div className="bg-slate-50 rounded-2xl p-4 max-h-[600px] overflow-y-auto mb-6 custom-scrollbar">
+                <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
+                  <div className="border-b border-slate-100 pb-3 mb-4">
+                    <h2 className="text-lg font-bold text-slate-800">💡 SUGGESTIONS FROM PUBLIC</h2>
+                  </div>
+                  
+                  <div 
+                    ref={suggestionsScrollRef} 
+                    className="bg-[#f8fafc] rounded-xl border border-slate-200 p-4 mb-5 max-h-[500px] overflow-y-auto custom-scrollbar"
+                  >
                     {suggestions.length > 0 ? (
-                      <div className="space-y-4">
-                        {suggestions.map(s => {
-                          const displayContent = s.text || s.suggestion || (s as any).msg || (s as any).content || (s as any).message || '';
-                          const displayTitle = (s as any).title || '';
-                          return (
-                            <div key={s.id} className="bg-white p-5 rounded-2xl border border-slate-200 border-l-4 border-l-[#a855f7] shadow-md hover:shadow-lg transition-shadow">
-                              <div className="flex justify-between items-start mb-3">
-                                <div className="flex flex-col gap-1">
-                                  {s.category && <span className="text-[10px] font-black text-[#a855f7] uppercase tracking-widest">{s.category}</span>}
-                                  {displayTitle && <h3 className="font-black text-slate-800 text-sm leading-tight">{displayTitle}</h3>}
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <div className="flex items-center gap-1 justify-end">
-                                    <span className="text-[10px] font-black text-slate-500 uppercase">👤 {s.name || 'Portal User'}</span>
-                                    {(s as any).village && <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{(s as any).village}</span>}
-                                  </div>
-                                  <span className="text-[10px] text-slate-400 font-bold">
-                                    {new Date(Number(s.time || Date.now())).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                  </span>
-                                </div>
+                      <div id="suggestionBox" className="flex flex-col gap-3">
+                        {suggestions.map(s => (
+                          <div key={s.id} className="bg-white p-3 rounded-lg shadow-sm border border-slate-100">
+                            <div className="flex items-center mb-2.5">
+                              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-black px-3.5 py-1.5 rounded-full text-[14px] shadow-sm tracking-wide">
+                                {s.name || s.author || 'User'}
                               </div>
-                              <div className="text-[13px] font-medium text-slate-600 whitespace-pre-wrap leading-relaxed">
-                                {displayContent}
-                              </div>
-                              {isAdmin && (
-                                <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
-                                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${s.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                                    Status: {s.status || 'pending'}
-                                  </span>
-                                  <button onClick={() => setCurrentTab('admin')} className="text-[9px] font-black text-blue-500 uppercase hover:underline">Manage in Admin</button>
-                                </div>
-                              )}
                             </div>
-                          );
-                        })}
+                            <p className="text-sm text-slate-700 whitespace-pre-wrap">{s.msg || s.suggestion || s.text}</p>
+                            <div className="text-[11px] text-slate-400 mt-2 font-medium">
+                              {new Date(getValidTime(s)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : (
-                      <div className="text-center py-10">
-                        <p className="font-bold text-slate-400">No public suggestions shared yet.</p>
+                      <div className="text-center py-10 text-slate-500 text-sm">
+                        No suggestions yet.
                       </div>
                     )}
                   </div>
-                  <button onClick={() => { 
-                    setShowSuggestionForm(true); 
-                  }} className="w-full bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90 transition-all active:scale-95">
-                    📝 Submit New Suggestion
-                  </button>
+
+                  <div className="mt-6">
+                    <div className="pb-2 mb-2">
+                      <h3 className="font-bold text-slate-800 text-lg">Submit New Suggestion</h3>
+                    </div>
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      const target = e.target as any;
+                      const msg = target.suggestion.value.trim();
+                      if (!msg) return addToast("దయచేసి సలహా టైప్ చేయండి.");
+                      if (!user || user.isAnonymous) return addToast("సలహా ఇవ్వడానికి లాగిన్ అవ్వండి.");
+                      try {
+                        await addDoc(collection(db, 'suggestions'), {
+                          msg,
+                          author: user.displayName || 'User',
+                          status: 'pending',
+                          time: Date.now(),
+                          uid: user.uid
+                        });
+                        target.reset();
+                        addToast("మీ సలహా సబ్మిట్ అయ్యింది. ధన్యవాదాలు!");
+                      } catch (error) {
+                        handleFirestoreError(error, OperationType.CREATE, 'suggestions');
+                        addToast("సలహా ఇవ్వడంలో ఎర్రర్.");
+                      }
+                    }} className="flex flex-col gap-3">
+                      <textarea 
+                        name="suggestion" 
+                        placeholder="మీ సలహా ఇక్కడ టైప్ చేయండి..." 
+                        maxLength={500} 
+                        rows={3} 
+                        className="w-full p-3 rounded-lg border border-slate-300 resize-none text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" 
+                        required
+                      ></textarea>
+                      <button type="submit" className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold shadow hover:bg-blue-700 transition-all text-sm w-fit self-start">
+                        Submit Suggestion
+                      </button>
+                    </form>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -1822,7 +1928,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               {[
                 { id: 'dash', label: 'Analytics Dashboard', icon: <Activity size={18}/> },
                 { id: 'reports', label: 'Posts & Issues', icon: <AlertOctagon size={18}/> },
-                { id: 'suggestions', label: 'Suggestions', icon: <PlusCircle size={18}/> },
+                { id: 'suggestions', label: 'Suggestions & Feedback', icon: <PlusCircle size={18}/> },
                 { id: 'users', label: 'User Profiles', icon: <Users size={18}/> },
                 { id: 'updates', label: 'Flash News', icon: <Zap size={18}/> },
                 { id: 'logs', label: 'Security Logs', icon: <ShieldAlert size={18}/> },
@@ -1884,7 +1990,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                 {activeSubTab === 'users' && '👥 User Access'}
                 {activeSubTab === 'logs' && '🛡️ Security Audits'}
                 {activeSubTab === 'settings' && '⚙️ System Settings'}
-                {activeSubTab === 'suggestions' && '💡 Suggestions'}
+                {activeSubTab === 'suggestions' && '💡 Suggestions & Feedback'}
                 {activeSubTab === 'updates' && '⚡ Flash News'}
               </h1>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 ml-1">Administration & Monitoring Service</p>
@@ -1922,7 +2028,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               <div>
                  <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-amber-600 mb-6 shadow-sm group-hover:scale-110 transition-transform"><MessageSquare size={28} /></div>
                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">Curation Queue</h3>
-                 <p className="text-3xl font-black text-amber-900 tracking-tighter leading-none bg-yellow-200 px-2 rounded-lg inline-block">{posts.filter(p => !p.status || p.status === 'pending').length + suggestions.filter(s => s.status?.toLowerCase() === 'pending').length}</p>
+                 <p className="text-3xl font-black text-amber-900 tracking-tighter leading-none bg-yellow-200 px-2 rounded-lg inline-block">{posts.filter(p => !p.status || p.status === 'pending').length + (suggestions || []).filter((s:any) => s.status?.toLowerCase() === 'pending').length}</p>
                  <p className="text-[10px] font-bold text-amber-600/60 mt-2 uppercase">Awaiting Moderation</p>
               </div>
               <div className="mt-8 pt-6 border-t border-amber-100/50 flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
@@ -1982,7 +2088,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                   </div>
                   <h3 className="text-2xl font-black tracking-tighter leading-tight">System Status<br/><span className="text-blue-400">Optimal</span></h3>
                   <p className="text-xs font-medium text-slate-300 leading-relaxed">
-                    Platform is active and monitoring data integrity. {suggestions.filter(s => s.status?.toLowerCase() === 'pending').length} suggestions pending review.
+                    Platform is active and monitoring data integrity. {(suggestions || []).filter((s:any) => s.status?.toLowerCase() === 'pending').length} suggestions pending review.
                   </p>
                   <button onClick={() => setActiveSubTab('reports')} className="w-full py-4 bg-white/10 hover:bg-white/20 transition-all font-black rounded-xl text-[11px] uppercase tracking-wider backdrop-blur-sm border border-white/10">
                     Review Pending
@@ -2049,7 +2155,6 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                             <td className="py-6 pl-4 max-w-md">
                                <h5 className="font-black text-primary text-sm mb-1 leading-tight flex items-center gap-2">
                                   {item.title || item.category || item.name || 'Support Ticket'}
-                                  {activeSubTab === 'suggestions' && <span className="text-[8px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-black uppercase tracking-widest">Suggestion</span>}
                                 </h5>
                                <p className="text-[11px] text-slate-500 font-medium line-clamp-2 leading-relaxed italic border-l-2 border-slate-200 pl-3">
                                   "{item.msg || item.content || item.text || item.suggestion}"
@@ -2062,7 +2167,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                     <User size={10}/> {item.userName || item.name || 'Portal User'} 
                                     <span className="text-slate-300 ml-1">({typeof item.uid === 'string' ? item.uid.substring(0, 5) : 'ADMIN'})</span>
                                  </span>
-                               </div>
+                                </div>
                             </td>
                             <td className="py-6">
                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
@@ -2074,7 +2179,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                             <td className="py-6">
                                <div className="flex items-center gap-2 text-slate-400">
                                   <Clock size={12}/>
-                                  <span className="text-[10px] font-black tracking-tighter">{item.time ? new Date(item.time).toLocaleDateString() : 'N/A'}</span>
+                                  <span className="text-[10px] font-black tracking-tighter">{item.time || item.createdAt || item.timestamp ? new Date(getValidTime(item)).toLocaleDateString() : 'N/A'}</span>
                                </div>
                             </td>
                             <td className="py-6 text-right pr-4">
@@ -2149,13 +2254,22 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                                 }
                                             }
                                         }
-                                    } else if (activeSubTab === 'suggestions') {
-                                        try { await deleteDoc(doc(db, 'suggestions', item.id)); addToast("Suggestion Deleted"); } catch(e: any) { addToast("Error: " + e.message); handleFirestoreError(e, OperationType.DELETE, `suggestions/${item.id}`); }
                                     } else {
-                                        try { await deleteDoc(doc(db, 'problems', item.id)); addToast("Problem Deleted"); } catch(e: any) { addToast("Error: " + e.message); handleFirestoreError(e, OperationType.DELETE, `problems/${item.id}`); }
+                                        try {
+                                            if (activeSubTab === 'suggestions') {
+                                                await deleteDoc(doc(db, 'suggestions', item.id));
+                                                addToast("Suggestion Deleted");
+                                            } else {
+                                                await deleteDoc(doc(db, 'problems', item.id));
+                                                addToast("Problem Deleted");
+                                            }
+                                        } catch(e: any) {
+                                            addToast("Error: " + e.message);
+                                            handleFirestoreError(e, OperationType.DELETE, activeSubTab === 'suggestions' ? `suggestions/${item.id}` : `problems/${item.id}`);
+                                        }
                                     }
                                   }} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16}/></button>
-                               </div>
+                                </div>
                             </td>
                          </tr>
                        ))}
@@ -2182,8 +2296,12 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                            {u.photoURL ? <img src={u.photoURL} className="w-full h-full object-cover" /> : <User size={24} className="text-slate-300" />}
                         </div>
                         <div>
-                           <h4 className="font-black text-primary text-sm mb-1">{u.name} {u.surname}</h4>
-                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">@{u.username}</p>
+                           <h4 className="font-black text-primary text-sm mb-1">
+                              {u.name || u.surname ? `${u.name || ''} ${u.surname || ''}`.trim() : (u.email ? u.email.split('@')[0] : 'Unknown User')}
+                           </h4>
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                              {u.username ? `@${u.username}` : (u.email || u.id)}
+                           </p>
                         </div>
                      </div>
                      
@@ -2305,7 +2423,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                               <td className="p-5">
                                  <span className="px-2 py-1 bg-white/5 rounded-md border border-white/10 uppercase text-[9px] font-black">{log.action || 'Event'}</span>
                               </td>
-                              <td className="p-5 text-white/40">{new Date(log.time).toLocaleString()}</td>
+                              <td className="p-5 text-white/40">{new Date(getValidTime(log)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</td>
                               <td className="p-5 text-green-500">AUTHORIZED</td>
                            </tr>
                          ))
@@ -3054,7 +3172,6 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
     const row4 = ['S.No', 'District Name', 'Mandal Name', 'Panchayat Name'];
     allDates.forEach((d) => {
        row4.push(`First Attendance Status (${d})`);
-       row4.push(`First Attendance Time (${d})`);
     });
     aoa.push(row4);
 
@@ -3067,10 +3184,8 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
         info.gp
       ];
       allDates.forEach(d => {
-        const time = info.times[d] || '';
         const s = info.attendance[d] || '-';
         row.push(s);
-        row.push(time || s); // Usually the time, but if empty fallback to status string or '-'
       });
       aoa.push(row);
     });
@@ -3093,7 +3208,6 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
            if (st.matches(s)) count++;
         });
         row.push(count);
-        row.push(''); // Time column empty for summary
       });
       aoa.push(row);
     });
@@ -3101,7 +3215,7 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     
     // Merge cells for headers
-    const totalCols = allDates.length * 2 + 4;
+    const totalCols = allDates.length + 4;
     ws['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }, // Telangana State
       { s: { r: 1, c: 0 }, e: { r: 1, c: totalCols - 1 } }, // Report Title
@@ -3123,11 +3237,7 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
       info.district,
       info.mandal,
       info.gp,
-      ...allDates.map(d => {
-        const s = info.attendance[d] || '-';
-        const t = info.times[d] || '';
-        return t ? t : s;
-      })
+      ...allDates.map(d => info.attendance[d] || '-')
     ]);
     autoTable(doc, {
       head: head,
@@ -3277,18 +3387,15 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
 
         <div className="bg-white border rounded-[24px] shadow-2xl overflow-hidden border-slate-100 ring-1 ring-slate-900/5">
           <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-left text-[10px] border-collapse min-w-[1400px]">
+            <table className="w-full text-left text-xs border-collapse min-w-[1400px]">
                 <thead className="sticky top-0 z-20">
-                  <tr className="bg-indigo-600 text-white font-bold text-[10px] text-left">
-                    <th className="p-2 border border-indigo-700 w-10">S.No</th>
-                    <th className="p-2 border border-indigo-700 min-w-[100px]">District Name</th>
-                    <th className="p-2 border border-indigo-700 min-w-[100px]">Mandal Name</th>
-                    <th className="p-2 border border-indigo-700 min-w-[140px]">Panchayat Name</th>
+                  <tr className="bg-indigo-600 text-white font-bold text-xs text-left">
+                    <th className="p-3 border border-indigo-700 w-12 text-sm text-center">S.No</th>
+                    <th className="p-3 border border-indigo-700 text-sm" style={{ width: '7.9791px' }}>District Name</th>
+                    <th className="p-3 border border-indigo-700 min-w-[120px] text-sm">Mandal Name</th>
+                    <th className="p-3 border border-indigo-700 min-w-[150px] text-sm">Panchayat Name</th>
                     {sortedDates.map(d => (
-                       <React.Fragment key={d}>
-                         <th className="p-2 border border-indigo-700 min-w-[100px] text-center">Attendance ({d})</th>
-                         <th className="p-2 border border-indigo-700 min-w-[120px] text-center">Time ({d})</th>
-                       </React.Fragment>
+                       <th key={d} className="p-3 border border-indigo-700 min-w-[120px] text-center text-sm">Attendance ({d})</th>
                     ))}
                   </tr>
                 </thead>
@@ -3302,20 +3409,20 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                           className="bg-slate-50 hover:bg-slate-100 cursor-pointer border-b border-slate-200 group transition-colors" 
                           onClick={() => toggleMandal(mName)}
                         >
-                          <td className="p-2 border border-slate-200 text-center font-bold text-indigo-600">
-                            {isEx ? <ChevronDown size={14} className="mx-auto" /> : <ChevronRight size={14} className="mx-auto" />}
+                          <td className="p-3 border border-slate-200 text-center font-bold text-indigo-600">
+                            {isEx ? <ChevronDown size={16} className="mx-auto" /> : <ChevronRight size={16} className="mx-auto" />}
                           </td>
-                          <td colSpan={sortedDates.length * 2 + 3} className="p-2.5 border border-slate-200 font-black text-slate-700 uppercase text-[11px] flex items-center gap-2">
+                          <td colSpan={sortedDates.length + 3} className="p-3 border border-slate-200 font-black text-slate-700 uppercase text-xs flex items-center gap-3">
                             <span>{mName}</span>
-                            <span className="text-[9px] bg-white text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100 shadow-sm">{items.length} GPs</span>
+                            <span className="text-[10px] bg-white text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100 shadow-sm">{items.length} GPs</span>
                           </td>
                         </tr>
                         {isEx && items.map((info) => (
                           <tr key={`${(info.mandal || '').toUpperCase()}_${(info.gp || '').toUpperCase()}`} className="hover:bg-indigo-50/50 text-slate-700 border-b border-slate-100 group transition-colors">
-                            <td className="p-2 border border-slate-200 text-center font-medium bg-slate-50 text-slate-400 group-hover:text-indigo-600">{gpIndexMap.get(`${(info.mandal || '').toUpperCase()}_${(info.gp || '').toUpperCase()}`)}</td>
-                            <td className="p-2 border border-slate-200 uppercase text-[9px] font-bold text-slate-500">{info.district}</td>
-                            <td className="p-2 border border-slate-200 uppercase bg-slate-50/50 text-[9px] font-black text-slate-600">{info.mandal}</td>
-                            <td className="p-2 border border-slate-200 font-black text-slate-800 bg-white text-[10px]">{info.gp}</td>
+                            <td className="p-3 border border-slate-200 text-center font-medium bg-slate-50 text-slate-400 group-hover:text-indigo-600 text-xs">{gpIndexMap.get(`${(info.mandal || '').toUpperCase()}_${(info.gp || '').toUpperCase()}`)}</td>
+                            <td className="p-3 border border-slate-200 uppercase text-xs font-bold text-slate-500">{info.district}</td>
+                            <td className="p-3 border border-slate-200 uppercase bg-slate-50/50 text-xs font-black text-slate-600">{info.mandal}</td>
+                            <td className="p-3 border border-slate-200 font-black text-slate-800 bg-white text-sm">{info.gp}</td>
                             {sortedDates.map(d => {
                               const status = info.attendance[d] || '-';
                               const time = info.times[d] || '-';
@@ -3327,14 +3434,9 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                               else if (statusLower !== '-') color = "text-blue-700 font-bold";
 
                               return (
-                                <React.Fragment key={d}>
-                                  <td className={`p-2 border border-slate-200 text-center whitespace-nowrap text-[9px] font-black ${color}`}>
-                                    {status === '-' ? '-' : (status.length > 15 ? status.substring(0, 15)+'...' : status)}
-                                  </td>
-                                  <td className="p-2 border border-slate-200 text-center whitespace-nowrap font-bold text-slate-500 text-[9px]">
-                                    {time}
-                                  </td>
-                                </React.Fragment>
+                                <td key={d} className={`p-3 border border-slate-200 text-center whitespace-nowrap text-xs font-black ${color}`}>
+                                  {status === '-' ? '-' : (status.length > 15 ? status.substring(0, 15)+'...' : status)}
+                                </td>
                               );
                             })}
                           </tr>
@@ -3343,7 +3445,7 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                     )
                   })}
                 </tbody>
-                <tfoot className="bg-slate-100 font-bold text-[10px]">
+                <tfoot className="bg-slate-100 font-bold text-sm">
                   {[{ label: 'Total Present', color: 'text-emerald-700', matches: (s: string) => s.startsWith('p') || s.includes('ప్రెసెంట్') || s.includes('హాజరు') || s.includes('✅') },
                     { label: 'Total Absent', color: 'text-rose-700', matches: (s: string) => s.startsWith('a') || s.includes('గైర్హాజరు') || s.includes('absent') },
                     { label: 'Total Leave', color: 'text-amber-700', matches: (s: string) => s.startsWith('l') || s.includes('సెలవు') || s.includes('leave') },
@@ -3351,7 +3453,7 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                     { label: 'Total Training', color: 'text-amber-700', matches: (s: string) => s.startsWith('t') || s.includes('శిక్షణ') || s.includes('training') }
                   ].map((st, idx) => (
                     <tr key={idx}>
-                      <td colSpan={4} className="p-1.5 border border-black text-right uppercase text-[#004085]">{st.label}</td>
+                      <td colSpan={4} className="p-3 border border-black text-right uppercase text-[#004085]">{st.label}</td>
                       {sortedDates.map(d => {
                         let count = 0;
                         filteredData.forEach(info => {
@@ -3359,10 +3461,7 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                            if (st.matches(s)) count++;
                         });
                         return (
-                          <React.Fragment key={d}>
-                            <td className={`p-1.5 border border-black text-center ${st.color}`}>{count}</td>
-                            <td className="p-1.5 border border-black"></td>
-                          </React.Fragment>
+                          <td key={d} className={`p-3 border border-black text-center ${st.color} w-[10px] h-[31.33px] text-base font-black`}>{count}</td>
                         );
                       })}
                     </tr>
@@ -3977,8 +4076,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
 }
 
 function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit }: { post: Post, isExpanded: boolean, toggleExpansion: () => void, addToast: (s:string) => void, isAdmin: boolean, onEdit: (p: Post) => void }) {
-  const isOwner = auth.currentUser?.uid === post.uid || isAdmin;
-  const postTime = post.time || (post as any).createdAt || 0;
+  const isOwner = Boolean((auth.currentUser && post.uid && auth.currentUser.uid === post.uid) || isAdmin);
+  const postTime = getValidTime(post);
   
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
@@ -4214,7 +4313,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
               <div key={c.id} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                  <div className="flex justify-between items-center mb-1">
                    <span className="text-xs font-bold text-primary">{c.userName || 'User'}</span>
-                   <span className="text-[10px] text-slate-400">{new Date(c.time).toLocaleDateString()}</span>
+                   <span className="text-[10px] text-slate-400">{new Date(getValidTime(c)).toLocaleDateString()}</span>
                  </div>
                  <p className="text-sm text-slate-600">{c.text}</p>
               </div>
@@ -4469,116 +4568,6 @@ function KnowledgeHubSection() {
   );
 }
 
-function SuggestionForm({ addToast, onCancel }: { addToast: (s: string) => void, onCancel: () => void }) {
-  const [name, setName] = useState('');
-  const [village, setVillage] = useState('');
-  const [mobile, setMobile] = useState('');
-  const [category, setCategory] = useState('General Suggestion');
-  const [suggestion, setSuggestion] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!name || !suggestion) {
-      addToast("దయచేసి పేరు మరియు సూచన నింపండి");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await addDoc(collection(db, "suggestions"), {
-        name,
-        village: village || 'Not specified',
-        mobile: mobile || 'Not specified',
-        category,
-        suggestion: suggestion,
-        text: suggestion,
-        status: "pending",
-        time: Date.now(),
-        createdAt: Date.now()
-      });
-      setSubmitted(true);
-      addToast("మీ సూచన విజయవంతంగా పంపబడింది!");
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'suggestions');
-      addToast("Error submitting suggestion");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (submitted) {
-    return (
-      <div className="p-10 text-center space-y-6 bg-white rounded-[24px]">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="mx-auto w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-inner">
-          <CheckCircle2 size={40} />
-        </motion.div>
-        <h2 className="text-2xl font-black text-slate-800 tracking-tighter">విజయవంతంగా పంపబడింది!</h2>
-        <p className="text-slate-500 font-bold">మీ సూచన మా దృష్టికి వచ్చింది. ధన్యవాదాలు.</p>
-        
-        <div className="gap-3 flex flex-col pt-4">
-           <button onClick={() => {
-              setSubmitted(false);
-              setName(''); setVillage(''); setMobile(''); setCategory('General Suggestion'); setSuggestion('');
-           }} className="bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90">మరో సూచన పంపండి</button>
-           <button onClick={onCancel} className="bg-slate-100 text-slate-600 py-4 rounded-2xl font-black hover:bg-slate-200">తిరిగి వెళ్ళండి</button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-0 overflow-hidden rounded-[24px] bg-white">
-      <div className="bg-[#a855f7] p-8 text-white relative">
-        <h2 className="text-2xl font-black tracking-tighter">Portal Feedback & Suggestions</h2>
-        <p className="text-white/80 font-bold text-sm">మీ విలువైన సూచనలను ఇక్కడ తెలియజేయండి</p>
-        <button onClick={onCancel} className="absolute top-6 right-6 p-2 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors">
-           <X size={20} />
-        </button>
-      </div>
-
-      <div className="p-8 space-y-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">మీ పేరు</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="Enter Name" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#a855f7]/50 font-bold text-slate-700" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">మొబైల్ నంబర్ (ఐచ్ఛికం)</label>
-            <input value={mobile} onChange={e => setMobile(e.target.value)} maxLength={10} placeholder="Mobile Number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#a855f7]/50 font-bold text-slate-700" />
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">విలేజ్ / మండలం</label>
-          <input value={village} onChange={e => setVillage(e.target.value)} placeholder="Village / Mandal" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#a855f7]/50 font-bold text-slate-700" />
-        </div>
-        
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">విభాగం</label>
-          <select value={category} onChange={e => setCategory(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#a855f7]/50 font-bold text-slate-700 appearance-none">
-            <option value="General Suggestion">General Suggestion</option>
-            <option value="App Improvement">App Improvement</option>
-            <option value="Service Feedback">Service Feedback</option>
-            <option value="Technical Issue">Technical Issue</option>
-            <option value="Request Feature">Request Feature</option>
-          </select>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">మీ సూచన</label>
-          <textarea value={suggestion} onChange={e => setSuggestion(e.target.value)} placeholder="మీ సూచనను ఇక్కడ వ్రాయండి..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#a855f7]/50 min-h-[120px] font-bold text-slate-700" />
-        </div>
-
-        <div className="flex gap-4 pt-2">
-          <button disabled={isSubmitting} onClick={handleSubmit} className="flex-1 bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98]">
-            {isSubmitting ? 'పంపిస్తున్నాము...' : 'Submit Suggestion'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function PRActHub() {
     return <KnowledgeHubSection />;
@@ -4653,7 +4642,7 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
            </div>
            <div className="flex items-center text-xs font-black text-slate-400 uppercase tracking-wider">
              <Clock size={14} className="mr-1.5" />
-             {new Date(post.time || Date.now()).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+             {new Date(getValidTime(post)).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
            </div>
          </div>
          
@@ -4805,7 +4794,7 @@ function PostComments({ post, addToast, userProfile }: { post: Post, addToast: (
                <div className="flex flex-row justify-between items-center sm:items-baseline mb-2">
                  <span className="text-[15px] font-black text-primary">{c.userName || 'User'}</span>
                  <span className="text-xs text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded-md">
-                   {new Date(c.time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                   {new Date(getValidTime(c)).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                  </span>
                </div>
                <p className="text-slate-700 leading-relaxed">{c.text}</p>
@@ -5048,6 +5037,117 @@ function AuthModal({ onClose, addToast, handleGoogleLogin }: { onClose: () => vo
           </div>
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+function SuggestionForm({ addToast, onCancel }: { addToast: (s: string) => void, onCancel: () => void }) {
+  const [name, setName] = useState('');
+  const [village, setVillage] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [category, setCategory] = useState('General Suggestion');
+  const [suggestion, setSuggestion] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!name || !suggestion) {
+      addToast("దయచేసి పేరు మరియు సూచన నింపండి");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, "suggestions"), {
+        name,
+        village: village || 'Not specified',
+        mobile: mobile || 'Not specified',
+        category,
+        suggestion: suggestion,
+        text: suggestion,
+        status: "pending",
+        time: Date.now(),
+        createdAt: Date.now()
+      });
+      setSubmitted(true);
+      addToast("మీ సూచన విజయవంతంగా పంపబడింది!");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'suggestions');
+      addToast("Error submitting suggestion");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div className="p-10 text-center space-y-6 bg-white rounded-[24px]">
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="mx-auto w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-inner">
+          <CheckCircle2 size={40} />
+        </motion.div>
+        <h2 className="text-2xl font-black text-slate-800 tracking-tighter">విజయవంతంగా పంపబడింది!</h2>
+        <p className="text-slate-500 font-bold">మీ సూచన మా దృష్టికి వచ్చింది. ధన్యవాదాలు.</p>
+        
+        <div className="gap-3 flex flex-col pt-4">
+           <button onClick={() => {
+              setSubmitted(false);
+              setName(''); setVillage(''); setMobile(''); setCategory('General Suggestion'); setSuggestion('');
+           }} className="bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90">మరో సూచన పంపండి</button>
+           <button onClick={onCancel} className="bg-slate-100 text-slate-600 py-4 rounded-2xl font-black hover:bg-slate-200">తిరిగి వెళ్ళండి</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-0 overflow-hidden rounded-[24px] bg-white">
+      <div className="bg-[#a855f7] p-8 text-white relative">
+        <h2 className="text-2xl font-black tracking-tighter">Portal Feedback & Suggestions</h2>
+        <p className="text-white/80 font-bold text-sm">మీ విలువైన సూచనలను ఇక్కడ తెలియజేయండి</p>
+        <button onClick={onCancel} className="absolute top-6 right-6 p-2 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors">
+           <X size={20} />
+        </button>
+      </div>
+
+      <div className="p-8 space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">మీ పేరు</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="Enter Name" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#a855f7]/50 font-bold text-slate-700" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">మొబైల్ నంబర్ (ఐచ్ఛికం)</label>
+            <input value={mobile} onChange={e => setMobile(e.target.value)} maxLength={10} placeholder="Mobile Number" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#a855f7]/50 font-bold text-slate-700" />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">విలేజ్ / మండలం</label>
+          <input value={village} onChange={e => setVillage(e.target.value)} placeholder="Village / Mandal" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#a855f7]/50 font-bold text-slate-700" />
+        </div>
+        
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">విభాగం</label>
+          <select value={category} onChange={e => setCategory(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#a855f7]/50 font-bold text-slate-700 appearance-none">
+            <option value="General Suggestion">General Suggestion</option>
+            <option value="App Improvement">App Improvement</option>
+            <option value="Service Feedback">Service Feedback</option>
+            <option value="Technical Issue">Technical Issue</option>
+            <option value="Request Feature">Request Feature</option>
+          </select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">మీ సూచన</label>
+          <textarea value={suggestion} onChange={e => setSuggestion(e.target.value)} placeholder="మీ సూచనను ఇక్కడ వ్రాయండి..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-[#a855f7]/50 min-h-[120px] font-bold text-slate-700" />
+        </div>
+
+        <div className="flex gap-4 pt-2">
+          <button disabled={isSubmitting} onClick={handleSubmit} className="flex-1 bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98]">
+            {isSubmitting ? 'పంపిస్తున్నాము...' : 'Submit Suggestion'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

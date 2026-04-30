@@ -51,7 +51,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if true;
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
       allow delete: if isAdmin();
     }
 
@@ -68,6 +68,12 @@ service cloud.firestore {
     }
 
     match /requests/{requestId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+    }
+
+    match /forms/{formId} {
       allow read: if true;
       allow create: if isSignedIn();
       allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
