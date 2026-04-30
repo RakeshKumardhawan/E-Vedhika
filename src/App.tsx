@@ -855,7 +855,7 @@ export default function App() {
     return searchOk && (p.category === currentFilter || p.subCategory === currentFilter);
   });
 
-  if (location.pathname === '/Evdka') {
+  if (location.pathname.endsWith('/Evdka')) {
     if (!isEditor) {
       return (
         <div className="h-[100dvh] overflow-hidden bg-slate-950 font-sans selection:bg-accent/20 selection:text-primary antialiased flex flex-col justify-center items-center p-4">
@@ -1205,6 +1205,10 @@ export default function App() {
             <MenuButton label="Union Corner" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
             <MenuButton label="What's New! 🚀" emoji="✨" active={currentTab === 'changelog'} onClick={() => {setCurrentTab('changelog'); setSidebarOpen(false);}} />
             <MenuButton label="💡 Public suggestions & Feedback" emoji="💡" active={currentTab === 'suggestions'} onClick={() => {setCurrentTab('suggestions'); setSidebarOpen(false);}} />
+            {(isAdmin || isEditor) && (
+               <MenuButton label="Admin Panel" emoji="⚙️" active={false} onClick={() => {navigate('/Evdka'); setSidebarOpen(false);}} />
+            )}
+            <MenuButton label="Hidden Admin Login" emoji="🔑" active={false} onClick={() => {navigate('/Evdka'); setSidebarOpen(false);}} />
           </div>
         </aside>
 
