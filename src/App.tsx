@@ -11,8 +11,8 @@ import {
   AlertTriangle, Send, LogOut, ChevronDown, ChevronUp, Search, Filter,
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
   Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, MessageSquare,
-  Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock,
-  Users, AlertOctagon, CheckCircle2, ClipboardList, Zap, Clock, ArrowLeft, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash
+  Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock, Shield,
+  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -41,11 +41,12 @@ async function testConnection() {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
     if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+      console.error("Firebase connection check: Client is offline");
+      // We don't want to spam alerts on every page load, but we can log it.
     }
   }
 }
-// testConnection();
+testConnection();
 
 enum OperationType {
   CREATE = 'create',
@@ -104,6 +105,20 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   }
 }
 
+export function requireLoginAlert(userObj?: any): boolean {
+  const account = userObj || auth.currentUser;
+  if (!account || account.isAnonymous) {
+    Swal.fire({
+      text: "లాగిన్ అయ్యాక మీకు యాక్సెస్ ఉంటుంది",
+      icon: "info",
+      confirmButtonText: "సరే (OK)",
+      confirmButtonColor: "#0d3b66"
+    });
+    return true;
+  }
+  return false;
+}
+
 function formatDistanceToNow(timestamp: number): string {
   const diff = Date.now() - timestamp;
   const seconds = Math.floor(diff / 1000);
@@ -149,7 +164,9 @@ interface UserProfile {
   username: string;
   surname?: string;
   name?: string;
+  designation?: string;
   gender?: string;
+  status?: string;
   state?: string;
   district?: string;
   mandal?: string;
@@ -160,6 +177,7 @@ interface UserProfile {
   office?: string;
   bio?: string;
   role?: string;
+  hidden?: boolean;
   time: number;
 }
 
@@ -201,7 +219,7 @@ interface ProblemReport {
   id: string;
   msg: string;
   category?: string;
-  status?: 'pending' | 'solved' | 'Deleted';
+  status?: 'pending' | 'solved' | 'resolved' | 'Deleted';
   time: number;
   uid: string;
   resolvedAt?: number;
@@ -226,6 +244,8 @@ interface Update {
   id: string;
   text: string;
   time: number;
+  status?: string;
+  type?: string;
 }
 
 interface Notification {
@@ -460,6 +480,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRole, setUserRole] = useState<'admin' | 'editor' | 'user'>('user');
+  const hasGreetedRef = useRef(false);
   
   const isDevEmail = user?.email?.toLowerCase() === 'rakeshkumardhawan123@gmail.com';
   const isAdmin = userRole === 'admin' || isDevEmail;
@@ -477,6 +498,7 @@ export default function App() {
   const [updates, setUpdates] = useState<Update[]>([]);
   const [requests, setRequests] = useState<RequestData[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const approvedSuggestions = suggestions.filter(s => s.status === 'Approved' || s.status === 'approved');
   const [problemsGlobal, setProblemsGlobal] = useState<ProblemReport[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [toasts, setToasts] = useState<{ id: number, msg: string }[]>([]);
@@ -488,25 +510,93 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isSuggestionsHovered, setIsSuggestionsHovered] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallButton, setShowInstallButton] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredPrompt(e);
+      // Update UI notify the user they can install the PWA
+      setShowInstallButton(true);
+    };
+
+    const handleAppInstalled = () => {
+      console.log('App was installed');
+      setShowInstallButton(false);
+      addToast('యాప్ విజయవంతంగా ఇన్‌స్టాల్ చేయబడింది!');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    // Show the install prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await deferredPrompt.userChoice;
+    // Optionally, send analytics event with outcome of user choice
+    console.log(`User response to the install prompt: ${outcome}`);
+    // We've used the prompt, and can't use it again, throw it away
+    setDeferredPrompt(null);
+    setShowInstallButton(false);
+  };
   const suggestionsScrollRef = useRef<HTMLDivElement>(null);
+
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  
+  useEffect(() => {
+    if (currentTab === 'suggestions' && !sessionStorage.getItem('sawSuggestionAlert')) {
+      Swal.fire({
+        title: 'e-Vedhika Suggestion Portal',
+        text: 'Welcome to e-Vedhika Suggestion Portal! మీ సూచనలను ఇక్కడ నమోదు చేయండి.',
+        icon: 'info',
+        confirmButtonColor: '#0d3b66',
+        confirmButtonText: 'సరే (OK)'
+      });
+      sessionStorage.setItem('sawSuggestionAlert', 'true');
+    }
+  }, [currentTab]);
+  
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'users'), (snap) => {
+      const uArr: UserProfile[] = [];
+      snap.forEach(d => uArr.push({ id: d.id, ...d.data() } as UserProfile));
+      setAllUsers(uArr);
+    }, (e) => console.error("Users List Error:", e));
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     let interval: any;
-    if (currentTab === 'suggestions' && suggestions.length > 0) {
+    if (currentTab === 'suggestions' && approvedSuggestions.length > 0 && !isSuggestionsHovered) {
       interval = setInterval(() => {
         const box = suggestionsScrollRef.current;
         if (!box) return;
         
-        box.scrollTop++;
+        // Only scroll if there is overflow
+        if (box.scrollHeight <= box.clientHeight + 1) return;
         
-        // When we scroll to the bottom, reset to top
-        if (box.scrollTop >= box.scrollHeight - box.clientHeight) {
+        box.scrollTop += 1;
+        
+        // When we reach near the bottom, reset with a loop
+        if (box.scrollTop >= box.scrollHeight - box.clientHeight - 1) {
           box.scrollTop = 0;
         }
-      }, 40);
+      }, 50);
     }
     return () => clearInterval(interval);
-  }, [currentTab, suggestions.length]);
+  }, [currentTab, approvedSuggestions.length, isSuggestionsHovered]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -527,6 +617,19 @@ export default function App() {
   const [adminLocked, setAdminLocked] = useState(true);
   const [adminPinInput, setAdminPinInput] = useState('');
   const [currentAdminPin, setCurrentAdminPin] = useState('1234');
+  
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settingsSnap = await getDoc(doc(db, 'settings', 'admin_config'));
+        if (settingsSnap.exists()) {
+          const data = settingsSnap.data();
+          if (data.pin) setCurrentAdminPin(data.pin);
+        }
+      } catch (err) { console.error("Error fetching settings:", err); }
+    };
+    fetchSettings();
+  }, []);
   
   useEffect(() => {
     if (sidebarOpen) {
@@ -579,6 +682,7 @@ export default function App() {
       if (!u) {
         setUserProfile(null);
         setUserRole('user');
+        hasGreetedRef.current = false;
       }
     });
     return () => unsubAuth();
@@ -621,7 +725,15 @@ export default function App() {
 
     const unsubProfile = onSnapshot(doc(db, 'users', user.uid), (snap) => {
       if (snap.exists()) {
-        setUserProfile({ id: snap.id, ...snap.data() } as UserProfile);
+        const p = { id: snap.id, ...snap.data() } as UserProfile;
+        setUserProfile(p);
+        
+        // Show greeting on first load
+        if (p.status === 'Approved' && !hasGreetedRef.current) {
+           hasGreetedRef.current = true;
+           const honorific = p.gender === 'Female' ? 'Madam' : 'Sir';
+           addToast(`Welcome to E-vedhika website, ${honorific}!`);
+        }
       } else {
         setUserProfile(null);
         setShowForcedProfileSetup(true);
@@ -629,6 +741,9 @@ export default function App() {
       setProfileLoading(false);
     }, (err) => {
       handleFirestoreError(err, OperationType.GET, `users/${user.uid}`);
+      if (err.message.includes('offline')) {
+        addToast("Network Error: Firestore is offline. Please check your connection.");
+      }
       setProfileLoading(false);
     });
 
@@ -695,7 +810,7 @@ export default function App() {
   // Removing automatic Profile Modal trigger based on user request to not force signup flows
 
   const addToast = (msg: string) => {
-    const id = Date.now();
+    const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, msg }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
@@ -724,6 +839,8 @@ export default function App() {
              name: result.user.displayName || 'System User',
              email: result.user.email,
              photoURL: result.user.photoURL,
+             gender: '',
+             designation: '',
              time: Date.now()
            });
         }
@@ -732,8 +849,9 @@ export default function App() {
       }
 
       try {
+        const isAdminEmail = ['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(result.user.email || '');
         await addDoc(collection(db, 'security_logs'), {
-           admin: result.user.email,
+           [isAdminEmail ? 'admin' : 'userEmail']: result.user.email,
            action: `Google Login (${navigator.userAgent.substring(0, 50)}...)`,
            time: Date.now()
         });
@@ -741,7 +859,7 @@ export default function App() {
         // Silent fail for logging
       }
       
-      addToast("Google Login Success!");
+      // dynamic greeting handled via profile listener
     } catch (err: any) {
       clearTimeout(slowLoginWarning);
       if (err.code === 'auth/cancelled-popup-request' || err.code === 'auth/popup-closed-by-user' || err.code === 'auth/popup-blocked') {
@@ -759,10 +877,15 @@ export default function App() {
         <div style="text-align: left; margin-bottom: 10px; font-weight: 800; font-size: 11px; color: #64748b; text-transform: uppercase;">Email Login</div>
         <input id="swal-input1" class="swal2-input" placeholder="Email" style="margin-top: 0;">
         <input id="swal-input2" type="password" class="swal2-input" placeholder="Password">
-        <button id="email-login-btn" class="swal2-confirm swal2-styled" style="background-color: #0d3b66; width: 100%; margin: 15px 0 0 0; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-weight: 800; text-transform: uppercase; font-size: 11px; padding: 12px 24px;">
-           Sign In / Register
-        </button>
-        <div style="margin: 15px 0; display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; gap: 8px; margin-top: 15px; margin-bottom: 0px; margin-left: 65px; margin-right: 55px; padding-left: 0px;">
+          <button id="email-login-btn" class="swal2-confirm swal2-styled" style="height: 45px; width: 160px; margin: 0; background-color: #0d3b66; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-weight: 800; text-transform: uppercase; font-size: 12px; padding: 0;">
+             Sign In / Register
+          </button>
+          <button id="email-cancel-btn" class="swal2-cancel swal2-styled" style="height: 45px; width: 167.9px; background-color: #64748b; margin: 0; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-weight: 800; text-transform: uppercase; font-size: 10px; padding: 0; color: white; border: none; cursor: pointer;">
+             Cancel
+          </button>
+        </div>
+        <div style="margin: 15px 0; display: flex; align-items: center; gap: 10px; height: 17px; width: 453.417px; font-weight: bold; font-size: 14px; font-family: 'Courier New', Courier, monospace;">
            <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
            <span style="font-size: 10px; font-weight: 800; color: #94a3b8;">OR</span>
            <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
@@ -783,6 +906,29 @@ export default function App() {
              Swal.clickConfirm();
              (window as any).isEmailLogin = true;
            });
+         }
+         const cancelBtn = document.getElementById('email-cancel-btn');
+         if (cancelBtn) {
+           cancelBtn.addEventListener('click', () => {
+             Swal.close();
+           });
+         }
+         const googleBtn = Swal.getConfirmButton();
+         if (googleBtn) {
+           googleBtn.style.width = '160px';
+           googleBtn.style.height = '45px';
+           googleBtn.style.fontSize = '12px';
+           googleBtn.style.display = 'flex';
+           googleBtn.style.alignItems = 'center';
+           googleBtn.style.justifyContent = 'center';
+         }
+         const defaultCancelBtn = Swal.getCancelButton();
+         if (defaultCancelBtn) {
+           defaultCancelBtn.style.width = '167.9px';
+           defaultCancelBtn.style.height = '45px';
+           defaultCancelBtn.style.display = 'flex';
+           defaultCancelBtn.style.alignItems = 'center';
+           defaultCancelBtn.style.justifyContent = 'center';
          }
       },
       preConfirm: () => {
@@ -806,9 +952,16 @@ export default function App() {
            try {
              await signInWithEmailAndPassword(auth, result.value.email, result.value.password);
              
-             try { await addDoc(collection(db, 'security_logs'), { admin: result.value.email, action: `Email Login (${navigator.userAgent.substring(0, 50)}...)`, time: Date.now() }); } catch(e){}
+             try { 
+               const isAdminEmail = ['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(result.value.email || '');
+               await addDoc(collection(db, 'security_logs'), { 
+                 [isAdminEmail ? 'admin' : 'userEmail']: result.value.email, 
+                 action: `Email Login (${navigator.userAgent.substring(0, 50)}...)`, 
+                 time: Date.now() 
+               }); 
+             } catch(e){}
              
-             addToast("Welcome back!");
+             // dynamic greeting handled via profile listener
            } catch (err: any) {
              try {
                const cred = await createUserWithEmailAndPassword(auth, result.value.email, result.value.password);
@@ -961,7 +1114,6 @@ export default function App() {
                  onEditPost={(post) => { setEditingPost(post); setShowPostForm(true); }}
                  problems={problemsGlobal} 
                  suggestions={suggestions} 
-                 users={[]} 
                  setAdminLocked={setAdminLocked} 
                  adminLocked={adminLocked} 
                  notifications={notifications} 
@@ -969,6 +1121,9 @@ export default function App() {
                  updates={updates}
                  userRole={userRole}
                  isDevEmail={isDevEmail}
+                 currentAdminPin={currentAdminPin}
+                 setCurrentAdminPin={setCurrentAdminPin}
+                 users={allUsers}
                  onExit={() => navigate('/')}
               />
             </div>
@@ -994,6 +1149,34 @@ export default function App() {
             {t.msg}
           </motion.div>
         ))}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {userProfile?.role === 'suspended' && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-[10000] bg-slate-950 flex flex-col items-center justify-center p-8 text-center backdrop-blur-sm"
+          >
+             <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mb-8 border border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.3)]">
+                <ShieldAlert size={48} className="text-red-500 animate-pulse" />
+             </div>
+             <h1 className="text-4xl font-black text-white mb-4 uppercase tracking-tighter">Access Restricted</h1>
+             <p className="text-red-400 font-black mb-6 uppercase text-xs tracking-[0.2em] bg-red-500/10 px-4 py-2 rounded-full border border-red-500/20">Security Suspension Active</p>
+             <p className="text-slate-400 max-w-sm text-base font-medium leading-relaxed mb-10">
+                మీ ఖాతా భద్రతా కారణాల దృష్ట్యా తాత్కాలికంగా నిలిపివేయబడింది. దయచేసి అడ్మినిస్ట్రేటర్‌ను సంప్రదించండి.
+             </p>
+             <button 
+                onClick={() => auth.signOut()}
+                className="px-10 py-5 bg-white text-slate-950 font-black rounded-2xl uppercase text-[11px] tracking-widest hover:bg-slate-200 transition-all flex items-center gap-3 shadow-2xl active:scale-95"
+             >
+                <LogOut size={18} /> Sign Out & Exit Portal
+             </button>
+             <div className="mt-16 text-[9px] text-slate-600 font-bold uppercase tracking-[0.4em] font-mono">
+                System Security Layer • E-VEDHIKA PRO
+             </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <header className="sticky top-0 z-[1001] shadow-2xl" style={{ 
@@ -1136,9 +1319,12 @@ export default function App() {
         <div className="latest-label">Latest Updates</div>
         <div className="latest-text flex-1">
           <span>
-            {updates.length > 0 
-              ? updates.map(u => u.text || (u as any).msg || (u as any).update).join('  •  ') 
-              : '🔥 Welcome to E-Vedhika Portal...🔥'}
+            {(() => {
+              const visibleUpdates = updates.filter(u => (u.type === 'flash' || (!u.type && !u.status)) && u.status !== 'hidden');
+              return visibleUpdates.length > 0 
+                ? visibleUpdates.map(u => u.text || (u as any).msg || (u as any).update).join('  •  ') 
+                : '🔥 Welcome to E-Vedhika Portal... 🔥 • 🔥 The E-Vedhika Portal is now live – Empowering Governance with Digital Excellence.. 🔥';
+            })()}
           </span>
         </div>
       </div>
@@ -1205,6 +1391,29 @@ export default function App() {
             <MenuButton label="Union Corner" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
             <MenuButton label="What's New! 🚀" emoji="✨" active={currentTab === 'changelog'} onClick={() => {setCurrentTab('changelog'); setSidebarOpen(false);}} />
             <MenuButton label="💡 Public suggestions & Feedback" emoji="💡" active={currentTab === 'suggestions'} onClick={() => {setCurrentTab('suggestions'); setSidebarOpen(false);}} />
+            
+            {showInstallButton && (
+              <div className="mt-8 px-4">
+                <button 
+                  onClick={handleInstallClick}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-2xl flex items-center justify-between group hover:shadow-lg transition-all active:scale-95 border border-blue-500/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                      <Download size={20} className="text-white" />
+                    </div>
+                    <div className="flex flex-col items-start translate-y-[-1px]">
+                      <span className="text-[14px] font-black leading-tight tracking-tight">యాప్ ఇన్‌స్టాల్</span>
+                      <span className="text-[10px] font-bold text-blue-100 uppercase tracking-widest opacity-80">Install App</span>
+                    </div>
+                  </div>
+                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                    <PlusCircle size={14} />
+                  </div>
+                </button>
+              </div>
+            )}
+
             {(isAdmin || isEditor) && (
                <MenuButton label="Admin Panel" emoji="⚙️" active={false} onClick={() => {navigate('/Evdka'); setSidebarOpen(false);}} />
             )}
@@ -1229,7 +1438,7 @@ export default function App() {
                 <motion.div key="home" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4 sm:space-y-6">
 
 
-                  <div className="bg-white p-4 sm:p-6 rounded-[32px] shadow-sm border border-slate-100">
+                  <div className="bg-white p-4 sm:p-6 rounded-[1px] shadow-sm border border-dashed border-slate-100">
                     <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 sm:gap-6">
                        <div className="flex-1">
                           {user && !user.isAnonymous ? (
@@ -1381,130 +1590,279 @@ export default function App() {
               </motion.div>
             )}
 
-            {currentTab === 'union' && (
-              <motion.div key="union" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <div className="section-card flex flex-col items-center justify-center py-24 text-center bg-slate-50 border-2 border-dashed border-slate-200">
-                  <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-6">
-                    <span className="text-4xl">🚧</span>
-                  </div>
-                  <h2 className="text-3xl font-black text-primary mb-3">Coming Soon</h2>
-                  <p className="text-slate-500 font-bold max-w-md">
-                    Union Corner is under development.
-                  </p>
-                </div>
-              </motion.div>
-            )}
-
             {currentTab === 'changelog' && (
-              <motion.div key="changelog" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="max-w-4xl mx-auto space-y-6">
-                <div className="section-card card-blue !p-8 relative overflow-hidden">
-                   <div className="absolute top-0 right-0 p-8 opacity-10"><Zap size={100} /></div>
-                   <h2 className="text-3xl font-black text-primary mb-2 flex items-center gap-3"><Zap className="text-amber-500" /> What's New on E-Vedhika!</h2>
-                   <p className="text-sm font-bold text-slate-500">Stay updated with the latest features, fixes, and updates to the platform.</p>
+              <motion.div 
+                key="changelog" 
+                initial={{ opacity: 0, scale: 0.95 }} 
+                animate={{ opacity: 1, scale: 1 }} 
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="max-w-4xl mx-auto py-12"
+              >
+                <div className="text-center mb-16">
+                  <div className="inline-flex items-center gap-3 bg-blue-50 px-6 py-2 rounded-full border border-blue-100 mb-4">
+                    <Rocket size={16} className="text-blue-500 animate-bounce" />
+                    <span className="text-[11px] font-black text-blue-600 uppercase tracking-widest">Platform Evolution</span>
+                  </div>
+                  <h2 className="text-4xl lg:text-6xl font-black text-slate-900 tracking-tighter mb-4">E-Vedhika Journey</h2>
+                  <p className="text-slate-500 font-bold max-w-lg mx-auto">Tracking the digital transformation and feature deployments of the master portal.</p>
                 </div>
-                
-                <div className="bg-white rounded-[32px] p-6 lg:p-10 shadow-xl border border-slate-100 flex flex-col gap-8 relative before:absolute before:inset-y-10 before:left-[43px] lg:before:left-[55px] before:w-[2px] before:bg-slate-100">
-                  {updates.length === 0 ? (
-                     <div className="text-center p-10 text-slate-400 font-bold">No updates broadcasted yet.</div>
-                  ) : (
-                     [...updates].sort((a, b) => (b.time || 0) - (a.time || 0)).map((u, i) => (
-                       <div key={i} className="relative flex gap-6 z-10 pl-2 lg:pl-4">
+
+                <div className="relative space-y-12">
+                   {/* Vertical Line */}
+                   <div className="absolute left-7 lg:left-10 top-0 bottom-0 w-px bg-slate-200 z-0" />
+
+                   {[
+                     {
+                       id: 'foundation',
+                       text: (
+                         <div className="text-left space-y-4">
+                           <p className="font-bold text-slate-700">**ప్రారంభం:** ఏప్రిల్ 11వ తేదీ, మధ్యాహ్నం 2:00 గంటలకు.</p>
+                           <p className="text-slate-600 text-sm">పంచాయతీ ఆపరేటర్ల నుంచి అందిన అమూల్యమైన సూచనలు మాకు స్ఫూర్తినిచ్చాయి. గూగుల్ **Gemini** మరియు **Chat GPT** సహాయంతో ఈ వేదికను అభివృద్ధి చేశాము.</p>
+                         </div>
+                       ),
+                       time: 1712851200000,
+                       type: 'changelog'
+                     },
+                     ...updates.filter(u => u.type === 'changelog')
+                   ].sort((a: any, b: any) => (b.time || 0) - (a.time || 0)).map((u: any, i) => (
+                      <motion.div 
+                        initial={{ opacity: 0, x: -20 }} 
+                        whileInView={{ opacity: 1, x: 0 }} 
+                        viewport={{ once: true }}
+                        transition={{ delay: i * 0.1 }}
+                        key={u.id || i} 
+                        className="relative flex gap-6 z-10 pl-2 lg:pl-4"
+                      >
                          <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-blue-50 border-4 border-white shadow-sm flex items-center justify-center shrink-0">
                            <Zap size={16} className="text-blue-500" />
                          </div>
                          <div className="flex-1 pt-2 lg:pt-3">
-                           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
-                             <h3 className="text-sm sm:text-base font-black text-slate-800">System Update</h3>
-                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-md w-max">
-                               {new Date(getValidTime(u)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                             </span>
-                           </div>
-                           <div className="text-sm font-medium text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100 leading-relaxed shadow-sm">
-                             <ReactMarkdown components={{
-                                p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
-                                strong: ({node, ...props}) => <strong className="font-black text-slate-800" {...props} />
-                             }}>{String(u.text || '')}</ReactMarkdown>
-                           </div>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
+                               <h3 className="text-sm sm:text-base font-black text-slate-800">
+                                 {u.id === 'foundation' ? 'Foundation Launch' : 'System Update'}
+                               </h3>
+                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-md w-max">
+                                 {new Date(getValidTime(u)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                               </span>
+                            </div>
+                            <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                               <div className="text-[14px] font-medium text-slate-600 leading-relaxed whitespace-pre-wrap">
+                                 {typeof u.text === 'string' ? u.text : u.text}
+                               </div>
+                            </div>
                          </div>
-                       </div>
-                     ))
-                  )}
+                      </motion.div>
+                   ))}
                 </div>
               </motion.div>
             )}
 
-
             {currentTab === 'suggestions' && (
               <motion.div key="suggestions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
-                  <div className="border-b border-slate-100 pb-3 mb-4">
-                    <h2 className="text-lg font-bold text-slate-800">💡 SUGGESTIONS FROM PUBLIC</h2>
+                <div className="bg-white p-4 sm:p-8 rounded-3xl shadow-sm border border-slate-200">
+                  <div className="border-b border-slate-100 pb-4 mb-6">
+                    <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                       <Lightbulb className="text-amber-500" /> e-Vedhika Suggestion Portal
+                    </h2>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">మీ సూచనలు మాకు ఎంతో ముఖ్యం</p>
                   </div>
                   
-                  <div 
-                    ref={suggestionsScrollRef} 
-                    className="bg-[#f8fafc] rounded-xl border border-slate-200 p-4 mb-5 max-h-[500px] overflow-y-auto custom-scrollbar"
-                  >
-                    {suggestions.length > 0 ? (
-                      <div id="suggestionBox" className="flex flex-col gap-3">
-                        {suggestions.map(s => (
-                          <div key={s.id} className="bg-white p-3 rounded-lg shadow-sm border border-slate-100">
-                            <div className="flex items-center mb-2.5">
-                              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-black px-3.5 py-1.5 rounded-full text-[14px] shadow-sm tracking-wide">
-                                {s.name || s.author || 'User'}
-                              </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <div className="bg-[#f8fafc] rounded-2xl border border-slate-200 p-6">
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Latest Suggestions</h3>
+                        <div 
+                          ref={suggestionsScrollRef} 
+                          onMouseEnter={() => setIsSuggestionsHovered(true)}
+                          onMouseLeave={() => setIsSuggestionsHovered(false)}
+                          className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-2"
+                        >
+                          {approvedSuggestions.length > 0 ? (
+                            [...approvedSuggestions]
+                              .sort((a, b) => getValidTime(b) - getValidTime(a))
+                              .map(s => (
+                              <motion.div 
+                                key={s.id} 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ 
+                                  opacity: 1, 
+                                  y: 0,
+                                  boxShadow: [
+                                    "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+                                    "0 0 8px 0 rgba(59, 130, 246, 0.2)",
+                                    "0 1px 2px 0 rgb(0 0 0 / 0.05)"
+                                  ]
+                                }}
+                                transition={{ 
+                                  boxShadow: {
+                                    duration: 3,
+                                    repeat: Infinity,
+                                    ease: "easeInOut"
+                                  }
+                                }}
+                                className="bg-white p-3 rounded-xl border border-slate-100 hover:border-blue-300 transition-colors"
+                              >
+                                <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-50">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-5 h-5 bg-slate-100 rounded-full flex items-center justify-center text-[9px] font-black text-slate-400">
+                                      {(s.name || s.author || 'U')[0].toUpperCase()}
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-[10px] font-black text-slate-700 leading-tight">
+                                        {s.name || s.author || 'Unknown'}
+                                      </span>
+                                      {s.village && (
+                                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                                          {s.village}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-[9px] text-slate-400 font-bold uppercase tracking-tight text-right">
+                                    <div className="leading-none mb-0.5">
+                                      {new Date(getValidTime(s)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                    </div>
+                                    <div className="text-[8px] opacity-70">
+                                      {new Date(getValidTime(s)).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                    </div>
+                                  </div>
+                                </div>
+                                <p className="text-[13px] text-slate-700 font-medium leading-relaxed">{s.msg || s.suggestion}</p>
+                              </motion.div>
+                            ))
+                          ) : (
+                            <div className="text-center py-20 text-slate-400 text-xs font-bold uppercase tracking-widest">
+                               No submissions yet
                             </div>
-                            <p className="text-sm text-slate-700 whitespace-pre-wrap">{s.msg || s.suggestion || s.text}</p>
-                            <div className="text-[11px] text-slate-400 mt-2 font-medium">
-                              {new Date(getValidTime(s)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
-                            </div>
-                          </div>
-                        ))}
+                          )}
+                        </div>
                       </div>
-                    ) : (
-                      <div className="text-center py-10 text-slate-500 text-sm">
-                        No suggestions yet.
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-6">
-                    <div className="pb-2 mb-2">
-                      <h3 className="font-bold text-slate-800 text-lg">Submit New Suggestion</h3>
                     </div>
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const target = e.target as any;
-                      const msg = target.suggestion.value.trim();
-                      if (!msg) return addToast("దయచేసి సలహా టైప్ చేయండి.");
-                      if (!user || user.isAnonymous) return addToast("సలహా ఇవ్వడానికి లాగిన్ అవ్వండి.");
-                      try {
-                        await addDoc(collection(db, 'suggestions'), {
-                          msg,
-                          author: user.displayName || 'User',
-                          status: 'pending',
-                          time: Date.now(),
-                          uid: user.uid
-                        });
-                        target.reset();
-                        addToast("మీ సలహా సబ్మిట్ అయ్యింది. ధన్యవాదాలు!");
-                      } catch (error) {
-                        handleFirestoreError(error, OperationType.CREATE, 'suggestions');
-                        addToast("సలహా ఇవ్వడంలో ఎర్రర్.");
-                      }
-                    }} className="flex flex-col gap-3">
-                      <textarea 
-                        name="suggestion" 
-                        placeholder="మీ సలహా ఇక్కడ టైప్ చేయండి..." 
-                        maxLength={500} 
-                        rows={3} 
-                        className="w-full p-3 rounded-lg border border-slate-300 resize-none text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" 
-                        required
-                      ></textarea>
-                      <button type="submit" className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold shadow hover:bg-blue-700 transition-all text-sm w-fit self-start">
-                        Submit Suggestion
-                      </button>
-                    </form>
+
+                    <div className="bg-white p-8 rounded-3xl border-2 border-dashed border-slate-100">
+                      <h3 className="text-lg font-black text-slate-800 mb-2">Submit Suggestion & Feedback</h3>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-tight mb-6">మీ అమూల్యమైన సూచనలను ఇక్కడ నమోదు చేయండి</p>
+                      
+                      <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        const target = e.target as any;
+                        const name = target.name.value.trim();
+                        const village = target.village.value.trim();
+                        const mobile = target.mobile.value.trim();
+                        const category = target.category.value;
+                        const suggestion = target.suggestion.value.trim();
+
+                        if (!name || !village || !mobile || !category || !suggestion) {
+                          return addToast("దయచేసి అన్ని వివరాలు నింపండి (Please fill all fields)");
+                        }
+
+                        if (!/^[0-9]{10}$/.test(mobile)) {
+                          return addToast("దయచేసి 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి");
+                        }
+
+                        try {
+                          await addDoc(collection(db, 'suggestions'), {
+                            name,
+                            village,
+                            mobile,
+                            category,
+                            suggestion,
+                            time: Date.now(),
+                            status: 'pending',
+                            uid: user?.uid || 'anonymous'
+                          });
+                          target.name.value = userProfile ? `${userProfile.name || ''} ${userProfile.surname || ''}`.trim() : '';
+                          target.village.value = userProfile ? `${userProfile.mandal || ''} / ${userProfile.district || ''}`.trim().replace(/^ \/ | \/ $/g, '') : '';
+                          target.mobile.value = userProfile?.mobile || '';
+                          target.category.value = "";
+                          target.suggestion.value = "";
+                          
+                          Swal.fire({
+                            title: '✅ సక్సెస్!',
+                            text: 'మీ సూచన విజయవంతంగా నమోదు చేయబడింది.',
+                            icon: 'success',
+                            confirmButtonColor: '#0d3b66'
+                          });
+                        } catch (error) {
+                          handleFirestoreError(error, OperationType.CREATE, 'suggestions');
+                          addToast("సబ్మిట్ చేయడంలో లోపం కలిగింది.");
+                        }
+                      }} className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                           <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">మీ పేరు (Name)</label>
+                              <input 
+                                name="name" 
+                                type="text"
+                                defaultValue={userProfile ? `${userProfile.name || ''} ${userProfile.surname || ''}`.trim() : ''}
+                                placeholder="Enter your name" 
+                                className="w-full bg-slate-50 border-slate-100 rounded-xl p-3 text-sm font-bold placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500/20" 
+                                required
+                              />
+                           </div>
+                           <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">జిల్లా / మండలం (Area)</label>
+                              <input 
+                                name="village" 
+                                type="text"
+                                defaultValue={userProfile ? `${userProfile.mandal || ''} / ${userProfile.district || ''}`.trim().replace(/^ \/ | \/ $/g, '') : ''}
+                                placeholder="District / Mandal" 
+                                className="w-full bg-slate-50 border-slate-100 rounded-xl p-3 text-sm font-bold placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500/20" 
+                                required
+                              />
+                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                           <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">మొబైల్ నంబర్ (Mobile)</label>
+                              <input 
+                                name="mobile" 
+                                type="tel"
+                                defaultValue={userProfile?.mobile || ''}
+                                maxLength={10}
+                                placeholder="10 Digit Number" 
+                                className="w-full bg-slate-50 border-slate-100 rounded-xl p-3 text-sm font-bold placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500/20" 
+                                required
+                              />
+                           </div>
+                           <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">విభాగం (Category)</label>
+                              <select 
+                                name="category" 
+                                className="w-full bg-slate-50 border-slate-100 rounded-xl p-3 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500/20"
+                                required
+                              >
+                                <option value="">విభాగం ఎంచుకోండి</option>
+                                <option>Home</option>
+                                <option>Latest News</option>
+                                <option>Services</option>
+                                <option>Missing Features</option>
+                                <option>Discussion Forum</option>
+                                <option>User Login</option>
+                                <option>FAQ</option>
+                                <option>Search</option>
+                                <option>Suggestion for website</option>
+                              </select>
+                           </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">మీ సూచన (Suggestion)</label>
+                          <textarea 
+                            name="suggestion" 
+                            placeholder="మీ సూచన ఇక్కడ టైప్ చేయండి..." 
+                            rows={4} 
+                            className="w-full bg-slate-50 border-slate-100 rounded-2xl p-4 text-sm font-bold placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500/20 resize-none" 
+                            required
+                          ></textarea>
+                        </div>
+
+                        <button type="submit" className="w-full bg-primary text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform active:scale-95">
+                          Submit Entry
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -1525,7 +1883,7 @@ export default function App() {
                        const target = e.target as any;
                        const cat = target.category.value;
                        const msg = target.message.value;
-                       if (!user || user.isAnonymous) return addToast("Please login to report issues");
+                       if (requireLoginAlert(user)) return;
                        try {
                          await addDoc(collection(db, 'problems'), {
                            msg,
@@ -1579,6 +1937,9 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
   const [mobile, setMobile] = useState(userProfile?.mobile || '');
   const [email, setEmail] = useState(userProfile?.email || user?.email || '');
   const [photoURL, setPhotoURL] = useState(userProfile?.photoURL || user?.photoURL || '');
+  const [designation, setDesignation] = useState(userProfile?.designation || '');
+  const [office, setOffice] = useState(userProfile?.office || '');
+  const [bio, setBio] = useState(userProfile?.bio || '');
   const [saving, setSaving] = useState(false);
 
   const mandals = district ? TELANGANA_DATA[district] || [] : [];
@@ -1586,7 +1947,7 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!username || !name || !surname || !mobile || !district || !mandal) {
+    if (!username || !name || !surname || !mobile || !district || !mandal || !designation) {
       addToast("Please fill all required fields (*)");
       return;
     }
@@ -1620,17 +1981,36 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
         district,
         mandal,
         village,
+        designation,
+        office,
+        bio,
         mobile,
         email,
         photoURL,
         time: userProfile?.time || Date.now()
       }, { merge: true });
-      addToast("Profile updated successfully!");
+
+      if (designation === 'Citizen') {
+        Swal.fire({
+          title: "సిటిజన్ గారికి నమస్కారం",
+          text: "ప్రస్తుతం ఈ వేదిక Webportal సిటిజన్ సర్వీస్ ఇంకా అందుబాటులోకి రాలేదు. రాగానే మీ మొబైల్ నెంబర్ కి మెసేజ్ లేదా ఇమెయిల్ ద్వారా మీకు సమాచారం ఇవ్వడం జరుగుతుంది.",
+          icon: "info",
+          confirmButtonText: "సరే (OK)",
+          confirmButtonColor: "#0d3b66"
+        });
+      } else {
+        addToast("Profile updated successfully!");
+      }
+
       if (onComplete) onComplete();
       onClose();
     } catch (err: any) {
       handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
-      addToast("Failed to update profile: " + err.message);
+      if (err.message.includes('offline')) {
+        addToast("Error: Connection lost. Please check your internet or refresh the page.");
+      } else {
+        addToast("Failed to update profile: " + err.message);
+      }
     } finally {
       setSaving(false);
     }
@@ -1730,6 +2110,27 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
              </div>
           </div>
 
+          <div>
+            <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Designation *</label>
+            <input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Type Designation (e.g. e-Panchayat, MPO)" required className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" />
+          </div>
+
+          <div>
+            <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Office Address</label>
+            <input value={office} onChange={e => setOffice(e.target.value)} placeholder="Office location / Building" className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" />
+          </div>
+
+          <div>
+             <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Bio / About</label>
+             <textarea 
+               value={bio} 
+               onChange={e => setBio(e.target.value)} 
+               placeholder="Write something about your role or professional background..." 
+               rows={2}
+               className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs resize-none" 
+             />
+          </div>
+
           <div className="flex flex-wrap gap-3 mt-4">
             {!isForced && (
               <>
@@ -1774,31 +2175,101 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
   );
 }
 
-function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLocked, adminLocked, notifications, requests, updates, userRole, onExit, onNewPost, onEditPost, isDevEmail }: any) {
+function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLocked, adminLocked, notifications, requests, updates, userRole, onExit, onNewPost, onEditPost, isDevEmail, currentAdminPin, setCurrentAdminPin }: any) {
   const isAdmin = userRole === 'admin' || isDevEmail;
   const isEditor = userRole === 'admin' || userRole === 'editor' || isDevEmail;
   const [activeSubTab, setActiveSubTab] = useState('dash');
+  const [userViewMode, setUserViewMode] = useState<'access' | 'directory'>('access');
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [showPin, setShowPin] = useState(false);
+  const [logType, setLogType] = useState<'admin' | 'public'>('admin');
+  const [logActionFilter, setLogActionFilter] = useState('');
+  const [logAdminFilter, setLogAdminFilter] = useState('');
+
+  const exportLogsToCSV = () => {
+    const filteredLogs = logs.filter(log => {
+      const isCorrectType = logType === 'admin' ? !!log.admin : !log.admin;
+      const matchesAction = logActionFilter === '' || (log.action || '').toLowerCase().includes(logActionFilter.toLowerCase());
+      const matchesAdmin = logAdminFilter === '' || (log.admin || log.userEmail || log.userId || '').toLowerCase().includes(logAdminFilter.toLowerCase());
+      return isCorrectType && matchesAction && matchesAdmin;
+    });
+
+    if (filteredLogs.length === 0) {
+      addToast("No logs to export");
+      return;
+    }
+
+    const headers = ["Trace ID", "Subject", "Action", "Time", "Status"];
+    const rows = filteredLogs.map(log => [
+      log.id || '',
+      log.admin || log.userEmail || log.userId || 'Anonymous',
+      log.action || 'System Event',
+      new Date(getValidTime(log)).toLocaleString(),
+      "Verified"
+    ]);
+
+    let csvContent = "data:text/csv;charset=utf-8," 
+      + headers.join(",") + "\n"
+      + rows.map(e => e.map(String).map(s => `"${s.replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `security_logs_${logType}_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    addToast("Logs exported as CSV");
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const [reportsType, setReportsType] = useState<'issues' | 'posts'>('posts');
-  const [reportsFilter, setReportsFilter] = useState<'All' | 'Pending' | 'Approved' | 'Flagged'>('Pending');
+  const [reportsFilter, setReportsFilter] = useState<'All' | 'Pending' | 'Approved' | 'Flagged' | 'Resolved'>('Pending');
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
-  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [allProblems, setAllProblems] = useState<ProblemReport[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [logsError, setLogsError] = useState(false);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+
+  const handleBulkApprove = async () => {
+     let col = activeSubTab === 'suggestions' ? 'suggestions' : (reportsType === 'posts' ? 'posts' : 'problems');
+     for (const id of selectedItems) {
+        try {
+           await updateDoc(doc(db, col, id), { status: col === 'posts' || col === 'suggestions' ? (col === 'suggestions' ? 'approved' : 'Approved') : 'solved' });
+        } catch(e) {}
+     }
+     setSelectedItems([]);
+     addToast(`Bulk Approved ${selectedItems.length} items`);
+  };
+
+  const handleBulkDelete = async () => {
+    let col = activeSubTab === 'suggestions' ? 'suggestions' : (reportsType === 'posts' ? 'posts' : 'problems');
+    const res = await Swal.fire({
+        title: 'Delete Selected?',
+        text: `Are you sure you want to delete ${selectedItems.length} items?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Delete'
+    });
+    if (res.isConfirmed) {
+        for (const id of selectedItems) {
+            try {
+               await updateDoc(doc(db, col, id), { status: 'Deleted', deletedAt: Date.now() });
+            } catch(e) {}
+        }
+        setSelectedItems([]);
+        addToast(`Bulk Deleted ${selectedItems.length} items`);
+    }
+  };
 
   useEffect(() => {
     if (!isEditor) return;
-
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
-      const uList: UserProfile[] = [];
-      snap.forEach(d => uList.push({ id: d.id, ...(d.data() as any) }));
-      setAllUsers(uList);
-    }, (err) => {
-      setPermissionError("Access to user database restricted.");
-      handleFirestoreError(err, OperationType.LIST, 'users');
-    });
 
     const unsubProblems = onSnapshot(collection(db, 'problems'), (snap) => {
       const pList: ProblemReport[] = [];
@@ -1808,7 +2279,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
 
     let unsubLogs = () => {};
     if (isAdmin) {
-      unsubLogs = onSnapshot(query(collection(db, 'security_logs'), orderBy('time', 'desc'), limit(20)), (snap) => {
+      unsubLogs = onSnapshot(query(collection(db, 'security_logs'), orderBy('time', 'desc'), limit(100)), (snap) => {
         const lList: any[] = [];
         snap.forEach(d => lList.push({ id: d.id, ...d.data() }));
         setLogs(lList);
@@ -1820,7 +2291,6 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
     }
 
     return () => {
-      unsubUsers();
       unsubProblems();
       unsubLogs();
     };
@@ -1877,7 +2347,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               onKeyUp={(e) => {
                 const target = e.target as HTMLInputElement;
                 // Simple demo PIN for now, can be changed to dynamic check
-                if (target.value === '1234') {
+                if (target.value === currentAdminPin) {
                   setAdminLocked(false);
                 }
               }}
@@ -1932,8 +2402,9 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                 { id: 'dash', label: 'Analytics Dashboard', icon: <Activity size={18}/> },
                 { id: 'reports', label: 'Posts & Issues', icon: <AlertOctagon size={18}/> },
                 { id: 'suggestions', label: 'Suggestions & Feedback', icon: <PlusCircle size={18}/> },
-                { id: 'users', label: 'User Profiles', icon: <Users size={18}/> },
+                { id: 'users', label: 'User Access & Directory', icon: <Users size={18}/> },
                 { id: 'updates', label: 'Flash News', icon: <Zap size={18}/> },
+                { id: 'changelog', label: "What's New", icon: <Info size={18}/> },
                 { id: 'logs', label: 'Security Logs', icon: <ShieldAlert size={18}/> },
                 { id: 'settings', label: 'System Config', icon: <Settings size={18}/> }
               ].filter(t => isAdmin || ['dash', 'reports', 'suggestions', 'updates'].includes(t.id)).map(tab => (
@@ -1979,385 +2450,431 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
         )}
       </AnimatePresence>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 p-4 lg:p-10 bg-white overflow-y-auto custom-scrollbar flex flex-col relative w-full h-full">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 pb-8 border-b border-slate-100 !bg-transparent !h-auto !p-0">
+      <main className="flex-1 p-4 lg:p-10 bg-slate-50 overflow-y-auto custom-scrollbar flex flex-col relative w-full h-full">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 pb-8 border-b border-slate-200 !bg-transparent !h-auto !p-0">
           <div className="flex items-center gap-5">
             <button className="lg:hidden p-3 bg-white text-slate-600 rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition-colors" onClick={() => setAdminMenuOpen(true)}>
               <Menu size={24} />
             </button>
             <div>
               <h1 className="text-2xl lg:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-                {activeSubTab === 'dash' && '📊 Dashboard'}
+                {activeSubTab === 'dash' && '📊 Dashboard Hub'}
                 {activeSubTab === 'reports' && '🚩 Posts & Issues'}
-                {activeSubTab === 'users' && '👥 User Access'}
+                {activeSubTab === 'users' && '👥 User Access & Directory'}
                 {activeSubTab === 'logs' && '🛡️ Security Audits'}
                 {activeSubTab === 'settings' && '⚙️ System Settings'}
                 {activeSubTab === 'suggestions' && '💡 Suggestions & Feedback'}
                 {activeSubTab === 'updates' && '⚡ Flash News'}
+                {activeSubTab === 'changelog' && "🚀 What's New Management"}
               </h1>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 ml-1">Administration & Monitoring Service</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 ml-1">Administration & Monitoring Terminal</p>
             </div>
           </div>
-          <div className="flex items-center gap-4 hidden sm:flex">
-             <div className="text-right">
-              <p className="text-sm font-black text-slate-800">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-              <p className="text-[10px] font-bold text-emerald-500 uppercase flex items-center justify-end gap-1"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Service Active</p>
+          <div className="flex items-center gap-4">
+             {(activeSubTab === 'reports' || activeSubTab === 'dash') && (
+               <button 
+                 onClick={onNewPost}
+                 className="px-6 py-3 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2"
+               >
+                 <PlusCircle size={18} /> Create New Post
+               </button>
+             )}
+             <div className="text-right hidden sm:block">
+              <p className="text-sm font-black text-slate-800">{currentTime.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+              <p className="text-[14px] font-mono font-black text-slate-600 tracking-wider">
+                {currentTime.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </p>
             </div>
           </div>
         </header>
 
         {activeSubTab === 'dash' && (
-          <div className="space-y-6">
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            <div className="section-card card-blue !p-5 flex flex-col justify-between group hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-blue-50/50 to-white">
-              <div>
-                 <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-blue-600 mb-6 shadow-sm group-hover:scale-110 transition-transform"><Users size={28} /></div>
-                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">Registry Index</h3>
-                 <p className="text-3xl font-black text-blue-900 tracking-tighter leading-none">{allUsers.length}</p>
-                 <p className="text-[10px] font-bold text-blue-600/60 mt-2 uppercase">Total Enrolled Citizens</p>
-              </div>
-              <div className="mt-8 pt-6 border-t border-blue-100/50 flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                <span className="text-slate-400">Activity Level</span>
-                <span className="text-blue-600 flex items-center gap-1.5"><Activity size={12}/> High</span>
-              </div>
-            </div>
-
-            <div className="section-card card-gold !p-5 flex flex-col justify-between group hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-amber-50/50 to-white">
-              <div>
-                 <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-amber-600 mb-6 shadow-sm group-hover:scale-110 transition-transform"><MessageSquare size={28} /></div>
-                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">Curation Queue</h3>
-                 <p className="text-3xl font-black text-amber-900 tracking-tighter leading-none bg-yellow-200 px-2 rounded-lg inline-block">{posts.filter(p => !p.status || p.status === 'pending').length + (suggestions || []).filter((s:any) => s.status?.toLowerCase() === 'pending').length}</p>
-                 <p className="text-[10px] font-bold text-amber-600/60 mt-2 uppercase">Awaiting Moderation</p>
-              </div>
-              <div className="mt-8 pt-6 border-t border-amber-100/50 flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                <span className="text-slate-400">Response Rate</span>
-                <span className="text-amber-600 flex items-center gap-1.5"><Zap size={12}/> 94.2%</span>
-              </div>
-            </div>
-
-            <div className="section-card card-danger !p-5 flex flex-col justify-between group hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-rose-50/50 to-white">
-              <div>
-                 <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-rose-600 mb-6 shadow-sm group-hover:scale-110 transition-transform"><AlertTriangle size={28} /></div>
-                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">Issue Tracker</h3>
-                 <p className="text-3xl font-black text-rose-900 tracking-tighter leading-none">{allProblems.filter(p => p.status !== 'solved').length}</p>
-                 <p className="text-[10px] font-bold text-rose-600/60 mt-2 uppercase">Open Support Tickets</p>
-              </div>
-              <div className="mt-8 pt-6 border-t border-rose-100/50 flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                <span className="text-slate-400">Severity Metric</span>
-                <span className="text-rose-600 flex items-center gap-1.5"><ShieldAlert size={12}/> Moderate</span>
-              </div>
-            </div>
-          </motion.div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col h-full">
-                <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-50">
-                  <h4 className="text-sm font-black text-primary uppercase tracking-tight">Resolution Analytics</h4>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Resolved Cases</span>
+          <div className="space-y-8 pb-20">
+            {/* Unified Stat Cards */}
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+            >
+              {[
+                { label: 'Citizens Enrolled', value: users.length, icon: <Users />, color: 'blue' },
+                { label: 'Unresolved Issues', value: allProblems.filter(p => !p.status || (p.status !== 'solved' && p.status !== 'resolved')).length, icon: <AlertTriangle />, color: 'rose' },
+                { label: 'Pending Curation', value: posts.filter(p => !p.status || p.status === 'pending').length, icon: <Megaphone />, color: 'amber' },
+                { label: 'Flash Broadcasts', value: updates.length, icon: <Zap />, color: 'emerald' },
+              ].map((stat, i) => (
+                <div key={i} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex items-center gap-4 group hover:shadow-xl transition-all">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-50 text-slate-600 group-hover:scale-110 transition-transform">{stat.icon}</div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{stat.label}</p>
+                    <p className="text-xl font-black text-slate-800 tracking-tighter">{stat.value}</p>
                   </div>
                 </div>
-                <div className="flex-1 min-h-[250px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={[
-                      { name: 'Pending', count: allProblems.filter(p => p.status !== 'solved').length },
-                      { name: 'Solved', count: allProblems.filter(p => p.status === 'solved').length }
-                    ]}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontWeight: 800, fontSize: 10}} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
-                      <Tooltip 
-                        cursor={{ fill: 'transparent' }}
-                        contentStyle={{ borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', padding: '12px' }}
-                        itemStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a' }}
-                      />
-                      <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} barSize={40} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+              ))}
+            </motion.div>
 
-              <div className="bg-gradient-to-br from-indigo-900 to-slate-900 p-8 rounded-[32px] shadow-lg text-white flex flex-col justify-center relative overflow-hidden h-full">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-                <div className="relative z-10 space-y-6">
-                  <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6">
-                     <ShieldCheck size={28} className="text-blue-400" />
+            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/5">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-800 tracking-tight">Consolidated Activity Terminal</h3>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Cross-Platform Activity Monitor</p>
                   </div>
-                  <h3 className="text-2xl font-black tracking-tighter leading-tight">System Status<br/><span className="text-blue-400">Optimal</span></h3>
-                  <p className="text-xs font-medium text-slate-300 leading-relaxed">
-                    Platform is active and monitoring data integrity. {(suggestions || []).filter((s:any) => s.status?.toLowerCase() === 'pending').length} suggestions pending review.
-                  </p>
-                  <button onClick={() => setActiveSubTab('reports')} className="w-full py-4 bg-white/10 hover:bg-white/20 transition-all font-black rounded-xl text-[11px] uppercase tracking-wider backdrop-blur-sm border border-white/10">
-                    Review Pending
-                  </button>
                 </div>
-              </div>
+                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                  {[...posts, ...allProblems, ...suggestions].sort((a,b) => (b.time || 0) - (a.time || 0)).slice(0, 50).map((item: any, i) => (
+                    <div key={i} className="p-5 bg-slate-50/50 rounded-3xl border border-slate-100 flex items-center gap-6 hover:bg-white transition-all group">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${
+                        item.msg ? 'bg-amber-100 text-amber-600' : 
+                        item.problem ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'
+                      }`}>
+                        {item.msg ? <Lightbulb size={20}/> : item.problem ? <AlertOctagon size={20}/> : <Megaphone size={20}/>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-full">{item.msg ? 'Suggestion' : item.problem ? 'Issue' : 'Post'}</span>
+                          <h4 className="text-[13px] font-black text-slate-800 truncate">{item.userName || item.name || 'System Admin'}</h4>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-medium line-clamp-1 italic italic leading-relaxed">
+                           "{item.msg || item.problem || item.content || 'Activity log record...'}"
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(item.time || 0).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
             </div>
           </div>
         )}
 
         {(activeSubTab === 'reports' || activeSubTab === 'suggestions') && (
-           <div className="space-y-6">
+           <div className="space-y-8 pb-20">
               {activeSubTab === 'reports' && (
-                <div className="flex items-center gap-3 p-1.5 bg-slate-50 rounded-2xl w-fit mb-4">
+                <div className="flex bg-slate-100 p-1.5 rounded-2xl w-fit border border-slate-200 mb-6">
                   {['posts', 'issues'].map(type => (
                     <button 
                       key={type}
                       onClick={() => setReportsType(type as any)}
-                      className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportsType === type ? 'bg-white shadow-sm text-primary' : 'hover:bg-slate-200/50 text-slate-400'}`}
+                      className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportsType === type ? 'bg-white text-blue-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-700'}`}
                     >
-                      {type}
+                      {type === 'posts' ? '🚩 Community Posts' : '⚠️ Citizen Issues'}
                     </button>
                   ))}
                 </div>
               )}
-              <div className="flex items-center gap-3 p-1.5 bg-slate-50 rounded-2xl w-fit mb-8">
-                 {['All', 'Pending', 'Approved', 'Flagged'].map(filter => (
-                   <button 
-                     key={filter}
-                     onClick={() => setReportsFilter(filter as any)}
-                     className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportsFilter === filter ? 'bg-white shadow-sm text-primary' : 'hover:bg-slate-200/50 text-slate-400'}`}
-                   >
-                     {filter}
-                   </button>
-                 ))}
-                 <button className="px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 border border-indigo-100 ml-4 animate-pulse">✨ AI AUTO SCAN</button>
+
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                <div className="flex flex-wrap items-center gap-3">
+                   {['All', 'Approved', 'Pending', 'Resolved', 'Deleted'].map(f => (
+                      <button 
+                         key={f}
+                         onClick={() => setReportsFilter(f as any)} 
+                         className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${reportsFilter === f ? 'bg-indigo-900 border-indigo-900 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                      >
+                         {f}
+                      </button>
+                   ))}
+                </div>
               </div>
 
-              <div className="overflow-x-auto">
-                 <table className="w-full text-left">
-                    <thead>
-                       <tr className="border-b-2 border-slate-100">
-                          <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4 shrink-0 whitespace-nowrap">ID</th>
-                          <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4 shrink-0 min-w-[200px]">Details & Context</th>
-                          <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Status</th>
-                          <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Received Date</th>
-                          <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right pr-4 whitespace-nowrap">Action Pipeline</th>
-                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                       {(activeSubTab === 'reports' ? (reportsType === 'posts' ? posts : allProblems) : suggestions).filter(item => {
-                         if (reportsFilter === 'All') return true;
-                         if (reportsFilter === 'Pending') return !item.status || item.status.toLowerCase() === 'pending';
-                         if (reportsFilter === 'Approved') return item.status?.toLowerCase() === 'approved' || item.status?.toLowerCase() === 'solved';
-                         if (reportsFilter === 'Flagged') return item.status?.toLowerCase() === 'flagged';
-                         return true;
-                       }).map((item: any, idx) => (
-                         <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                            <td className="py-6 pl-4">
-                               <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-500">
-                                  #{idx + 1}
-                               </div>
-                            </td>
-                            <td className="py-6 pl-4 max-w-md">
-                               <h5 className="font-black text-primary text-sm mb-1 leading-tight flex items-center gap-2">
-                                  {item.title || item.category || item.name || 'Support Ticket'}
-                                </h5>
-                               <p className="text-[11px] text-slate-500 font-medium line-clamp-2 leading-relaxed italic border-l-2 border-slate-200 pl-3">
-                                  "{item.msg || item.content || item.text || item.suggestion}"
-                               </p>
-                               <div className="flex gap-4 mt-3">
-                                 <span className="text-[9px] font-black text-indigo-500 uppercase flex items-center gap-1">
-                                    <Activity size={10}/> STATUS: {(item.status || 'ACTIVE').toUpperCase()}
-                                 </span>
-                                 <span className="text-[9px] font-black text-slate-400 flex items-center gap-1">
-                                    <User size={10}/> {item.userName || item.name || 'Portal User'} 
-                                    <span className="text-slate-300 ml-1">({typeof item.uid === 'string' ? item.uid.substring(0, 5) : 'ADMIN'})</span>
-                                 </span>
-                                </div>
-                            </td>
-                            <td className="py-6">
-                               <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                                 item.status === 'solved' || item.status === 'Approved' || item.status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'
-                               }`}>
-                                  {item.status || 'Active'}
-                               </span>
-                            </td>
-                            <td className="py-6">
-                               <div className="flex items-center gap-2 text-slate-400">
-                                  <Clock size={12}/>
-                                  <span className="text-[10px] font-black tracking-tighter">{item.time || item.createdAt || item.timestamp ? new Date(getValidTime(item)).toLocaleDateString() : 'N/A'}</span>
-                               </div>
-                            </td>
-                            <td className="py-6 text-right pr-4">
-                                <div className="flex justify-end gap-2">
-                                  <button title="Approve" onClick={async () => {
-                                    if (activeSubTab === 'reports' && reportsType === 'posts') {
-                                        try { await updateDoc(doc(db, 'posts', item.id), { status: 'Approved' }); addToast("Post Approved"); } catch(e: any) { addToast("Error: " + e.message); handleFirestoreError(e, OperationType.UPDATE, `posts/${item.id}`); }
-                                    } else if (activeSubTab === 'suggestions') {
-                                        try { await updateDoc(doc(db, 'suggestions', item.id), { status: 'approved' }); addToast("Suggestion Approved"); } catch(e: any) { addToast("Error: " + e.message); handleFirestoreError(e, OperationType.UPDATE, `suggestions/${item.id}`); }
-                                    } else {
-                                        resolveProblem(item);
-                                    }
-                                  }} className="p-2 bg-green-50 text-green-500 rounded-lg hover:bg-green-500 hover:text-white transition-all"><CheckCircle2 size={16}/></button>
-
-                                  <button title="Mark Pending" onClick={async () => {
-                                     try {
-                                       if (activeSubTab === 'reports' && reportsType === 'posts') {
-                                           await updateDoc(doc(db, 'posts', item.id), { status: 'pending' }); addToast("Pending"); 
-                                       } else if (activeSubTab === 'suggestions') {
-                                           await updateDoc(doc(db, 'suggestions', item.id), { status: 'pending' }); addToast("Pending"); 
-                                       } else {
-                                           await updateDoc(doc(db, 'problems', item.id), { status: 'pending' }); addToast("Pending"); 
-                                       }
-                                     } catch(e) {}
-                                   }} className="p-2 bg-amber-50 text-amber-500 rounded-lg hover:bg-amber-500 hover:text-white transition-all"><Clock size={16}/></button>
-
-                                  <button title="Modify" onClick={() => {
-                                    if (activeSubTab === 'reports' && reportsType === 'posts') {
-                                        onEditPost(item);
-                                    } else {
-                                        addToast("Modifying is only direct for posts right now");
-                                    }
-                                  }} className="p-2 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all"><Edit3 size={16}/></button>
-
-                                  <button title="Delete" onClick={async () => {
-                                    if (activeSubTab === 'reports' && reportsType === 'posts') {
-                                        if (item.status === 'Deleted') {
-                                            const res = await Swal.fire({
-                                                title: 'Permanent Delete?',
-                                                text: 'Delete this post permanently from Firestore?',
-                                                icon: 'error',
+              <div className="overflow-x-auto min-h-[400px]">
+                  <table className="w-full text-left border-separate border-spacing-y-4">
+                     <thead>
+                        <tr className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                           <th className="pb-4 pl-8 font-black">Context & Interaction</th>
+                           <th className="pb-4 font-black">Status & Identification</th>
+                           <th className="pb-4 text-right pr-8 font-black">Administrative Actions</th>
+                        </tr>
+                     </thead>
+                     <tbody className="space-y-4">
+                        {(activeSubTab === 'reports' ? (reportsType === 'posts' ? posts : allProblems) : suggestions)
+                          .filter(item => {
+                             if (reportsFilter === 'All') return true;
+                             if (reportsFilter === 'Pending') return !item.status || item.status === 'pending';
+                             return (item.status || '').toLowerCase() === reportsFilter.toLowerCase();
+                          })
+                          .map((item, idx) => (
+                             <motion.tr 
+                               initial={{ opacity: 0, y: 10 }} 
+                               animate={{ opacity: 1, y: 0 }} 
+                               transition={{ delay: idx * 0.05 }}
+                               key={item.id} 
+                               className={`group bg-white rounded-[32px] overflow-hidden shadow-sm hover:shadow-xl hover:scale-[1.01] transition-all border border-slate-100 ${activeSubTab === 'suggestions' ? 'border-l-4 border-l-amber-400 bg-amber-50/10' : ''}`}
+                             >
+                                <td className="py-6 pl-8">
+                                   <div className="flex items-center gap-4 mb-4">
+                                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${
+                                        activeSubTab === 'suggestions' ? 'bg-amber-100 text-amber-600' :
+                                        reportsType === 'posts' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'
+                                      }`}>
+                                         {item.photoURL ? <img src={item.photoURL} className="w-full h-full object-cover rounded-2xl" /> : <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-300"><User size={20}/></div>}
+                                      </div>
+                                      <div>
+                                         <h5 className="font-black text-slate-800 text-[15px] leading-tight mb-1">
+                                            {item.userName || item.name || 'Portal User'}
+                                         </h5>
+                                         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none flex items-center gap-2">
+                                            <Mail size={10}/> {item.userEmail || item.userId || 'Citizen Entry'}
+                                         </p>
+                                      </div>
+                                   </div>
+                                   <div className={`p-5 rounded-2xl border ${activeSubTab === 'suggestions' ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
+                                      <p className="text-[12px] text-slate-700 font-bold leading-relaxed italic">
+                                        "{item.msg || item.content || item.text || item.problem || item.suggestion}"
+                                      </p>
+                                   </div>
+                                </td>
+                                <td className="py-6">
+                                   <div className="space-y-4">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                         <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                                           item.status === 'Approved' || item.status === 'Resolved' || item.status === 'solved' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 
+                                           item.status === 'flagged' ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-amber-50 border-amber-100 text-amber-600'
+                                         }`}>
+                                            {item.status || 'Processing'}
+                                         </span>
+                                         <span className="text-[10px] font-black text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full uppercase tracking-widest flex items-center gap-1.5">
+                                            <Hash size={12}/> {item.category || (activeSubTab === 'suggestions' ? 'SUUCHANA (SUGGESTION)' : 'GENERAL')}
+                                         </span>
+                                      </div>
+                                      <div className="flex items-center gap-2.5 text-slate-400 pl-2">
+                                         <Clock size={14}/>
+                                         <span className="text-[11px] font-black uppercase tracking-tighter">
+                                            {new Date(getValidTime(item)).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                         </span>
+                                      </div>
+                                   </div>
+                                </td>
+                                <td className="py-6 text-right pr-8">
+                                   <div className="flex justify-end gap-2.5">
+                                      <button 
+                                        onClick={async () => {
+                                          try {
+                                             const col = activeSubTab === 'reports' ? (reportsType === 'posts' ? 'posts' : 'problems') : 'suggestions';
+                                             await updateDoc(doc(db, col, item.id), { status: 'Approved' });
+                                             addToast("Access Authorized");
+                                          } catch(e: any) { addToast(e.message); }
+                                        }}
+                                        className="w-11 h-11 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all shadow-sm group-hover:shadow-md"
+                                        title="Approve"
+                                      >
+                                         <CheckCircle2 size={20}/>
+                                      </button>
+                                      
+                                      <button 
+                                        onClick={() => {
+                                           if (activeSubTab === 'reports' && reportsType === 'posts') {
+                                              onEditPost(item);
+                                           } else {
+                                              Swal.fire({
+                                                title: 'Quick Signal Override',
+                                                input: 'textarea',
+                                                inputLabel: 'Modify Public Message',
+                                                inputValue: item.msg || item.content || item.text || item.problem || item.suggestion,
                                                 showCancelButton: true,
-                                                confirmButtonText: 'Yes, Hard Delete',
-                                                confirmButtonColor: '#ef4444'
-                                            });
-                                            if (res.isConfirmed) {
-                                                try {
-                                                    await deleteDoc(doc(db, 'posts', item.id));
-                                                    addToast("Permanently Deleted");
-                                                } catch (e: any) {
-                                                    addToast("Error: " + e.message);
-                                                }
-                                            }
-                                        } else {
-                                            const res = await Swal.fire({
-                                                title: 'Soft Delete?',
-                                                text: 'Archive this post? (Soft Delete)',
-                                                icon: 'warning',
-                                                showCancelButton: true,
-                                                confirmButtonText: 'Yes, Move to Archive'
-                                            });
-                                            if (res.isConfirmed) {
-                                                try {
-                                                    await updateDoc(doc(db, 'posts', item.id), { 
-                                                        status: 'Deleted',
-                                                        deletedAt: Date.now(),
-                                                        deletedBy: auth.currentUser?.email
-                                                    });
-                                                    addToast("Moved to Archive");
-                                                } catch (e: any) {
-                                                    addToast("Error: " + e.message);
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        try {
-                                            if (activeSubTab === 'suggestions') {
-                                                await deleteDoc(doc(db, 'suggestions', item.id));
-                                                addToast("Suggestion Deleted");
-                                            } else {
-                                                await deleteDoc(doc(db, 'problems', item.id));
-                                                addToast("Problem Deleted");
-                                            }
-                                        } catch(e: any) {
-                                            addToast("Error: " + e.message);
-                                            handleFirestoreError(e, OperationType.DELETE, activeSubTab === 'suggestions' ? `suggestions/${item.id}` : `problems/${item.id}`);
-                                        }
-                                    }
-                                  }} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16}/></button>
-                                </div>
-                            </td>
-                         </tr>
-                       ))}
-                    </tbody>
-                 </table>
-              </div>
-           </div>
+                                                confirmButtonColor: '#2563eb'
+                                              }).then(async (res) => {
+                                                 if (res.isConfirmed && res.value) {
+                                                   const col = activeSubTab === 'reports' ? (reportsType === 'posts' ? 'posts' : 'problems') : 'suggestions';
+                                                   const field = item.msg ? 'msg' : (item.problem ? 'problem' : (item.content ? 'content' : 'text'));
+                                                   await updateDoc(doc(db, col, item.id), { [field]: res.value });
+                                                   addToast("Signal Synchronized");
+                                                 }
+                                              });
+                                           }
+                                        }}
+                                        className="w-11 h-11 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                        title="Shift Content"
+                                      >
+                                         <Edit3 size={20}/>
+                                      </button>
+
+                                      <button 
+                                        onClick={async () => {
+                                           const res = await Swal.fire({
+                                             title: 'Purge Item?',
+                                             text: 'This action will permanently remove the log from local records.',
+                                             icon: 'warning',
+                                             showCancelButton: true,
+                                             confirmButtonColor: '#ef4444',
+                                             confirmButtonText: 'Yes, Purge'
+                                           });
+                                           if (res.isConfirmed) {
+                                              try {
+                                                const col = activeSubTab === 'reports' ? (reportsType === 'posts' ? 'posts' : 'problems') : 'suggestions';
+                                                await deleteDoc(doc(db, col, item.id));
+                                                addToast("Target Purged");
+                                              } catch(e: any) { addToast(e.message); }
+                                           }
+                                        }}
+                                        className="w-11 h-11 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                                        title="Eliminate"
+                                      >
+                                         <Trash2 size={20}/>
+                                      </button>
+                                   </div>
+                                </td>
+                             </motion.tr>
+                          ))}
+                     </tbody>
+                  </table>
+               </div>
+            </div>
         )}
-
         {activeSubTab === 'users' && (
-           <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                 {allUsers.map(u => (
-                   <motion.div 
-                     layout
-                     key={u.id}
-                     className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl shadow-slate-100/40 relative overflow-hidden group"
-                   >
-                     <div className="absolute top-0 right-0 p-4">
-                        <button onClick={() => deleteUser(u.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
-                     </div>
-                     <div className="flex items-start gap-4 mb-6 pt-2">
-                        <div className="w-14 h-14 bg-slate-100 rounded-2xl shrink-0 flex items-center justify-center overflow-hidden">
-                           {u.photoURL ? <img src={u.photoURL} className="w-full h-full object-cover" /> : <User size={24} className="text-slate-300" />}
-                        </div>
-                        <div>
-                           <h4 className="font-black text-primary text-sm mb-1">
-                              {u.name || u.surname ? `${u.name || ''} ${u.surname || ''}`.trim() : (u.email ? u.email.split('@')[0] : 'Unknown User')}
-                           </h4>
-                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                              {u.username ? `@${u.username}` : (u.email || u.id)}
-                           </p>
-                        </div>
-                     </div>
-                     
-                     <div className="space-y-4">
-                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-400">
-                           <span>Access Level</span>
-                           <span className={`px-2 py-0.5 rounded-full ${u.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>{u.role || 'User'}</span>
-                        </div>
-                        <select 
-                          value={u.role || 'user'}
-                          onChange={async (e) => {
-                            try {
-                              await updateDoc(doc(db, 'users', u.id), { role: e.target.value });
-                              addToast("Role Authorization Updated");
-                            } catch (err) { handleFirestoreError(err, OperationType.WRITE, `users/${u.id}`); }
-                          }}
-                          className="w-full !mb-0 bg-slate-50 border-slate-100 text-[11px] font-black uppercase tracking-widest p-3 rounded-xl focus:border-blue-500 outline-none transition-all cursor-pointer"
-                        >
-                           <option value="user">USER</option>
-                           <option value="moderator">MODERATOR</option>
-                           <option value="editor">EDITOR</option>
-                           <option value="admin">SYSTEM ADMIN</option>
-                           <option value="suspended">SUSPENDED (BLOCK)</option>
-                        </select>
-                        <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location: {u.village || 'Undefined'}</div>
-                           <button onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)} className="text-[10px] font-black text-blue-500 uppercase hover:underline">View Full File</button>
-                        </div>
-                        {expandedUser === u.id && (
-                           <div className="pt-4 border-t border-slate-50 grid grid-cols-2 gap-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">
-                              <div><span className="text-slate-400 block mb-1">Gender</span>{u.gender || 'N/A'}</div>
-                              <div><span className="text-slate-400 block mb-1">Mobile</span>{u.mobile || 'N/A'}</div>
-                              <div><span className="text-slate-400 block mb-1">Email</span>{u.email || 'N/A'}</div>
-                              <div><span className="text-slate-400 block mb-1">State</span>{u.state || 'N/A'}</div>
-                              <div><span className="text-slate-400 block mb-1">District</span>{u.district || 'N/A'}</div>
-                              <div><span className="text-slate-400 block mb-1">Mandal</span>{u.mandal || 'N/A'}</div>
-                              <div><span className="text-slate-400 block mb-1">Office</span>{u.office || 'N/A'}</div>
-                              <div className="col-span-2"><span className="text-slate-400 block mb-1">Bio</span><span className="normal-case text-slate-600 line-clamp-3 leading-relaxed">{u.bio || 'N/A'}</span></div>
-                           </div>
-                        )}
-                     </div>
-                   </motion.div>
-                 ))}
+           <div className="space-y-8 pb-20">
+              <div className="flex bg-slate-100/50 p-2 rounded-3xl w-fit border border-slate-100 shadow-inner">
+                <button 
+                  onClick={() => setUserViewMode('access')}
+                  className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${userViewMode === 'access' ? 'bg-indigo-900 text-white shadow-xl shadow-indigo-100 scale-105' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  🛡️ Access Control
+                </button>
+                <button 
+                  onClick={() => setUserViewMode('directory')}
+                  className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${userViewMode === 'directory' ? 'bg-indigo-900 text-white shadow-xl shadow-indigo-100 scale-105' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  📋 Member Directory
+                </button>
               </div>
+
+              {userViewMode === 'access' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                   {users.map(u => (
+                     <motion.div 
+                       layout
+                       key={u.id}
+                       className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl shadow-slate-100/40 relative overflow-hidden group"
+                     >
+                        <div className="absolute top-0 right-0 p-4 flex gap-2">
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const nextRole = u.role === 'suspended' ? 'user' : 'suspended';
+                                await updateDoc(doc(db, 'users', u.id), { role: nextRole });
+                                addToast(nextRole === 'suspended' ? "User Access Restricted" : "User Access Restored");
+                                
+                                await addDoc(collection(db, 'security_logs'), {
+                                  admin: auth.currentUser?.email || 'System',
+                                  action: `${nextRole === 'suspended' ? 'Blocked' : 'Unblocked'} User: ${u.email || u.id}`,
+                                  time: Date.now()
+                                });
+                              } catch (e: any) { addToast(e.message); }
+                            }} 
+                            title={u.role === 'suspended' ? "Unblock User" : "Block User"}
+                            className={`p-2 rounded-lg transition-colors ${u.role === 'suspended' ? 'text-red-500 bg-red-50 animate-pulse' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'}`}
+                          >
+                            <ShieldAlert size={16}/>
+                          </button>
+                          <button 
+                            onClick={async () => {
+                              try {
+                                await updateDoc(doc(db, 'users', u.id), { hidden: !u.hidden });
+                                addToast(u.hidden ? "Profile Restored" : "Profile Hidden");
+                              } catch (e: any) { addToast(e.message); }
+                            }} 
+                            title={u.hidden ? "Show Profile" : "Hide Profile"}
+                            className={`p-2 rounded-lg transition-colors ${u.hidden ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-blue-500 hover:bg-slate-50'}`}
+                          >
+                            {u.hidden ? <EyeOff size={16}/> : <Eye size={16}/>}
+                          </button>
+                          <button onClick={() => deleteUser(u.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                        </div>
+                        <div className="flex items-start gap-4 mb-6 pt-2">
+                          <div className={`w-14 h-14 bg-slate-100 rounded-2xl shrink-0 flex items-center justify-center overflow-hidden border-2 shadow-sm transition-all ${u.role === 'suspended' ? 'grayscale border-red-200 scale-95' : 'border-white'}`}>
+                             {u.photoURL ? <img src={u.photoURL} className="w-full h-full object-cover" /> : <User size={24} className="text-slate-300" />}
+                          </div>
+                          <div>
+                             <h4 className="font-black text-primary text-sm mb-1 flex items-center gap-2">
+                                {u.name || u.surname ? `${u.name || ''} ${u.surname || ''}`.trim() : (u.email ? u.email.split('@')[0] : 'Unknown User')}
+                                {u.hidden && <span className="bg-amber-100 text-amber-600 text-[8px] px-1.5 py-0.5 rounded-full uppercase font-black">Hidden</span>}
+                                {u.role === 'suspended' && <span className="bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded-full uppercase font-black animate-pulse">Blocked</span>}
+                             </h4>
+                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                {u.username ? `@${u.username}` : (u.email || u.id)}
+                             </p>
+                          </div>
+                       </div>
+                       
+                       <div className="space-y-4">
+                          <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-400">
+                             <span>Access Level</span>
+                             <span className={`px-2 py-0.5 rounded-full ${u.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>{u.role || 'User'}</span>
+                          </div>
+                          <select 
+                            value={u.role || 'user'}
+                            onChange={async (e) => {
+                              try {
+                                await updateDoc(doc(db, 'users', u.id), { role: e.target.value });
+                                addToast("Role Authorization Updated");
+                              } catch (err) { handleFirestoreError(err, OperationType.WRITE, `users/${u.id}`); }
+                            }}
+                            className="w-full !mb-0 bg-slate-50 border-slate-100 text-[11px] font-black uppercase tracking-widest p-3 rounded-xl focus:border-blue-500 outline-none transition-all cursor-pointer"
+                          >
+                             <option value="user">USER</option>
+                             <option value="moderator">MODERATOR</option>
+                             <option value="editor">EDITOR</option>
+                             <option value="admin">SYSTEM ADMIN</option>
+                             <option value="suspended">SUSPENDED (BLOCK)</option>
+                          </select>
+
+                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                             <div className="flex flex-col">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Profile Visibility</span>
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{u.hidden ? 'Hidden from Directory' : 'Visible to Public'}</span>
+                             </div>
+                             <button 
+                               onClick={async () => {
+                                 try {
+                                   await updateDoc(doc(db, 'users', u.id), { hidden: !u.hidden });
+                                   addToast(u.hidden ? "Profile Restored to Directory" : "Profile Hidden from Directory");
+                                 } catch (e: any) { addToast(e.message); }
+                               }}
+                               className={`w-12 h-6 rounded-full p-1 transition-all duration-300 ${u.hidden ? 'bg-slate-200' : 'bg-emerald-500 shadow-lg shadow-emerald-500/20'}`}
+                             >
+                                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ${u.hidden ? 'translate-x-0' : 'translate-x-6'}`} />
+                             </button>
+                          </div>
+
+                          <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                             <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location: {u.mandal ? `${u.mandal}, ${u.district}` : (u.village || 'Undefined')}</div>
+                             <button onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)} className="text-[10px] font-black text-blue-500 uppercase hover:underline">View Full File</button>
+                          </div>
+                          {expandedUser === u.id && (
+                             <div className="pt-4 border-t border-slate-50 grid grid-cols-2 gap-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">
+                                <div><span className="text-slate-400 block mb-1">Gender</span>{u.gender || 'N/A'}</div>
+                                <div><span className="text-slate-400 block mb-1">Mobile</span>{u.mobile || 'N/A'}</div>
+                                <div><span className="text-slate-400 block mb-1">Email</span>{u.email || 'N/A'}</div>
+                                <div><span className="text-slate-400 block mb-1">State</span>{u.state || 'N/A'}</div>
+                                <div><span className="text-slate-400 block mb-1">District</span>{u.district || 'N/A'}</div>
+                                <div><span className="text-slate-400 block mb-1">Mandal</span>{u.mandal || 'N/A'}</div>
+                                <div className="col-span-2"><span className="text-slate-400 block mb-1">Village/Town</span>{u.village || 'N/A'}</div>
+                                <div><span className="text-slate-400 block mb-1">Office</span>{u.office || u.village || (u.mandal ? `${u.mandal} Office` : 'N/A')}</div>
+                                <div className="col-span-2"><span className="text-slate-400 block mb-1">Bio</span><span className="normal-case text-slate-600 line-clamp-3 leading-relaxed">{u.bio || 'Professional PR/RD Member'}</span></div>
+                             </div>
+                          )}
+                       </div>
+                     </motion.div>
+                   ))}
+                </div>
+              ) : (
+                <DirectorySection allUsers={users.filter(u => !u.hidden && u.role !== 'suspended')} />
+              )}
            </div>
         )}
 
         {activeSubTab === 'updates' && (
-          <div className="space-y-10">
-            <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100 shadow-inner">
-               <h4 className="text-sm font-black text-primary uppercase mb-6 flex items-center gap-2">
-                  <Zap size={18} className="text-amber-500" /> Broadcast New Flash Update
+          <div className="space-y-10 pb-20">
+            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/5 relative overflow-hidden">
+               <div className="absolute top-0 right-0 p-8 opacity-5">
+                  <Zap size={120} className="text-amber-500 fill-amber-500" />
+               </div>
+               <h4 className="text-xl font-black text-slate-800 tracking-tight mb-2 flex items-center gap-3">
+                  <span className="w-10 h-10 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center"><Zap size={20} /></span>
+                  Broadcast Live Intelligence
                </h4>
+               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-8 pr-20">Instant network-wide transmission system. Messages appear on citizen terminals immediately.</p>
+               
                <form 
                   onSubmit={async (e) => {
                     e.preventDefault();
@@ -2365,36 +2882,77 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                     const text = f.text.value;
                     if(!text) return;
                     try {
-                      await addDoc(collection(db, 'updates'), { text, time: Date.now() });
+                      await addDoc(collection(db, 'updates'), { text, time: Date.now(), type: 'flash', status: 'visible' });
                       f.reset();
-                      addToast("Global Update Transmitted");
+                      addToast("Intelligence Transmitted");
                     } catch (err) { handleFirestoreError(err, OperationType.WRITE, 'updates'); }
                   }}
-                  className="flex flex-col sm:flex-row gap-4"
+                  className="flex flex-col sm:flex-row gap-4 relative z-10"
                >
-                  <input name="text" placeholder="Type the breaking news here..." className="flex-1 !mb-0 p-4 rounded-2xl border-slate-200 focus:border-blue-500 shadow-md" />
-                  <button className="bg-primary text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20">Transmit</button>
+                  <input name="text" placeholder="Enter flash bulletin content..." className="flex-1 !mb-0 p-5 rounded-[24px] border-slate-100 bg-slate-50 focus:bg-white focus:border-amber-400 shadow-inner text-sm font-bold placeholder:text-slate-300 transition-all" />
+                  <button className="bg-amber-500 hover:bg-amber-600 text-white px-12 py-5 rounded-[24px] font-black uppercase text-[11px] tracking-widest shadow-xl shadow-amber-200 active:scale-95 transition-all">Transmit</button>
                </form>
             </div>
 
             <div className="space-y-4">
-               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-2">Active Transmissions</h4>
+               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] px-2">Active Signal Feed</h4>
                <div className="grid gap-4">
-                  {updates.map(u => (
-                    <div key={u.id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center group hover:border-blue-200 transition-colors">
-                       <div className="flex items-center gap-4">
-                          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                          <p className="text-sm font-bold text-slate-700">{u.text}</p>
+                  {updates.filter(u => u.type === 'flash' || !u.type).map((u, idx) => (
+                    <div key={u.id || `upd-${idx}`} className={`bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center group hover:border-blue-200 transition-all ${u.status === 'hidden' ? 'opacity-50 grayscale bg-slate-50 border-dashed' : ''}`}>
+                       <div className="flex items-center gap-4 flex-1">
+                          <div className={`w-2 h-2 rounded-full ${u.status === 'hidden' ? 'bg-slate-400' : 'bg-blue-500 animate-pulse'}`} />
+                          <div className="flex-1">
+                            <input 
+                              defaultValue={u.text} 
+                              onBlur={async (e) => {
+                                if (e.target.value !== u.text) {
+                                  try {
+                                    await updateDoc(doc(db, 'updates', u.id), { text: e.target.value });
+                                    addToast("Transmission Modified");
+                                  } catch(e: any) { addToast(e.message); }
+                                }
+                              }}
+                              className="text-sm font-bold text-slate-700 bg-transparent border-none outline-none focus:ring-0 w-full cursor-text"
+                            />
+                          </div>
                        </div>
-                       <button 
-                         onClick={async () => {
-                           await deleteDoc(doc(db, 'updates', u.id));
-                           addToast("Transmission Terminated");
-                         }}
-                         className="opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                       >
-                          <Trash2 size={16} />
-                       </button>
+                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const nextStatus = u.status === 'hidden' ? 'visible' : 'hidden';
+                                await updateDoc(doc(db, 'updates', u.id), { status: nextStatus });
+                                addToast(nextStatus === 'hidden' ? "Transmission Paused" : "Transmission Live");
+                              } catch(e: any) { addToast(e.message); }
+                            }}
+                            className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                            title={u.status === 'hidden' ? "Make Visible" : "Hide From Public"}
+                          >
+                             {u.status === 'hidden' ? <Eye size={16} /> : <EyeOff size={16} />}
+                          </button>
+                          <button 
+                            onClick={() => {
+                              Swal.fire({
+                                title: 'Delete Transmission?',
+                                text: "This will permanently remove the flash news.",
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#ef4444',
+                                confirmButtonText: 'Yes, Purge it!'
+                              }).then(async (result) => {
+                                if (result.isConfirmed) {
+                                  try {
+                                    await deleteDoc(doc(db, 'updates', u.id));
+                                    addToast("Transmission Purged");
+                                  } catch(e: any) { handleFirestoreError(e, OperationType.DELETE, `updates/${u.id}`); }
+                                }
+                              });
+                            }}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          >
+                             <Trash2 size={16} />
+                          </button>
+                       </div>
                     </div>
                   ))}
                </div>
@@ -2403,36 +2961,239 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
         )}
 
         {activeSubTab === 'logs' && (
-           <div className="space-y-6">
-              <div className="bg-slate-900 rounded-3xl p-2 overflow-hidden shadow-2xl">
-                 <table className="w-full text-left text-white/80 border-collapse">
-                    <thead className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 bg-white/5">
-                       <tr>
-                          <th className="p-5 font-black">Audit ID</th>
-                          <th className="p-5 font-black">Admin Identity</th>
-                          <th className="p-5 font-black">Interaction Event</th>
-                          <th className="p-5 font-black">Timestamp</th>
-                          <th className="p-5 font-black">System Response</th>
-                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5 text-[11px] font-medium">
-                       {logsError ? (
-                         <tr><td colSpan={5} className="p-20 text-center text-white/20 font-black uppercase tracking-widest">Access Restricted to Global Security Layer</td></tr>
-                       ) : (
-                         logs.map(log => (
-                           <tr key={log.id} className="hover:bg-white/5 transition-colors">
-                              <td className="p-5 font-mono text-blue-400">#{log.id?.substring(0,6)}</td>
-                              <td className="p-5">{log.admin || 'System Admin'}</td>
-                              <td className="p-5">
-                                 <span className="px-2 py-1 bg-white/5 rounded-md border border-white/10 uppercase text-[9px] font-black">{log.action || 'Event'}</span>
-                              </td>
-                              <td className="p-5 text-white/40">{new Date(getValidTime(log)).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</td>
-                              <td className="p-5 text-green-500">AUTHORIZED</td>
-                           </tr>
-                         ))
-                       )}
-                    </tbody>
-                 </table>
+           <div className="space-y-8 pb-20">
+              {/* Administrative Security Section */}
+              <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-6">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shadow-inner">
+                      <Shield size={24} />
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-black text-slate-900 tracking-tight">Administrative Audits</h4>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Master Control Logs</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => exportLogsToCSV()}
+                    className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg active:scale-95 w-full sm:w-auto"
+                  >
+                    <Download size={14} /> Export Admin CSV
+                  </button>
+                </div>
+
+                <div className="bg-[#0f1115] rounded-[24px] p-2 overflow-hidden shadow-2xl border border-white/5">
+                   <div className="overflow-x-auto">
+                      <table className="w-full text-left text-white/80 border-collapse">
+                         <thead className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 bg-white/[0.02]">
+                            <tr>
+                               <th className="p-6 font-black border-b border-white/5 uppercase">Trace ID</th>
+                               <th className="p-6 font-black border-b border-white/5 uppercase">Admin Email</th>
+                               <th className="p-6 font-black border-b border-white/5 uppercase">Action Token</th>
+                               <th className="p-6 font-black border-b border-white/5 uppercase">Temporal Sync</th>
+                               <th className="p-6 font-black border-b border-white/5 uppercase text-right">Status</th>
+                            </tr>
+                         </thead>
+                         <tbody className="divide-y divide-white/5 text-[11px] font-medium font-mono">
+                            {logsError ? (
+                              <tr><td colSpan={5} className="p-12 text-center text-white/10 font-bold uppercase tracking-widest">Access Restricted</td></tr>
+                            ) : (
+                               logs.filter(log => !!log.admin && ['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(log.admin)).length > 0 ? (
+                                 logs.filter(log => !!log.admin && ['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(log.admin)).map((log, lidx) => (
+                                  <tr key={`admin-log-${log.id || lidx}`} className="hover:bg-white/5 transition-all">
+                                     <td className="p-6 text-blue-400 font-black">#{log.id?.substring(0,8).toUpperCase()}</td>
+                                     <td className="p-6">
+                                        <div className="flex items-center gap-3">
+                                           <div className="w-1.5 h-6 rounded-full bg-amber-500" />
+                                           <span className="opacity-90">{log.admin}</span>
+                                        </div>
+                                     </td>
+                                     <td className="p-6">
+                                        <span className={`px-2.5 py-1 rounded-md border text-[9px] font-black uppercase tracking-wider ${
+                                          log.action?.toLowerCase().includes('delete') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 
+                                          'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                                        }`}>{log.action || 'Admin Event'}</span>
+                                     </td>
+                                     <td className="p-6 text-white/40">{new Date(getValidTime(log)).toLocaleString()}</td>
+                                     <td className="p-6 text-emerald-500 font-black tracking-tighter italic text-right">Verified</td>
+                                  </tr>
+                                ))
+                               ) : (
+                                 <tr><td colSpan={5} className="p-12 text-center text-white/5 font-black uppercase tracking-widest">No Administrative events discovered</td></tr>
+                               )
+                            )}
+                         </tbody>
+                      </table>
+                   </div>
+                </div>
+              </div>
+
+              {/* Public Activity Section */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner">
+                    <Users size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black text-slate-800 tracking-tight">Public Activity Logs</h4>
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em]">Citizen & Member Interaction History</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                   {logsError ? (
+                     <div className="col-span-full p-12 text-center bg-slate-50 rounded-[32px] text-slate-400 font-bold uppercase tracking-widest border-2 border-dashed border-slate-200">
+                        Access Restricted
+                     </div>
+                   ) : (
+                      logs.filter(log => !log.admin || !['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(log.admin)).length > 0 ? (
+                        logs.filter(log => !log.admin || !['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(log.admin)).map((log, lidx) => (
+                          <div key={`public-card-${log.id || lidx}`} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                             <div className="flex justify-between items-start mb-4">
+                               <div className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-wider rounded-full border border-emerald-100">
+                                 {log.action || 'Event'}
+                               </div>
+                               <span className="text-[10px] font-mono text-slate-300">#{log.id?.substring(0,6).toUpperCase()}</span>
+                             </div>
+                             <div className="space-y-2 mb-4">
+                               <div className="text-[13px] font-bold text-slate-800 break-all">
+                                 {log.userEmail || log.userId || 'Anonymous Citizen'}
+                               </div>
+                               <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                                 <Clock size={12} />
+                                 {new Date(getValidTime(log)).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                               </div>
+                             </div>
+                             <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                               <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest italic">Verified Log</span>
+                               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                             </div>
+                          </div>
+                       ))
+                      ) : (
+                        <div className="col-span-full p-12 text-center bg-slate-50 rounded-[32px] text-slate-400 font-bold uppercase tracking-widest border-2 border-dashed border-slate-200">
+                           No Citizen activity recorded
+                        </div>
+                      )
+                   )}
+                </div>
+              </div>
+           </div>
+        )}
+
+        {activeSubTab === 'changelog' && (
+           <div className="space-y-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xl font-black text-primary mb-2">🚀 What's New Management</h4>
+                  <p className="text-xs text-slate-400 font-medium tracking-tight">Manage the "What's New" (changelog) entries for citizens.</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    Swal.fire({
+                      title: 'Post New Update',
+                      input: 'textarea',
+                      inputLabel: 'Update Content',
+                      inputPlaceholder: 'Enter the update text...',
+                      showCancelButton: true,
+                      confirmButtonText: 'Post Update',
+                      confirmButtonColor: '#2563eb',
+                      inputValidator: (value) => {
+                        if (!value) return 'You need to write something!';
+                        return null;
+                      }
+                    }).then((result) => {
+                      if (result.isConfirmed && result.value) {
+                        addDoc(collection(db, 'updates'), {
+                          text: result.value,
+                          time: Date.now(),
+                          status: 'Approved',
+                          type: 'changelog'
+                        }).then(() => addToast("Update added successfully!"))
+                          .catch(err => handleFirestoreError(err, OperationType.CREATE, 'updates'));
+                      }
+                    });
+                  }}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:scale-105 transition-transform"
+                >
+                  Post New Update
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6">
+                {[...updates].filter(u => u.type === 'changelog' || u.status === 'Approved').sort((a:any, b:any) => (b.time || 0) - (a.time || 0)).map((upd: any) => (
+                  <div key={upd.id} className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition-shadow group">
+                    <div className="flex justify-between items-start gap-6">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {new Date(getValidTime(upd)).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">{upd.text}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => {
+                            Swal.fire({
+                              title: 'Edit Update',
+                              input: 'textarea',
+                              inputLabel: 'Update Content',
+                              inputValue: upd.text,
+                              showCancelButton: true,
+                              confirmButtonText: 'Save Changes',
+                              confirmButtonColor: '#2563eb',
+                              inputValidator: (value) => {
+                                if (!value) return 'Content cannot be empty!';
+                                return null;
+                              }
+                            }).then((result) => {
+                              if (result.isConfirmed && result.value !== upd.text) {
+                                updateDoc(doc(db, 'updates', upd.id), { text: result.value })
+                                  .then(() => addToast("Update modified successfully!"))
+                                  .catch(err => handleFirestoreError(err, OperationType.UPDATE, `updates/${upd.id}`));
+                              }
+                            });
+                          }}
+                          className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit3 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            Swal.fire({
+                              title: 'Delete Update?',
+                              text: "This will remove the entry from What's New timeline.",
+                              icon: 'warning',
+                              showCancelButton: true,
+                              confirmButtonColor: '#ef4444',
+                              confirmButtonText: 'Yes, Delete it!'
+                            }).then(async (result) => {
+                              if (result.isConfirmed) {
+                                try {
+                                  await deleteDoc(doc(db, 'updates', upd.id));
+                                  addToast("Update deleted.");
+                                } catch (err) {
+                                  handleFirestoreError(err, OperationType.DELETE, `updates/${upd.id}`);
+                                }
+                              }
+                            });
+                          }}
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {updates.length === 0 && (
+                  <div className="p-20 text-center border-2 border-dashed border-slate-100 rounded-[40px]">
+                    <Zap size={40} className="mx-auto text-slate-200 mb-4" />
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No updates published yet</p>
+                  </div>
+                )}
               </div>
            </div>
         )}
@@ -2457,10 +3218,50 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
 
                     <div className="space-y-2">
                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Security PIN (Level 1)</label>
-                       <input type="password" placeholder="••••" className="w-full !mb-0 bg-white border-slate-200 rounded-2xl p-4 font-black text-xl text-center tracking-[1em]" defaultValue="1234" maxLength={4} />
+                       <div className="relative">
+                          <input 
+                            id="pin-config-field"
+                            type={showPin ? "text" : "password"} 
+                            placeholder="••••" 
+                            className="w-full !mb-0 bg-white border-slate-200 rounded-2xl p-4 font-black text-xl text-center tracking-[1em]" 
+                            defaultValue={currentAdminPin} 
+                            maxLength={4} 
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => setShowPin(!showPin)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-primary transition-colors"
+                          >
+                            {showPin ? <EyeOff size={20} /> : <Eye size={20} />}
+                          </button>
+                       </div>
                     </div>
 
-                    <button className="w-full py-5 bg-primary text-white font-black rounded-2xl text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:opacity-90 transition-all">
+                    <button 
+                      onClick={async () => {
+                         const pin = (document.getElementById('pin-config-field') as HTMLInputElement)?.value;
+                         if (pin && pin.length === 4) {
+                            try {
+                               await setDoc(doc(db, 'settings', 'admin_config'), { 
+                                 pin,
+                                 updatedAt: Date.now()
+                               }, { merge: true });
+                               
+                               await addDoc(collection(db, 'security_logs'), { 
+                                 admin: auth.currentUser?.email || 'System Admin', 
+                                 action: 'Security PIN Modified', 
+                                 time: Date.now() 
+                               });
+                               
+                               setCurrentAdminPin(pin);
+                               addToast("System Configuration Encoded");
+                            } catch (e: any) { addToast(e.message); }
+                         } else {
+                            addToast("PIN must be 4 digits");
+                         }
+                      }}
+                      className="w-full py-5 bg-primary text-white font-black rounded-2xl text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:opacity-90 transition-all active:scale-95"
+                    >
                        Sync Global Configuration
                     </button>
                  </div>
@@ -2655,7 +3456,7 @@ function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => v
         )}
         {activeTool === 'multiday' && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '20px' }}>
-            <MultiDayAnalyzer addToast={addToast} />
+            <MultiDayAnalyzer addToast={addToast} user={user} />
           </motion.div>
         )}
         {activeTool === 'training' && (
@@ -2680,22 +3481,30 @@ function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => v
                 )}
              </AnimatePresence>
 
-             <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                {[1, 2, 3].map(step => (
-                  <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <div style={{ width: '40px', height: '40px', background: 'var(--primary)', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800' }}>{step}</div>
-                    <div style={{ flex: 1, background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                      <span style={{ fontWeight: 700 }}>Workflow Step {step}</span>
-                      <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>Detailed tutorial content for step {step} will appear here.</p>
-                    </div>
-                  </div>
-                ))}
-             </div>
+             {(!user || user.isAnonymous) ? (
+                <div className="bg-slate-50 border border-slate-200 p-8 rounded-3xl flex flex-col items-center justify-center text-center mt-6">
+                   <Lock className="w-16 h-16 text-slate-400 mb-4" />
+                   <h4 className="font-black text-2xl text-slate-800 mb-2">Full Access Required</h4>
+                   <p className="text-slate-500 max-w-md">Please log in to access the Digital Training content and workflows.</p>
+                </div>
+             ) : (
+                <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                   {[1, 2, 3].map(step => (
+                     <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                       <div style={{ width: '40px', height: '40px', background: 'var(--primary)', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800' }}>{step}</div>
+                       <div style={{ flex: 1, background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                         <span style={{ fontWeight: 700 }}>Workflow Step {step}</span>
+                         <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>Detailed tutorial content for step {step} will appear here.</p>
+                       </div>
+                     </div>
+                   ))}
+                </div>
+             )}
           </motion.div>
         )}
         {activeTool === 'pract' && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '20px' }}>
-            <PRActHub />
+            <PRActHub user={user} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -2721,7 +3530,7 @@ function FormsHub({ addToast, user }: { addToast: (s:string) => void, user: Fire
   }, []);
 
   const handleUpload = async () => {
-    if (!user) return addToast("Please login to upload forms.");
+    if (requireLoginAlert(user)) return;
     if (!formName.trim() || !formPurpose.trim() || !formUsage.trim()) return addToast("Please fill all details to upload.");
     setSubmitting(true);
     try {
@@ -2751,7 +3560,7 @@ function FormsHub({ addToast, user }: { addToast: (s:string) => void, user: Fire
         </div>
         <button 
           onClick={() => {
-            if (!user) return addToast("Please login to share a new form.");
+            if (requireLoginAlert(user)) return;
             setShowUpload(!showUpload);
           }} 
           className="bg-primary text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-primary-light transition-all"
@@ -2779,46 +3588,215 @@ function FormsHub({ addToast, user }: { addToast: (s:string) => void, user: Fire
         )}
       </AnimatePresence>
 
-      <div className="grid gap-4">
-        {forms.length === 0 ? (
-          <div className="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-            <p className="text-slate-400 font-bold">No forms uploaded yet.</p>
-          </div>
-        ) : (
-          forms.map(f => (
-            <div key={f.id} className="p-4 bg-white border border-slate-200 rounded-2xl hover:shadow-md transition-shadow group">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center font-black">
-                     📄
+      {(!user || user.isAnonymous) ? (
+         <div className="bg-slate-50 border border-slate-200 p-8 rounded-3xl flex flex-col items-center justify-center text-center mt-6">
+            <Lock className="w-16 h-16 text-slate-400 mb-4" />
+            <h4 className="font-black text-2xl text-slate-800 mb-2">Full Access Required</h4>
+            <p className="text-slate-500 max-w-md">Please log in to view the uploaded forms, instructions, and download the documents.</p>
+         </div>
+      ) : (
+        <div className="grid gap-4">
+          {forms.length === 0 ? (
+            <div className="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+              <p className="text-slate-400 font-bold">No forms uploaded yet.</p>
+            </div>
+          ) : (
+            forms.map(f => (
+              <div key={f.id} className="p-4 bg-white border border-slate-200 rounded-2xl hover:shadow-md transition-shadow group">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center font-black">
+                       📄
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 leading-tight">{f.name}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">By {f.userName}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => addToast("Starting download...")} className="p-2 bg-slate-50 hover:bg-primary hover:text-white text-slate-600 rounded-xl transition-all">
+                    <Download size={18} />
+                  </button>
+                </div>
+                <div className="space-y-2 pt-3 border-t border-slate-100">
+                  <div>
+                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Purpose</span>
+                    <p className="text-xs text-slate-600 font-medium">{f.purpose}</p>
                   </div>
                   <div>
-                    <h4 className="font-bold text-slate-800 leading-tight">{f.name}</h4>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">By {f.userName}</p>
+                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Usage Guide</span>
+                    <p className="text-xs text-slate-600 font-medium">{f.usage}</p>
                   </div>
                 </div>
-                <button onClick={() => addToast("Starting download...")} className="p-2 bg-slate-50 hover:bg-primary hover:text-white text-slate-600 rounded-xl transition-all">
-                  <Download size={18} />
-                </button>
               </div>
-              <div className="space-y-2 pt-3 border-t border-slate-100">
-                <div>
-                  <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Purpose</span>
-                  <p className="text-xs text-slate-600 font-medium">{f.purpose}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Usage Guide</span>
-                  <p className="text-xs text-slate-600 font-medium">{f.usage}</p>
-                </div>
-              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DirectorySection({ allUsers }: { allUsers: UserProfile[] }) {
+  const [q, setQ] = useState('');
+  const [distFilter, setDistFilter] = useState('');
+  const [mandalFilter, setMandalFilter] = useState('');
+  
+  const districts = [...new Set(allUsers.map(u => u.district).filter(Boolean))].sort() as string[];
+  const mandals = distFilter ? [...new Set(allUsers.filter(u => u.district === distFilter).map(u => u.mandal).filter(Boolean))].sort() as string[] : [];
+
+  const filtered = allUsers.filter(u => {
+    const term = q.toLowerCase();
+    const matchesSearch = (u.name || '').toLowerCase().includes(term) || 
+                         (u.surname || '').toLowerCase().includes(term) || 
+                         (u.designation || '').toLowerCase().includes(term);
+    
+    const matchesDist = !distFilter || u.district === distFilter;
+    const matchesMandal = !mandalFilter || u.mandal === mandalFilter;
+    
+    return matchesSearch && matchesDist && matchesMandal;
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="section-card card-blue !p-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-10"><Users size={100} /></div>
+        <h2 className="text-3xl font-black text-primary mb-2 flex items-center gap-3">
+           👥 సభ్యుల డైరెక్టరీ <span className="text-slate-400 text-sm font-bold">(Member Directory)</span>
+        </h2>
+        <p className="text-sm font-bold text-slate-500">పంచాయతీ రాజ్ మరియు గ్రామీణాభివృద్ధి అధికారుల వివరాలు.</p>
+        
+        <div className="mt-8 flex flex-col md:flex-row items-center gap-4">
+           <div className="flex-1 flex items-center gap-4 bg-white/50 backdrop-blur-sm p-4 rounded-3xl border border-white/20 shadow-inner w-full">
+              <Search size={20} className="text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="పేరు లేదా పోస్ట్ ద్వారా వెతకండి (Search by name or post...)" 
+                className="!bg-transparent !border-none !p-0 !m-0 focus:!ring-0 text-sm w-full font-bold text-primary placeholder:text-slate-400"
+                value={q}
+                onChange={e => setQ(e.target.value)}
+              />
+           </div>
+           
+           <div className="flex gap-3 w-full md:w-auto">
+              <select 
+                value={distFilter} 
+                onChange={e => { setDistFilter(e.target.value); setMandalFilter(''); }}
+                className="bg-white px-4 py-3 rounded-2xl border border-slate-200 text-[11px] font-black uppercase tracking-wider outline-none focus:ring-2 focus:ring-primary/20 transition-all min-w-[140px]"
+              >
+                 <option value="">అన్ని జిల్లాలు (All Districts)</option>
+                 {districts.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <select 
+                value={mandalFilter} 
+                onChange={e => setMandalFilter(e.target.value)}
+                disabled={!distFilter}
+                className="bg-white px-4 py-3 rounded-2xl border border-slate-200 text-[11px] font-black uppercase tracking-wider outline-none focus:ring-2 focus:ring-primary/20 transition-all min-w-[140px] disabled:opacity-50"
+              >
+                 <option value="">మండలం వారీగా (Mandal Wise)</option>
+                 {mandals.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filtered.length > 0 ? filtered.map(u => (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            key={u.id}
+            className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/20 group hover:border-primary/20 transition-all flex flex-col h-full"
+          >
+            <div className="flex items-start gap-4 mb-6">
+               <div className="w-16 h-16 rounded-2xl bg-slate-50 border-2 border-white shadow-md overflow-hidden shrink-0">
+                  {u.photoURL ? <img src={u.photoURL} alt={u.name} className="w-full h-full object-cover" /> : <User size={30} className="m-auto mt-3 text-slate-200" />}
+               </div>
+               <div className="flex-1 min-w-0">
+                  <h4 className="font-black text-primary text-base truncate leading-tight">
+                    {u.name || u.surname ? `${u.name || ''} ${u.surname || ''}`.trim() : 'Active Member'}
+                  </h4>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 truncate">
+                    {u.designation || 'PR Officer'}
+                  </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Active Verified</span>
+                  </div>
+               </div>
             </div>
-          ))
+
+            <div className="space-y-3 flex-1">
+               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                  <Building size={16} className="text-slate-400" />
+                  <div className="flex flex-col">
+                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Workplace</span>
+                     <span className="text-[11px] font-bold text-slate-700 leading-tight">
+                        {u.office || u.village || (u.mandal ? `${u.mandal} Office` : 'General Office')}
+                     </span>
+                  </div>
+               </div>
+               
+               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                  <Flag size={16} className="text-slate-400" />
+                  <div className="flex flex-col">
+                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Jurisdiction</span>
+                     <span className="text-[11px] font-bold text-slate-700 leading-tight">
+                        {u.mandal ? `${u.mandal}, ${u.district}` : (u.district || 'Undefined Area')}
+                     </span>
+                  </div>
+               </div>
+            </div>
+
+            <div className="mt-6 pt-5 border-t border-slate-50 flex items-center justify-between">
+               <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">Contact</span>
+                  <span className="text-[10px] font-bold text-slate-400">{u.mobile ? `+91 ${u.mobile.substring(0, 5)}...` : 'Not Public'}</span>
+               </div>
+               <button onClick={() => {
+                  Swal.fire({
+                    title: `<div class="font-black text-primary p-2">${u.name || ''} ${u.surname || ''}</div>`,
+                    html: `
+                      <div class="text-left space-y-4 p-4">
+                        <div class="flex flex-col gap-1">
+                          <span class="text-[10px] font-black text-slate-400 uppercase italic">Professional Status</span>
+                          <p class="text-sm font-bold text-slate-700 leading-relaxed">"${u.bio || 'Professional Public Representative dedicated to rural development and effective governance.'}"</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mt-6">
+                          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                             <span class="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Mandal</span>
+                             <span class="text-xs font-bold text-primary">${u.mandal || 'N/A'}</span>
+                          </div>
+                          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                             <span class="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Village</span>
+                             <span class="text-xs font-bold text-primary">${u.village || 'N/A'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    `,
+                    confirmButtonText: 'Great!',
+                    confirmButtonColor: '#0d3b66',
+                    customClass: {
+                      popup: 'rounded-[32px] border-none',
+                      confirmButton: 'rounded-2xl px-10 py-3 font-black uppercase text-xs'
+                    }
+                  });
+               }} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-primary transition-all shadow-lg active:scale-95">
+                  View Card
+               </button>
+            </div>
+          </motion.div>
+        )) : (
+          <div className="col-span-full py-20 text-center bg-white rounded-[32px] border-2 border-dashed border-slate-100">
+             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search size={24} className="text-slate-300" />
+             </div>
+             <h3 className="font-black text-slate-400 uppercase tracking-widest">No Members Found</h3>
+          </div>
         )}
       </div>
     </div>
   );
 }
-
 function StatusCell({ status }: { status: string }) {
   if (status === 'P-I') return <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black border border-emerald-200" title="Present (Intime: <= 9:00 AM)">✅ Attendance in time</span>;
   if (status === 'P-L') return <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-[10px] font-black border border-orange-200" title="Present (Late: > 9:00 AM)">⚠️ Late Attendance</span>;
@@ -2830,7 +3808,7 @@ function StatusCell({ status }: { status: string }) {
   return <span className="text-slate-300 font-bold">-</span>;
 }
 
-function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
+function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: any }) {
   const [aggregatedData, setAggregatedData] = useState<Map<string, { gp: string, mandal: string, district: string, division: string, mandalLgd: string, panchayatLgd: string, attendance: Record<string, string>, times: Record<string, string>, dsr: Record<string, boolean> }>>(new Map());
   const [allDates, setAllDates] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -3328,7 +4306,15 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
         </div>
       )}
 
-      {aggregatedData.size > 0 && allDates.length > 0 && (
+      {aggregatedData.size > 0 && allDates.length > 0 && (!user || user.isAnonymous) && (
+         <div className="bg-slate-50 border border-slate-200 p-8 rounded-3xl flex flex-col items-center justify-center text-center">
+            <Lock className="w-16 h-16 text-slate-400 mb-4" />
+            <h4 className="font-black text-2xl text-slate-800 mb-2">Full Access Required</h4>
+            <p className="text-slate-500 max-w-md">The file has been uploaded and processed successfully. Please log in to view the detailed table, analysis, and download the PDF/Excel reports.</p>
+         </div>
+      )}
+
+      {aggregatedData.size > 0 && allDates.length > 0 && user && !user.isAnonymous && (
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row gap-4 items-end px-2">
              <div className="flex-1 w-full">
@@ -3396,7 +4382,7 @@ function MultiDayAnalyzer({ addToast }: { addToast: (s:string) => void }) {
                     <th className="p-3 border border-indigo-700 w-12 text-sm text-center">S.No</th>
                     <th className="p-3 border border-indigo-700 text-sm" style={{ width: '7.9791px' }}>District Name</th>
                     <th className="p-3 border border-indigo-700 min-w-[120px] text-sm">Mandal Name</th>
-                    <th className="p-3 border border-indigo-700 min-w-[150px] text-sm">Panchayat Name</th>
+                    <th className="p-3 border border-indigo-700 min-w-[150px] text-sm" style={{ width: '276.092px' }}>Panchayat Name</th>
                     {sortedDates.map(d => (
                        <th key={d} className="p-3 border border-indigo-700 min-w-[120px] text-center text-sm">Attendance ({d})</th>
                     ))}
@@ -3834,7 +4820,15 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
         </label>
       </div>
 
-      {data.length > 0 && (
+      {data.length > 0 && (!user || user.isAnonymous) && (
+         <div className="bg-slate-50 border border-slate-200 p-8 rounded-3xl flex flex-col items-center justify-center text-center">
+            <Lock className="w-16 h-16 text-slate-400 mb-4" />
+            <h4 className="font-black text-2xl text-slate-800 mb-2">Full Access Required</h4>
+            <p className="text-slate-500 max-w-md">The DSR file has been uploaded and processed successfully. Please log in to view the detailed analysis, stats, and download the reports.</p>
+         </div>
+      )}
+
+      {data.length > 0 && user && !user.isAnonymous && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
             <button onClick={() => setActiveFilter(null)} className="text-left w-full"><StatCard label="Total" val={stats.total} color="blue" /></button>
@@ -4099,18 +5093,15 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
 
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
-    if (!auth.currentUser || auth.currentUser.isAnonymous) {
-      addToast("Login to comment");
-      return;
-    }
+    if (requireLoginAlert()) return;
     
     setSubmittingComment(true);
     try {
       await addDoc(collection(db, 'posts', post.id, 'comments'), {
         text: newComment,
         time: Date.now(),
-        uid: auth.currentUser.uid,
-        userName: auth.currentUser.email?.split('@')[0] || "User",
+        uid: auth.currentUser!.uid,
+        userName: auth.currentUser!.email?.split('@')[0] || "User",
       });
       setNewComment("");
       
@@ -4238,7 +5229,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
            <button 
              onClick={async () => {
                const userId = auth.currentUser?.uid;
-               if (!userId || auth.currentUser?.isAnonymous) return addToast("Login to like");
+               if (requireLoginAlert()) return;
                const likedBy = post.likedBy || [];
                if (likedBy.includes(userId)) {
                  await updateDoc(doc(db, 'posts', post.id), {
@@ -4502,7 +5493,7 @@ function ChatSection({ messages, user, addToast, userProfile }: { messages: Chat
 
   const send = async () => {
     if (!msg.trim()) return;
-    if (!user || user.isAnonymous) return addToast("Login to chat");
+    if (requireLoginAlert(user)) return;
     try {
       await addDoc(collection(db, 'chat'), { 
         msg, 
@@ -4572,7 +5563,16 @@ function KnowledgeHubSection() {
 }
 
 
-function PRActHub() {
+function PRActHub({ user }: { user: any }) {
+    if (!user || user.isAnonymous) {
+        return (
+           <div className="bg-slate-50 border border-slate-200 p-8 rounded-3xl flex flex-col items-center justify-center text-center mt-6">
+              <Lock className="w-16 h-16 text-slate-400 mb-4" />
+              <h4 className="font-black text-2xl text-slate-800 mb-2">Full Access Required</h4>
+              <p className="text-slate-500 max-w-md">Please log in to access the PR Act Hub documents and contents.</p>
+           </div>
+        );
+    }
     return <KnowledgeHubSection />;
 }
 
@@ -4726,18 +5726,15 @@ function PostComments({ post, addToast, userProfile }: { post: Post, addToast: (
 
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
-    if (!auth.currentUser || auth.currentUser.isAnonymous) {
-      addToast("Login to comment");
-      return;
-    }
+    if (requireLoginAlert()) return;
     
     setSubmittingComment(true);
     try {
       await addDoc(collection(db, 'posts', post.id, 'comments'), {
         text: newComment,
         time: Date.now(),
-        uid: auth.currentUser.uid,
-        userName: auth.currentUser.email?.split('@')[0] || "User",
+        uid: auth.currentUser!.uid,
+        userName: auth.currentUser!.email?.split('@')[0] || "User",
       });
       setNewComment("");
       
@@ -4826,6 +5823,7 @@ function AuthModal({ onClose, addToast, handleGoogleLogin }: { onClose: () => vo
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [designation, setDesignation] = useState('');
 
   const mandals = district ? TELANGANA_DATA[district] || [] : [];
 
@@ -4837,10 +5835,10 @@ function AuthModal({ onClose, addToast, handleGoogleLogin }: { onClose: () => vo
     try {
       if (!isSignup) {
         await signInWithEmailAndPassword(auth, email, password);
-        addToast("Welcome back!");
+        // dynamic greeting handled via profile listener
         onClose();
       } else {
-        if (!username || !email || !password || !name || !surname || !mobile || !district || !mandal) {
+        if (!username || !email || !password || !name || !surname || !mobile || !district || !mandal || !designation) {
           addToast("Please fill all required fields (*)");
           setLoading(false);
           return;
@@ -4882,12 +5880,23 @@ function AuthModal({ onClose, addToast, handleGoogleLogin }: { onClose: () => vo
           district,
           mandal,
           village,
+          designation,
           mobile,
           email,
           time: Date.now()
         });
 
-        addToast("Account created successfully!");
+        if (designation === 'Citizen') {
+          Swal.fire({
+            title: "సిటిజన్ గారికి నమస్కారం",
+            text: "ప్రస్తుతం ఈ వేదిక Webportal సిటిజన్ సర్వీస్ ఇంకా అందుబాటులోకి రాలేదు. రాగానే మీ మొబైల్ నెంబర్ కి మెసేజ్ లేదా ఇమెయిల్ ద్వారా మీకు సమాచారం ఇవ్వడం జరుగుతుంది.",
+            icon: "info",
+            confirmButtonText: "సరే (OK)",
+            confirmButtonColor: "#0d3b66"
+          });
+        } else {
+          addToast("Account created successfully!");
+        }
         onClose();
       }
     } catch (err: any) {
@@ -4987,6 +5996,11 @@ function AuthModal({ onClose, addToast, handleGoogleLogin }: { onClose: () => vo
                     <input value={village} onChange={e => setVillage(e.target.value)} placeholder="Enter Village" className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
                   </div>
                 </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Designation *</label>
+                  <input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Type Designation" required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
+                </div>
               </>
             )}
 
@@ -5054,6 +6068,7 @@ function SuggestionForm({ addToast, onCancel }: { addToast: (s: string) => void,
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async () => {
+    if (requireLoginAlert()) return;
     if (!name || !suggestion) {
       addToast("దయచేసి పేరు మరియు సూచన నింపండి");
       return;
