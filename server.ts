@@ -11,6 +11,12 @@ const PORT = Number(process.env.PORT) || 3000;
 
 // Serve static files from the '.dist' directory
 const distPath = path.resolve(__dirname, '.dist');
+
+// Intercept for Google site verification
+app.get('/google46d0fa093843f771.html', (req, res) => {
+  res.send('google-site-verification: google46d0fa093843f771.html');
+});
+
 app.use(express.static(distPath));
 
 // API routes can go here if needed in the future

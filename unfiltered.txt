@@ -1,0 +1,98 @@
+979:                    <button onClick={handleGoogleLogin} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl transition-all uppercase tracking-widest text-xs shadow-[0_0_20px_rgba(37,99,235,0.3)]">
+982:                    <button onClick={() => navigate('/')} className="mt-8 text-slate-500 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest border border-slate-800 px-6 py-2 rounded-xl">Return to Public Portal</button>
+991:                    <button onClick={() => auth.signOut()} className="w-full border border-slate-700 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-all text-xs mb-3 uppercase tracking-wider">Sign Out</button>
+992:                    <button onClick={() => navigate('/')} className="w-full text-slate-500 hover:text-slate-300 transition-colors text-[10px] uppercase tracking-widest font-bold">Return to Public Portal</button>
+1048:                <button onClick={() => navigate('/')} className="mt-8 text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest border border-slate-800 px-6 py-2 rounded-xl">Back to Portal</button>
+1112:             <button 
+1227:                    <button 
+1237:                    <button 
+1251:            <button 
+1278:          <button aria-label="Toggle Menu" className="menu-toggle shrink-0" onClick={() => setSidebarOpen(!sidebarOpen)}>
+1322:              <button 
+1341:                <button 
+1401:                                 <button aria-label="Clear Search" onClick={() => setSearchQuery('')} className="text-slate-300 hover:text-danger hover:scale-110 transition-all">
+1423:                      <button 
+1794:                        <button type="submit" className="w-full bg-primary text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform active:scale-95">
+1808:                  <button onClick={() => setCurrentTab('home')} className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors font-bold text-sm bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100">
+1835:                       <button className="w-full bg-danger text-white py-3 rounded-xl font-black shadow-md hover:opacity-90">Submit Report</button>
+2008:          <button aria-label="Close profile modal" onClick={onClose} className="absolute top-6 right-6 bg-slate-100 p-2 rounded-full hover:bg-slate-200 transition-colors">
+2118:                <button 
+2125:                <button 
+2136:              <button 
+2144:            <button 
+2376:              <button aria-label="Close menu" className="lg:hidden text-white/50 hover:text-white" onClick={() => setAdminMenuOpen(false)}>
+2392:                <button 
+2408:              <button onClick={onExit} className="w-full flex items-center gap-3 p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:bg-white/5 hover:text-white transition-all">
+2412:              <button onClick={() => setAdminLocked(true)} className="w-full flex items-center gap-3 p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-amber-400 hover:bg-amber-400/10 transition-all">
+2437:            <button className="lg:hidden p-3 bg-white text-slate-600 rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition-colors" onClick={() => setAdminMenuOpen(true)}>
+2456:               <button 
+2545:                    <button 
+2559:                      <button 
+2640:                                      <button 
+2654:                                      <button 
+2682:                                      <button 
+2732:                          <button 
+2751:                          <button 
+2763:                          <button aria-label="Delete user" onClick={() => deleteUser(u.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+2808:                             <button 
+2823:                             <button onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)} className="text-[10px] font-black text-blue-500 uppercase hover:underline">View Full File</button>
+2873:                  <button className="bg-amber-500 hover:bg-amber-600 text-white px-12 py-5 rounded-[24px] font-black uppercase text-[11px] tracking-widest shadow-xl shadow-amber-200 active:scale-95 transition-all">Transmit</button>
+2900:                          <button 
+2913:                          <button 
+2993:                <button 
+3039:                        <button 
+3065:                        <button 
+3133:                          <button 
+3143:                    <button 
+3180:                    <button className="p-6 bg-white border-2 border-slate-100 rounded-3xl flex items-center justify-between group hover:border-green-500 transition-all">
+3191:                    <button className="p-6 bg-white border-2 border-slate-100 rounded-3xl flex items-center justify-between group hover:border-amber-500 transition-all">
+3210:                    <button className="px-6 py-2.5 bg-red-600 text-white font-black text-[10px] rounded-xl uppercase tracking-widest shadow-lg shadow-red-600/20">Wipe Interaction Cache</button>
+3304:        <button 
+3369:                <button onClick={() => setShowTrainingBot(!showTrainingBot)} style={{ background: '#f1f5f9', border: 'none', padding: '5px 12px', borderRadius: '15px', color: 'var(--primary)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+3464:        <button 
+3485:                <button disabled={submitting} onClick={handleUpload} className="bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-2.5 rounded-xl disabled:opacity-50 text-sm transition-colors">
+3519:                  <button onClick={() => addToast("Starting download...")} className="p-2 bg-slate-50 hover:bg-primary hover:text-white text-slate-600 rounded-xl transition-all">
+3658:               <button onClick={() => {
+4244:                <button 
+4250:                <button 
+4275:               <button onClick={downloadMandalSummary} className="flex-1 bg-white border border-slate-100 p-5 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-2 shadow-sm hover:shadow-md">
+4279:               <button onClick={downloadGPSummary} className="flex-1 bg-white border border-slate-100 p-5 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-2 shadow-sm hover:shadow-md">
+4748:            <button onClick={() => setActiveFilter(null)} className="text-left w-full"><StatCard label="Total" val={stats.total} color="blue" /></button>
+4749:            <button onClick={() => setActiveFilter('P')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'P' ? 'ring-2 ring-emerald-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Present" val={stats.present} color="emerald" /></button>
+4750:            <button title="ఉదయం 9:00 కంటే ముందు విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('B9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'B9' ? 'ring-2 ring-indigo-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Attendance in time" val={stats.before901} color="indigo" /></button>
+4751:            <button title="ఉదయం 9:01 తర్వాత విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('A9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'A9' ? 'ring-2 ring-rose-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Late Attendance" val={stats.after900} color="rose" /></button>
+4752:            <button onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR" val={stats.dsr} color="blue" /></button>
+4753:            <button onClick={() => setActiveFilter('M')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'M' ? 'ring-2 ring-cyan-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Meeting" val={stats.meeting} color="cyan" /></button>
+4754:            <button onClick={() => setActiveFilter('T')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'T' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Training" val={stats.training} color="amber" /></button>
+4755:            <button onClick={() => setActiveFilter('L')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'L' ? 'ring-2 ring-slate-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Leave" val={stats.leave} color="slate" /></button>
+4759:             <button 
+4765:             <button 
+4771:             <button 
+4777:             <button 
+4872:                <button 
+4935:                  <button onClick={() => setActiveFilter(null)} className="hover:opacity-70"><XCircle size={12} /></button>
+4937:                <button onClick={() => setActiveFilter(null)} className="text-[9px] font-bold text-primary hover:underline uppercase">Clear Filter</button>
+5065:              <button 
+5084:                <button onClick={() => onEdit(post)} className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-primary transition-all rounded-lg" title="Edit"><Edit3 size={16} /></button>
+5085:                <button onClick={async () => {
+5149:        <button onClick={toggleExpansion} className="text-xs font-black text-primary uppercase underline underline-offset-4 mb-6 block">
+5166:           <button 
+5194:           <button onClick={() => setShowComments(!showComments)} className="flex items-center gap-2 group text-slate-400 hover:text-primary" title="Comments">
+5201:           <button 
+5228:              <button 
+5336:        <button type="button" onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors font-black text-lg">✕</button>
+5371:                    <button aria-label="Remove media"
+5400:      <button disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-all active:scale-95 mt-6 disabled:opacity-50" style={{ background: '#0d3b66' }}>
+5475:        <button onClick={send} className="bg-primary text-white p-3 rounded-xl" style={{ background: '#0d3b66' }}><Send size={18}/></button>
+5564:        <button onClick={onBack} className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-opacity-90 inline-flex items-center gap-2">
+5573:       <button onClick={onBack} className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-slate-500 hover:text-primary transition-colors font-bold text-sm w-fit group">
+5627:            <button 
+5702:             <button 
+5854:          <button aria-label="Close auth modal" onClick={onClose} className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors">
+5968:            <button 
+5985:              <button 
+5997:             <button 
+6059:           <button onClick={() => {
+6063:           <button onClick={onCancel} className="bg-slate-100 text-slate-600 py-4 rounded-2xl font-black hover:bg-slate-200">తిరిగి వెళ్ళండి</button>
+6074:        <button aria-label="Close suggestion form" onClick={onCancel} className="absolute top-6 right-6 p-2 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors">
+6113:          <button disabled={isSubmitting} onClick={handleSubmit} className="flex-1 bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98]">

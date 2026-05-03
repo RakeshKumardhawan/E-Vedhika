@@ -11,16 +11,29 @@ import {
   AlertTriangle, Send, LogOut, ChevronDown, ChevronUp, Search, Filter,
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
   Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, MessageSquare,
-  Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock, Shield,
-  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail
+  Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock, Shield, Pin,
+  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+// Lazy loaded modules
+let XLSX: any = null;
+let jsPDF: any = null;
+let autoTable: any = null;
+
+const loadHeavyModules = async () => {
+  if (!XLSX) XLSX = await import('xlsx');
+  if (!jsPDF) {
+    const j = await import('jspdf');
+    jsPDF = j.default || j.jsPDF;
+  }
+  if (!autoTable) {
+    const a = await import('jspdf-autotable');
+    autoTable = a.default;
+  }
+};
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie
 } from 'recharts';
@@ -97,12 +110,44 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   // Show the error in the console
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   
-  // We MUST throw or handle this so it shows up in the UI (we'll let the user know directly)
   if (lowerErr.includes('permission') || lowerErr.includes('insufficient')) {
       console.warn(`PERMISSION ERROR ON PATH: ${path}. User might need to update Firebase Security Rules for this collection.`);
-      // Optional: if we had access to addToast here we would, but throwing it at least stops silent failures
-      // that confuse debugging.
   }
+
+  // We MUST throw or handle this so it shows up in the UI (we'll let the user know directly)
+  throw new Error(JSON.stringify(errInfo));
+}
+
+function EVAnimatedLogo({ size = 64 }: { size?: number }) {
+  const scale = size / 64;
+  return (
+    <div className="logo-pro transition-transform hover:scale-105 active:scale-95 duration-200" style={{ transform: `scale(${scale})` }}>
+      <div className="logo-particles">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      
+      <svg viewBox="0 0 64 64" width="64" height="64">
+        <defs>
+          <linearGradient id="modal-g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#22c55e"/>
+            <stop offset="100%" stopColor="#0ea5e9"/>
+          </linearGradient>
+          <linearGradient id="modal-ringG" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#22c55e"/>
+            <stop offset="50%" stopColor="#facc15"/>
+            <stop offset="100%" stopColor="#0ea5e9"/>
+          </linearGradient>
+        </defs>
+        
+        <circle className="logo-ring" cx="32" cy="32" r="29" fill="none" stroke="url(#modal-ringG)" strokeWidth="2.5" strokeDasharray="10 5"/>
+        <circle cx="32" cy="32" r="25" fill="url(#modal-g)"/>
+        <circle cx="32" cy="32" r="21" fill="#0d3b66"/>
+        <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="900" fontFamily="Segoe UI">EV</text>
+      </svg>
+    </div>
+  );
 }
 
 export function requireLoginAlert(userObj?: any): boolean {
@@ -151,6 +196,7 @@ interface Post {
   time: number;
   uid: string;
   status?: string;
+  pinned?: boolean;
 }
 
 interface Comment {
@@ -350,9 +396,17 @@ body {
 .section-card {
   background: #fff;
   border-radius: 20px;
-  padding: 25px;
+  padding: 15px;
   box-shadow: var(--card-shadow);
-  margin-bottom: 25px;
+  margin-bottom: 20px;
+}
+@media (min-width: 640px) {
+  .section-card {
+    padding: 25px;
+    margin-bottom: 25px;
+  }
+}
+.section-card {
   border-top: 5px solid var(--primary);
 }
 .scheme-grid {
@@ -709,7 +763,11 @@ export default function App() {
           pArr.push({ id: d.id, ...data } as Post);
       });
       // We store all posts and filter 'Deleted' out in render if not editor
-      setPosts(pArr.sort((a, b) => (b.time || 0) - (a.time || 0)));
+      setPosts(pArr.sort((a, b) => {
+        const pinSort = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+        if (pinSort !== 0) return pinSort;
+        return (b.time || 0) - (a.time || 0);
+      }));
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'posts'));
 
     return () => {
@@ -848,6 +906,8 @@ export default function App() {
         // Silent fail
       }
 
+      setShowAuthModal(false);
+
       try {
         const isAdminEmail = ['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(result.user.email || '');
         await addDoc(collection(db, 'security_logs'), {
@@ -871,116 +931,7 @@ export default function App() {
   };
 
   const triggerLogin = () => {
-    Swal.fire({
-      title: 'Login to E-Vedhika',
-      html: `
-        <div style="text-align: left; margin-bottom: 10px; font-weight: 800; font-size: 11px; color: #64748b; text-transform: uppercase;">Email Login</div>
-        <input id="swal-input1" class="swal2-input" placeholder="Email" style="margin-top: 0;">
-        <input id="swal-input2" type="password" class="swal2-input" placeholder="Password">
-        <div style="display: flex; gap: 8px; margin-top: 15px; margin-bottom: 0px; margin-left: 65px; margin-right: 55px; padding-left: 0px;">
-          <button id="email-login-btn" class="swal2-confirm swal2-styled" style="height: 45px; width: 160px; margin: 0; background-color: #0d3b66; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-weight: 800; text-transform: uppercase; font-size: 12px; padding: 0;">
-             Sign In / Register
-          </button>
-          <button id="email-cancel-btn" class="swal2-cancel swal2-styled" style="height: 45px; width: 167.9px; background-color: #64748b; margin: 0; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-weight: 800; text-transform: uppercase; font-size: 10px; padding: 0; color: white; border: none; cursor: pointer;">
-             Cancel
-          </button>
-        </div>
-        <div style="margin: 15px 0; display: flex; align-items: center; gap: 10px; height: 17px; width: 453.417px; font-weight: bold; font-size: 14px; font-family: 'Courier New', Courier, monospace;">
-           <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
-           <span style="font-size: 10px; font-weight: 800; color: #94a3b8;">OR</span>
-           <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
-        </div>
-      `,
-      focusConfirm: false,
-      showCancelButton: true,
-      confirmButtonText: '<div style="display: flex; align-items: center; justify-content: center; gap: 10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="white"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="white"/><path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" fill="white"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="white"/></svg> Sign in with Google</div>',
-      confirmButtonColor: '#ea4335',
-      customClass: {
-        confirmButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3',
-        cancelButton: 'rounded-xl font-bold uppercase text-xs px-6 py-3'
-      },
-      didRender: () => {
-         const emailBtn = document.getElementById('email-login-btn');
-         if (emailBtn) {
-           emailBtn.addEventListener('click', () => {
-             Swal.clickConfirm();
-             (window as any).isEmailLogin = true;
-           });
-         }
-         const cancelBtn = document.getElementById('email-cancel-btn');
-         if (cancelBtn) {
-           cancelBtn.addEventListener('click', () => {
-             Swal.close();
-           });
-         }
-         const googleBtn = Swal.getConfirmButton();
-         if (googleBtn) {
-           googleBtn.style.width = '160px';
-           googleBtn.style.height = '45px';
-           googleBtn.style.fontSize = '12px';
-           googleBtn.style.display = 'flex';
-           googleBtn.style.alignItems = 'center';
-           googleBtn.style.justifyContent = 'center';
-         }
-         const defaultCancelBtn = Swal.getCancelButton();
-         if (defaultCancelBtn) {
-           defaultCancelBtn.style.width = '167.9px';
-           defaultCancelBtn.style.height = '45px';
-           defaultCancelBtn.style.display = 'flex';
-           defaultCancelBtn.style.alignItems = 'center';
-           defaultCancelBtn.style.justifyContent = 'center';
-         }
-      },
-      preConfirm: () => {
-        if ((window as any).isEmailLogin) {
-          delete (window as any).isEmailLogin;
-          const email = (document.getElementById('swal-input1') as HTMLInputElement).value;
-          const password = (document.getElementById('swal-input2') as HTMLInputElement).value;
-          if (!email || !password) {
-            Swal.showValidationMessage('Please enter email and password');
-            return false;
-          }
-          return { method: 'email', email, password };
-        }
-        return { method: 'google' };
-      }
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-         if (result.value.method === 'google') {
-           handleGoogleLogin();
-         } else {
-           try {
-             await signInWithEmailAndPassword(auth, result.value.email, result.value.password);
-             
-             try { 
-               const isAdminEmail = ['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(result.value.email || '');
-               await addDoc(collection(db, 'security_logs'), { 
-                 [isAdminEmail ? 'admin' : 'userEmail']: result.value.email, 
-                 action: `Email Login (${navigator.userAgent.substring(0, 50)}...)`, 
-                 time: Date.now() 
-               }); 
-             } catch(e){}
-             
-             // dynamic greeting handled via profile listener
-           } catch (err: any) {
-             try {
-               const cred = await createUserWithEmailAndPassword(auth, result.value.email, result.value.password);
-               try {
-                 await setDoc(doc(db, 'users', cred.user.uid), {
-                   email: result.value.email,
-                   name: result.value.email.split('@')[0],
-                   time: Date.now()
-                 });
-               } catch(e) {}
-               try { await addDoc(collection(db, 'security_logs'), { admin: result.value.email, action: `Account Registration (${navigator.userAgent.substring(0, 50)}...)`, time: Date.now() }); } catch(e){}
-               addToast("Signed up successfully!");
-             } catch (e: any) {
-               addToast("Login failed");
-             }
-           }
-         }
-      }
-    });
+    setShowAuthModal(true);
   };
 
   const togglePostExpansion = async (id: string) => {
@@ -1033,10 +984,10 @@ export default function App() {
               {!user ? (
                  <div className="bg-slate-900 border-2 border-slate-800 p-8 rounded-3xl w-full shadow-2xl">
                     <p className="text-slate-400 font-bold mb-6 text-sm">Please identify yourself to access the administration console.</p>
-                    <button onClick={handleGoogleLogin} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl transition-all uppercase tracking-widest text-xs shadow-[0_0_20px_rgba(37,99,235,0.3)]">
+                    <button aria-label="Verify Identity with Google" onClick={handleGoogleLogin} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl transition-all uppercase tracking-widest text-xs shadow-[0_0_20px_rgba(37,99,235,0.3)]">
                        Google Identity Verification
                     </button>
-                    <button onClick={() => navigate('/')} className="mt-8 text-slate-500 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest border border-slate-800 px-6 py-2 rounded-xl">Return to Public Portal</button>
+                    <button aria-label="Return to Public Portal" onClick={() => navigate('/')} className="mt-8 text-slate-500 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest border border-slate-800 px-6 py-2 rounded-xl">Return to Public Portal</button>
                  </div>
               ) : (
                  <div className="bg-slate-900 border-2 border-red-900/50 p-8 rounded-3xl w-full shadow-2xl">
@@ -1045,8 +996,8 @@ export default function App() {
                     </div>
                     <h2 className="text-xl font-bold text-red-400 mb-2 uppercase">Access Denied</h2>
                     <p className="text-slate-400 text-xs font-bold mb-6">Your account ({user.email}) does not have administrative privileges.</p>
-                    <button onClick={() => auth.signOut()} className="w-full border border-slate-700 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-all text-xs mb-3 uppercase tracking-wider">Sign Out</button>
-                    <button onClick={() => navigate('/')} className="w-full text-slate-500 hover:text-slate-300 transition-colors text-[10px] uppercase tracking-widest font-bold">Return to Public Portal</button>
+                    <button aria-label="Sign out" onClick={() => auth.signOut()} className="w-full border border-slate-700 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-all text-xs mb-3 uppercase tracking-wider">Sign Out</button>
+                    <button aria-label="Return to Public Portal" onClick={() => navigate('/')} className="w-full text-slate-500 hover:text-slate-300 transition-colors text-[10px] uppercase tracking-widest font-bold">Return to Public Portal</button>
                  </div>
               )}
            </div>
@@ -1102,7 +1053,7 @@ export default function App() {
                   <p className="text-[10px] text-slate-500 font-bold uppercase mt-4">Security PIN required to view sensitive data</p>
                 </div>
                 
-                <button onClick={() => navigate('/')} className="mt-8 text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest border border-slate-800 px-6 py-2 rounded-xl">Back to Portal</button>
+                <button aria-label="Back to Portal" onClick={() => navigate('/')} className="mt-8 text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest border border-slate-800 px-6 py-2 rounded-xl">Back to Portal</button>
               </motion.div>
             </div>
          ) : (
@@ -1127,6 +1078,14 @@ export default function App() {
                  onExit={() => navigate('/')}
               />
             </div>
+         )}
+         
+         {(showPostForm || editingPost) && (
+           <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+             <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl custom-scrollbar">
+                <PostForm addToast={addToast} onCancel={() => { setShowPostForm(false); setEditingPost(null); }} currentUserProfile={userProfile} editingPost={editingPost} isAdmin={isAdmin} isEditor={isEditor} />
+             </div>
+           </div>
          )}
       </div>
     );
@@ -1166,7 +1125,7 @@ export default function App() {
              <p className="text-slate-400 max-w-sm text-base font-medium leading-relaxed mb-10">
                 మీ ఖాతా భద్రతా కారణాల దృష్ట్యా తాత్కాలికంగా నిలిపివేయబడింది. దయచేసి అడ్మినిస్ట్రేటర్‌ను సంప్రదించండి.
              </p>
-             <button 
+             <button aria-label="Sign out and exit portal"
                 onClick={() => auth.signOut()}
                 className="px-10 py-5 bg-white text-slate-950 font-black rounded-2xl uppercase text-[11px] tracking-widest hover:bg-slate-200 transition-all flex items-center gap-3 shadow-2xl active:scale-95"
              >
@@ -1258,7 +1217,7 @@ export default function App() {
                 <div className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/10 to-accent/0 -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out"></div>
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-[#d97706] flex items-center justify-center text-primary font-black text-lg shadow-inner border-[2px] border-white/20 relative z-10 shadow-[0_0_10px_rgba(250,204,21,0.5)] overflow-hidden">
                    {user?.photoURL ? (
-                     <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                     <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
                    ) : (
                      <User size={18} className="text-primary" />
                    )}
@@ -1281,7 +1240,7 @@ export default function App() {
                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
                     className="absolute right-0 mt-3 w-52 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[2000] p-2"
                   >
-                    <button 
+                    <button aria-label="Edit Profile"
                       onClick={() => { setShowProfileModal(true); setShowProfileDropdown(false); }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-blue-50 transition-colors rounded-xl group text-left"
                     >
@@ -1291,7 +1250,7 @@ export default function App() {
                       Edit Profile
                     </button>
                     <div className="h-px bg-slate-100 my-1 mx-2" />
-                    <button 
+                    <button aria-label="Logout"
                       onClick={() => { auth.signOut(); setShowProfileDropdown(false); }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors rounded-xl group text-left"
                     >
@@ -1305,11 +1264,12 @@ export default function App() {
               </AnimatePresence>
             </div>
           ) : (
-            <button 
+            <button aria-label="Sign In"
               onClick={triggerLogin}
-              className="bg-accent text-primary px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest hover:bg-white transition-all shadow-lg active:scale-95"
+              className="bg-[#fbbf24] text-[#0f2e4a] px-5 py-2.5 rounded-[12px] font-black text-[11px] uppercase tracking-widest shadow-lg shadow-[#fbbf24]/20 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#fbbf24]/30 hover:bg-[#fcd34d] transition-all active:scale-[0.96] flex items-center gap-2 border border-[#fbbf24]/30"
             >
-              Login
+              <User size={14} className="text-[#0f2e4a]" />
+              Sign In
             </button>
           )}
         </div>
@@ -1331,7 +1291,7 @@ export default function App() {
 
       <nav className="nav-trigger-bar sticky top-0 z-[1000]">
         <div className="trigger-left">
-          <button className="menu-toggle shrink-0" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          <button aria-label="Toggle Menu" className="menu-toggle shrink-0" onClick={() => setSidebarOpen(!sidebarOpen)}>
             <span></span>
             <span></span>
             <span></span>
@@ -1352,6 +1312,72 @@ export default function App() {
               </span>
             )}
           </div>
+
+          <AnimatePresence>
+            {showNotifications && (
+              <motion.div 
+                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                 animate={{ opacity: 1, y: 0, scale: 1 }}
+                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                 className="fixed top-16 right-4 sm:right-10 w-[280px] sm:w-[320px] bg-white rounded-3xl shadow-2xl border border-slate-100 z-[2000] overflow-hidden"
+              >
+                 <div className="p-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                    <h3 className="text-xs font-black text-primary uppercase tracking-widest">Signal Inbox</h3>
+                    <button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-danger"><X size={14}/></button>
+                 </div>
+                 <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
+                    {notifications.length > 0 ? (
+                      <div className="divide-y divide-slate-50">
+                        {notifications.map(n => (
+                          <div 
+                            key={n.id} 
+                            onClick={async () => {
+                              if (!n.read) {
+                                try {
+                                  await updateDoc(doc(db, 'notifications', n.id), { read: true });
+                                } catch(e) {}
+                              }
+                              setShowNotifications(false);
+                            }}
+                            className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors ${!n.read ? 'bg-blue-50/30' : ''}`}
+                          >
+                             <div className="flex justify-between items-start mb-1">
+                                <span className={`text-[9px] font-black uppercase tracking-wider ${n.type === 'flash_update' ? 'text-amber-500' : 'text-primary'}`}>
+                                   {n.type?.replace('_', ' ')}
+                                </span>
+                                <span className="text-[8px] font-bold text-slate-400">
+                                   {new Date(n.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                             </div>
+                             <h4 className="text-xs font-black text-slate-800 leading-tight mb-1">{n.title}</h4>
+                             <p className="text-[10px] font-medium text-slate-500 line-clamp-2">{n.message}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-10 text-center">
+                         <Zap size={24} className="mx-auto text-slate-200 mb-2" />
+                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No active signals</p>
+                      </div>
+                    )}
+                 </div>
+                 {notifications.length > 0 && (
+                   <button 
+                     onClick={async () => {
+                        const unread = notifications.filter(n => !n.read);
+                        try {
+                           await Promise.all(unread.map(n => updateDoc(doc(db, 'notifications', n.id), { read: true })));
+                           addToast("Marked all as read");
+                        } catch(e) {}
+                     }}
+                     className="w-full p-3 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-primary bg-slate-50 border-t border-slate-100 transition-colors"
+                   >
+                     Mark all as read
+                   </button>
+                 )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
         </div>
       </nav>
@@ -1375,7 +1401,7 @@ export default function App() {
             if (e.target === e.currentTarget) setSidebarOpen(false);
           }}>
             {sidebarOpen && (
-              <button 
+              <button aria-label="Close sidebar"
                 onClick={() => setSidebarOpen(false)}
                 className="absolute top-0 right-0 p-2 text-slate-400 hover:text-primary transition-colors focus:outline-none"
                 title="Close sidebar"
@@ -1394,7 +1420,7 @@ export default function App() {
             
             {showInstallButton && (
               <div className="mt-8 px-4">
-                <button 
+                <button aria-label="Install App"
                   onClick={handleInstallClick}
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-2xl flex items-center justify-between group hover:shadow-lg transition-all active:scale-95 border border-blue-500/20"
                 >
@@ -1438,7 +1464,7 @@ export default function App() {
                 <motion.div key="home" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4 sm:space-y-6">
 
 
-                  <div className="bg-white p-4 sm:p-6 rounded-[1px] shadow-sm border border-dashed border-slate-100">
+                  <div className="bg-white rounded-[1px] shadow-sm border border-dashed border-slate-100" style={{ height: '63.396px', paddingTop: '0px', paddingBottom: '0px', marginBottom: '27px', paddingLeft: '0px', paddingRight: '0px' }}>
                     <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 sm:gap-6">
                        <div className="flex-1">
                           {user && !user.isAnonymous ? (
@@ -1454,7 +1480,7 @@ export default function App() {
                                  onChange={(e) => setSearchQuery(e.target.value)}
                                />
                                {searchQuery && (
-                                 <button onClick={() => setSearchQuery('')} className="text-slate-300 hover:text-danger hover:scale-110 transition-all">
+                                 <button aria-label="Clear Search" onClick={() => setSearchQuery('')} className="text-slate-300 hover:text-danger hover:scale-110 transition-all">
                                    <XCircle size={22} />
                                  </button>
                                )}
@@ -1476,7 +1502,7 @@ export default function App() {
                     </div>
 
                     {user && !user.isAnonymous && (
-                      <button 
+                      <button aria-label="Compose official update"
                         onClick={() => { setEditingPost(null); setShowPostForm(true); }}
                         className="w-full bg-slate-50 border-2 border-dashed border-slate-200 p-6 sm:p-8 rounded-[28px] text-slate-400 font-bold hover:bg-slate-100 hover:border-primary/20 transition-all flex flex-col items-center gap-3"
                       >
@@ -1487,52 +1513,7 @@ export default function App() {
                       </button>
                     )}
 
-                    {(showPostForm || editingPost) && (
-                      <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-                        <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl custom-scrollbar">
-                           <PostForm addToast={addToast} onCancel={() => { setShowPostForm(false); setEditingPost(null); }} currentUserProfile={userProfile} editingPost={editingPost} isAdmin={isAdmin} isEditor={isEditor} />
-                        </div>
-                      </div>
-                    )}
 
-                    {showAuthModal && (
-                      <AuthModal 
-                        onClose={() => setShowAuthModal(false)} 
-                        addToast={addToast} 
-                        handleGoogleLogin={handleGoogleLogin} 
-                      />
-                    )}
-
-                    {showSuggestionForm && (
-                      <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-                        <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-[24px] shadow-2xl custom-scrollbar relative">
-                           <SuggestionForm addToast={addToast} onCancel={() => setShowSuggestionForm(false)} />
-                        </div>
-                      </div>
-                    )}
-
-                    {(showProfileModal || showForcedProfileSetup) && (
-                      <EditProfileModal 
-                        onClose={() => {
-                          if (showForcedProfileSetup) {
-                            addToast("Please complete your profile first.");
-                            return;
-                          }
-                          setShowProfileModal(false);
-                        }}
-                        onExitForced={() => {
-                          auth.signOut();
-                          setShowForcedProfileSetup(false);
-                          setShowProfileModal(false);
-                          setCurrentTab('home');
-                        }}
-                        user={user} 
-                        userProfile={userProfile} 
-                        addToast={addToast}
-                        isForced={showForcedProfileSetup}
-                        onComplete={() => setShowForcedProfileSetup(false)}
-                      />
-                    )}
 
                   </div>
 
@@ -1623,7 +1604,14 @@ export default function App() {
                        time: 1712851200000,
                        type: 'changelog'
                      },
-                     ...updates.filter(u => u.type === 'changelog')
+                     ...updates.filter(u => u.type === 'changelog'),
+                     ...posts.map(p => ({
+                        id: p.id,
+                        text: `New Post created by Admin: ${p.title || (p.content ? p.content.substring(0, 50) + "..." : "Updates added")}`,
+                        time: p.time,
+                        type: 'changelog',
+                        isAutoPost: true
+                     }))
                    ].sort((a: any, b: any) => (b.time || 0) - (a.time || 0)).map((u: any, i) => (
                       <motion.div 
                         initial={{ opacity: 0, x: -20 }} 
@@ -1633,13 +1621,13 @@ export default function App() {
                         key={u.id || i} 
                         className="relative flex gap-6 z-10 pl-2 lg:pl-4"
                       >
-                         <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-blue-50 border-4 border-white shadow-sm flex items-center justify-center shrink-0">
-                           <Zap size={16} className="text-blue-500" />
+                         <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-full border-4 border-white shadow-sm flex items-center justify-center shrink-0 ${u.isAutoPost ? 'bg-indigo-50' : 'bg-blue-50'}`}>
+                           {u.isAutoPost ? <PlusCircle size={16} className="text-indigo-500" /> : <Zap size={16} className="text-blue-500" />}
                          </div>
                          <div className="flex-1 pt-2 lg:pt-3">
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
                                <h3 className="text-sm sm:text-base font-black text-slate-800">
-                                 {u.id === 'foundation' ? 'Foundation Launch' : 'System Update'}
+                                 {u.id === 'foundation' ? 'Foundation Launch' : (u.isAutoPost ? 'Community Notice' : 'System Update')}
                                </h3>
                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-md w-max">
                                  {new Date(getValidTime(u)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -1669,8 +1657,10 @@ export default function App() {
                   
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                      <div className="bg-[#f8fafc] rounded-2xl border border-slate-200 p-6">
-                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4">Latest Suggestions</h3>
+                      <div className="bg-[#f8fafc] rounded-2xl border border-slate-200 p-6 relative overflow-hidden">
+                        <div className="flex justify-between items-start mb-4">
+                          <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Latest Suggestions</h3>
+                        </div>
                         <div 
                           ref={suggestionsScrollRef} 
                           onMouseEnter={() => setIsSuggestionsHovered(true)}
@@ -1739,11 +1729,43 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="bg-white p-8 rounded-3xl border-2 border-dashed border-slate-100">
-                      <h3 className="text-lg font-black text-slate-800 mb-2">Submit Suggestion & Feedback</h3>
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-tight mb-6">మీ అమూల్యమైన సూచనలను ఇక్కడ నమోదు చేయండి</p>
-                      
-                      <form onSubmit={async (e) => {
+                    <div 
+                      className="relative bg-white p-8 rounded-3xl border-2 border-dashed border-slate-100"
+                      style={{ height: '220.028px' }}
+                    >
+                      {(!user || user?.isAnonymous) && (
+                        <div 
+                           className="absolute inset-0 z-10 cursor-pointer bg-transparent rounded-3xl"
+                           onClick={async () => {
+                             const res = await Swal.fire({
+                               title: 'లాగిన్ అవసరం',
+                               text: 'మీరు లాగిన్ అయ్యాక ఏదైనా Suggestion & Feedback ఇవ్వచ్చు. మీరు లాగిన్ అవుతారా?',
+                               icon: 'info',
+                               showCancelButton: true,
+                               confirmButtonText: 'లాగిన్ అవ్వండి',
+                               cancelButtonText: 'వద్దు',
+                               confirmButtonColor: '#4f46e5'
+                             });
+                             if (res.isConfirmed) {
+                               setShowAuthModal(true);
+                             }
+                           }}
+                        />
+                      )}
+                      <div 
+                        className={(!user || user?.isAnonymous) ? "opacity-30 pointer-events-none" : ""}
+                        // style={{ width: '508.997px', height: '220.028px' }}
+                      >
+                       <h3 
+                         className="text-lg font-black text-slate-800 mb-2"
+                         style={{ height: '27.9792px', width: '444.444px', marginLeft: '-3px', marginTop: '-22px', fontStyle: 'normal', fontFamily: '"Times New Roman", Times, serif' }}
+                       >Submit Suggestion & Feedback</h3>
+                       <p 
+                         className="text-xs font-bold text-slate-500 uppercase tracking-tight mb-6"
+                         style={{ marginTop: '5px', fontFamily: '"Times New Roman", Times, serif', fontStyle: 'italic' }}
+                       >మీ అమూల్యమైన సూచనలను ఇక్కడ నమోదు చేయండి</p>
+                       
+                       <form onSubmit={async (e) => {
                         e.preventDefault();
                         const target = e.target as any;
                         const name = target.name.value.trim();
@@ -1787,8 +1809,8 @@ export default function App() {
                           handleFirestoreError(error, OperationType.CREATE, 'suggestions');
                           addToast("సబ్మిట్ చేయడంలో లోపం కలిగింది.");
                         }
-                      }} className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      }} className="space-y-4" style={{ height: '236.858px' }}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ height: '63.184px' }}>
                            <div className="space-y-1.5">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">మీ పేరు (Name)</label>
                               <input 
@@ -1813,8 +1835,8 @@ export default function App() {
                            </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                           <div className="space-y-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ marginTop: '11px', marginBottom: '11px' }}>
+                           <div className="space-y-1.5" style={{ height: '65.184px' }}>
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">మొబైల్ నంబర్ (Mobile)</label>
                               <input 
                                 name="mobile" 
@@ -1847,7 +1869,7 @@ export default function App() {
                            </div>
                         </div>
 
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5" style={{ height: '35px', width: '441.448px', marginTop: '13px' }}>
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">మీ సూచన (Suggestion)</label>
                           <textarea 
                             name="suggestion" 
@@ -1858,10 +1880,11 @@ export default function App() {
                           ></textarea>
                         </div>
 
-                        <button type="submit" className="w-full bg-primary text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform active:scale-95">
+                        <button aria-label="Submit Entry" type="submit" className="w-full bg-primary text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform active:scale-95">
                           Submit Entry
                         </button>
                       </form>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1871,7 +1894,7 @@ export default function App() {
             {currentTab === 'problems' && (
               <motion.div key="problems" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <div className="flex justify-between items-center mb-4">
-                  <button onClick={() => setCurrentTab('home')} className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors font-bold text-sm bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100">
+                  <button aria-label="Back to Dashboard" onClick={() => setCurrentTab('home')} className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors font-bold text-sm bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100">
                     <ArrowLeft size={16} /> Back to Dashboard
                   </button>
                 </div>
@@ -1898,7 +1921,7 @@ export default function App() {
                      }} className="space-y-4">
                        <input name="category" placeholder="Category (e.g. Aadhar, Water, Tax)" required className="bg-white" />
                        <textarea name="message" placeholder="Explain your problem in detail..." required rows={3} className="bg-white" />
-                       <button className="w-full bg-danger text-white py-3 rounded-xl font-black shadow-md hover:opacity-90">Submit Report</button>
+                       <button aria-label="Submit Report" className="w-full bg-danger text-white py-3 rounded-xl font-black shadow-md hover:opacity-90">Submit Report</button>
                      </form>
                   </div>
                   <div className="space-y-4">
@@ -1919,6 +1942,53 @@ export default function App() {
             {/* Secondary admin block removed */}
           </AnimatePresence>
         )}
+
+        {(showPostForm || editingPost) && (
+          <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl custom-scrollbar">
+               <PostForm addToast={addToast} onCancel={() => { setShowPostForm(false); setEditingPost(null); }} currentUserProfile={userProfile} editingPost={editingPost} isAdmin={isAdmin} isEditor={isEditor} />
+            </div>
+          </div>
+        )}
+
+                    {showAuthModal && (
+                      <AuthModal 
+                        onClose={() => setShowAuthModal(false)} 
+                        addToast={addToast} 
+                        handleGoogleLogin={handleGoogleLogin} 
+                      />
+                    )}
+
+                    {showSuggestionForm && (
+                      <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-[24px] shadow-2xl custom-scrollbar relative">
+                           <SuggestionForm addToast={addToast} onCancel={() => setShowSuggestionForm(false)} />
+                        </div>
+                      </div>
+                    )}
+
+                    {(showProfileModal || showForcedProfileSetup) && (
+                      <EditProfileModal 
+                        onClose={() => {
+                          if (showForcedProfileSetup) {
+                            addToast("Please complete your profile first.");
+                            return;
+                          }
+                          setShowProfileModal(false);
+                        }}
+                        onExitForced={() => {
+                          auth.signOut();
+                          setShowForcedProfileSetup(false);
+                          setShowProfileModal(false);
+                          setCurrentTab('home');
+                        }}
+                        user={user} 
+                        userProfile={userProfile} 
+                        addToast={addToast}
+                        isForced={showForcedProfileSetup}
+                        onComplete={() => setShowForcedProfileSetup(false)}
+                      />
+                    )}
       </main>
     </div>
   </div>
@@ -2024,7 +2094,7 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
         className="w-full max-w-lg bg-white rounded-[32px] shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto"
       >
         {!isForced && (
-          <button onClick={onClose} className="absolute top-6 right-6 bg-slate-100 p-2 rounded-full hover:bg-slate-200 transition-colors">
+          <button aria-label="Close profile modal" onClick={onClose} className="absolute top-6 right-6 bg-slate-100 p-2 rounded-full hover:bg-slate-200 transition-colors">
             <X size={20}/>
           </button>
         )}
@@ -2041,7 +2111,7 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
         <form onSubmit={handleSave} className="space-y-3">
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 rounded-[20px] overflow-hidden border-2 border-slate-100 shadow-inner bg-slate-50 flex items-center justify-center relative group">
-              {photoURL ? <img src={photoURL} alt="Preview" className="w-full h-full object-cover" /> : <User size={30} className="text-slate-300" />}
+              {photoURL ? <img src={photoURL} alt="Preview" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" /> : <User size={30} className="text-slate-300" />}
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
                 <Camera size={16} className="text-white" />
               </div>
@@ -2134,14 +2204,14 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
           <div className="flex flex-wrap gap-3 mt-4">
             {!isForced && (
               <>
-                <button 
+                <button aria-label="Cancel"
                   type="button" 
                   onClick={onClose} 
                   className="flex-1 min-w-[120px] bg-slate-100 text-slate-600 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all active:scale-95"
                 >
                   Cancel
                 </button>
-                <button 
+                <button aria-label="Logout"
                   type="button" 
                   onClick={() => { auth.signOut(); onClose(); }} 
                   className="flex-1 min-w-[120px] bg-red-50 text-red-600 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-100 transition-all active:scale-95 border border-red-200 flex items-center justify-center gap-2"
@@ -2152,7 +2222,7 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
               </>
             )}
             {isForced && (
-              <button 
+              <button aria-label="Exit to Home"
                 type="button" 
                 onClick={onExitForced} 
                 className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all active:scale-95"
@@ -2160,7 +2230,7 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
                 Exit to Home
               </button>
             )}
-            <button 
+            <button aria-label="Save Profile Changes"
              type="submit"
              disabled={saving}
              className="w-full bg-primary text-white py-4 rounded-xl font-black uppercase text-sm tracking-[0.2em] shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all active:scale-98 disabled:opacity-50 flex items-center justify-center gap-3"
@@ -2179,6 +2249,8 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
   const isAdmin = userRole === 'admin' || isDevEmail;
   const isEditor = userRole === 'admin' || userRole === 'editor' || isDevEmail;
   const [activeSubTab, setActiveSubTab] = useState('dash');
+  const [usersFilter, setUsersFilter] = useState<'All' | 'Deleted'>('All');
+  const [trashTab, setTrashTab] = useState<'posts' | 'problems' | 'suggestions' | 'users'>('posts');
   const [userViewMode, setUserViewMode] = useState<'access' | 'directory'>('access');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showPin, setShowPin] = useState(false);
@@ -2297,11 +2369,18 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
   }, [isEditor, isAdmin]);
 
   const deleteUser = async (id: string) => {
-    if (!window.confirm("Delete this user?")) return;
+    const res = await Swal.fire({
+      title: 'Move to Trash?',
+      text: "This user will be marked as deleted.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Trash It'
+    });
+    if (!res.isConfirmed) return;
     try {
-      await deleteDoc(doc(db, 'users', id));
-      addToast("User deleted");
-    } catch (err) { handleFirestoreError(err, OperationType.DELETE, `users/${id}`); }
+      await updateDoc(doc(db, 'users', id), { isDeleted: true });
+      addToast("User moved to trash");
+    } catch (err) { handleFirestoreError(err, OperationType.UPDATE, `users/${id}`); }
   };
 
   const resolveProblem = async (problem: ProblemReport) => {
@@ -2392,7 +2471,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Global Admin</p>
                 </div>
               </div>
-              <button className="lg:hidden text-white/50 hover:text-white" onClick={() => setAdminMenuOpen(false)}>
+              <button aria-label="Close menu" className="lg:hidden text-white/50 hover:text-white" onClick={() => setAdminMenuOpen(false)}>
                 <X size={20} />
               </button>
             </div>
@@ -2403,15 +2482,16 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                 { id: 'reports', label: 'Posts & Issues', icon: <AlertOctagon size={18}/> },
                 { id: 'suggestions', label: 'Suggestions & Feedback', icon: <PlusCircle size={18}/> },
                 { id: 'users', label: 'User Access & Directory', icon: <Users size={18}/> },
+                { id: 'trash', label: 'Recycle Bin', icon: <Trash2 size={18}/> },
                 { id: 'updates', label: 'Flash News', icon: <Zap size={18}/> },
                 { id: 'changelog', label: "What's New", icon: <Info size={18}/> },
                 { id: 'logs', label: 'Security Logs', icon: <ShieldAlert size={18}/> },
                 { id: 'settings', label: 'System Config', icon: <Settings size={18}/> }
-              ].filter(t => isAdmin || ['dash', 'reports', 'suggestions', 'updates'].includes(t.id)).map(tab => (
-                <button 
+              ].filter(t => isAdmin || ['dash', 'reports', 'suggestions', 'trash', 'updates'].includes(t.id)).map(tab => (
+                <button aria-label={tab.label}
                   key={tab.id}
                   onClick={() => { setActiveSubTab(tab.id); setAdminMenuOpen(false); }}
-                  className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${
+                  className={`w-full flex items-center gap-3 p-2.5 lg:p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${
                     activeSubTab === tab.id 
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
                       : 'text-slate-400 hover:bg-white/5 hover:text-white'
@@ -2423,13 +2503,13 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               ))}
             </nav>
 
-            <div className="mt-auto pt-6 border-t border-white/5 space-y-2">
-              <button onClick={onExit} className="w-full flex items-center gap-3 p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:bg-white/5 hover:text-white transition-all">
-                <LogOut size={18} />
+            <div className="mt-auto pt-4 lg:pt-6 border-t border-white/5 space-y-1.5">
+              <button aria-label="Exit to Portal" onClick={onExit} className="w-full flex items-center gap-3 p-2.5 lg:p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:bg-white/5 hover:text-white transition-all">
+                <LogOut size={16} />
                 Exit to Portal
               </button>
-              <button onClick={() => setAdminLocked(true)} className="w-full flex items-center gap-3 p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-amber-400 hover:bg-amber-400/10 transition-all">
-                <Lock size={18} />
+              <button aria-label="Lock Session" onClick={() => setAdminLocked(true)} className="w-full flex items-center gap-3 p-2.5 lg:p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-amber-400 hover:bg-amber-400/10 transition-all">
+                <Lock size={16} />
                 Lock Session
               </button>
             </div>
@@ -2450,17 +2530,18 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
         )}
       </AnimatePresence>
 
-      <main className="flex-1 p-4 lg:p-10 bg-slate-50 overflow-y-auto custom-scrollbar flex flex-col relative w-full h-full">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 pb-8 border-b border-slate-200 !bg-transparent !h-auto !p-0">
-          <div className="flex items-center gap-5">
-            <button className="lg:hidden p-3 bg-white text-slate-600 rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition-colors" onClick={() => setAdminMenuOpen(true)}>
-              <Menu size={24} />
+      <main className="flex-1 p-3 lg:p-10 bg-slate-50 overflow-y-auto custom-scrollbar flex flex-col relative w-full h-full">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-6 border-b border-slate-200 !bg-transparent !h-auto !p-0">
+          <div className="flex items-center gap-4">
+            <button aria-label="Open Admin Menu" className="lg:hidden p-2.5 bg-white text-slate-600 rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition-colors" onClick={() => setAdminMenuOpen(true)}>
+              <Menu size={20} />
             </button>
             <div>
               <h1 className="text-2xl lg:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
                 {activeSubTab === 'dash' && '📊 Dashboard Hub'}
                 {activeSubTab === 'reports' && '🚩 Posts & Issues'}
                 {activeSubTab === 'users' && '👥 User Access & Directory'}
+                {activeSubTab === 'trash' && '🗑️ Recycle Bin System'}
                 {activeSubTab === 'logs' && '🛡️ Security Audits'}
                 {activeSubTab === 'settings' && '⚙️ System Settings'}
                 {activeSubTab === 'suggestions' && '💡 Suggestions & Feedback'}
@@ -2472,7 +2553,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
           </div>
           <div className="flex items-center gap-4">
              {(activeSubTab === 'reports' || activeSubTab === 'dash') && (
-               <button 
+               <button aria-label="Create New Post"
                  onClick={onNewPost}
                  className="px-6 py-3 bg-primary text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2"
                >
@@ -2502,7 +2583,16 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                 { label: 'Pending Curation', value: posts.filter(p => !p.status || p.status === 'pending').length, icon: <Megaphone />, color: 'amber' },
                 { label: 'Flash Broadcasts', value: updates.length, icon: <Zap />, color: 'emerald' },
               ].map((stat, i) => (
-                <div key={i} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex items-center gap-4 group hover:shadow-xl transition-all">
+                <div 
+                  key={i} 
+                  onClick={() => {
+                    if (stat.label === 'Citizens Enrolled') setActiveSubTab('users');
+                    else if (stat.label === 'Unresolved Issues') { setActiveSubTab('reports'); setReportsType('issues'); }
+                    else if (stat.label === 'Pending Curation') { setActiveSubTab('reports'); setReportsType('posts'); }
+                    else if (stat.label === 'Flash Broadcasts') setActiveSubTab('updates');
+                  }}
+                  className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex items-center gap-4 group hover:shadow-xl transition-all cursor-pointer"
+                >
                   <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-50 text-slate-600 group-hover:scale-110 transition-transform">{stat.icon}</div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{stat.label}</p>
@@ -2552,7 +2642,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               {activeSubTab === 'reports' && (
                 <div className="flex bg-slate-100 p-1.5 rounded-2xl w-fit border border-slate-200 mb-6">
                   {['posts', 'issues'].map(type => (
-                    <button 
+                    <button aria-label={type}
                       key={type}
                       onClick={() => setReportsType(type as any)}
                       className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportsType === type ? 'bg-white text-blue-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-700'}`}
@@ -2566,7 +2656,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                 <div className="flex flex-wrap items-center gap-3">
                    {['All', 'Approved', 'Pending', 'Resolved', 'Deleted'].map(f => (
-                      <button 
+                      <button aria-label={f}
                          key={f}
                          onClick={() => setReportsFilter(f as any)} 
                          className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${reportsFilter === f ? 'bg-indigo-900 border-indigo-900 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
@@ -2574,6 +2664,32 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                          {f}
                       </button>
                    ))}
+                   {reportsFilter === 'Deleted' && (
+                      <button aria-label="Empty Trash"
+                        onClick={async () => {
+                           const res = await Swal.fire({
+                              title: 'Empty Trash?',
+                              text: 'This will permanently delete all items in the trash. This action cannot be undone.',
+                              icon: 'warning',
+                              showCancelButton: true,
+                              confirmButtonColor: '#ef4444',
+                              confirmButtonText: 'Yes, Empty Trash'
+                           });
+                           if (res.isConfirmed) {
+                              const col = activeSubTab === 'reports' ? (reportsType === 'posts' ? 'posts' : 'problems') : 'suggestions';
+                              const list = activeSubTab === 'reports' ? (reportsType === 'posts' ? posts : allProblems) : suggestions;
+                              const deletedItems = list.filter(i => (i.status || '').toLowerCase() === 'deleted');
+                              try {
+                                 await Promise.all(deletedItems.map((item: any) => deleteDoc(doc(db, col, item.id))));
+                                 addToast(`Permanently deleted ${deletedItems.length} items`);
+                              } catch(e: any) { addToast("Error: " + e.message); }
+                           }
+                        }}
+                        className="px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border bg-red-50 border-red-100 text-red-600 hover:bg-red-600 hover:text-white ml-auto flex items-center gap-2 shadow-sm"
+                      >
+                         <Trash2 size={14} /> Empty Trash
+                      </button>
+                   )}
                 </div>
               </div>
 
@@ -2589,7 +2705,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                      <tbody className="space-y-4">
                         {(activeSubTab === 'reports' ? (reportsType === 'posts' ? posts : allProblems) : suggestions)
                           .filter(item => {
-                             if (reportsFilter === 'All') return true;
+                             if (reportsFilter === 'All') return (item.status || '').toLowerCase() !== 'deleted';
                              if (reportsFilter === 'Pending') return !item.status || item.status === 'pending';
                              return (item.status || '').toLowerCase() === reportsFilter.toLowerCase();
                           })
@@ -2607,7 +2723,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                         activeSubTab === 'suggestions' ? 'bg-amber-100 text-amber-600' :
                                         reportsType === 'posts' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'
                                       }`}>
-                                         {item.photoURL ? <img src={item.photoURL} className="w-full h-full object-cover rounded-2xl" /> : <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-300"><User size={20}/></div>}
+                                         {item.photoURL ? <img src={item.photoURL} alt="Profile" className="w-full h-full object-cover rounded-2xl" loading="lazy" referrerPolicy="no-referrer" /> : <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-300"><User size={20}/></div>}
                                       </div>
                                       <div>
                                          <h5 className="font-black text-slate-800 text-[15px] leading-tight mb-1">
@@ -2646,22 +2762,26 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                    </div>
                                 </td>
                                 <td className="py-6 text-right pr-8">
-                                   <div className="flex justify-end gap-2.5">
-                                      <button 
-                                        onClick={async () => {
+                                   <div className="flex justify-end items-center gap-2.5">
+                                      <select 
+                                        value={(item.status || 'pending').toLowerCase()}
+                                        onChange={async (e) => {
                                           try {
-                                             const col = activeSubTab === 'reports' ? (reportsType === 'posts' ? 'posts' : 'problems') : 'suggestions';
-                                             await updateDoc(doc(db, col, item.id), { status: 'Approved' });
-                                             addToast("Access Authorized");
-                                          } catch(e: any) { addToast(e.message); }
+                                            const col = activeSubTab === 'reports' ? (reportsType === 'posts' ? 'posts' : 'problems') : 'suggestions';
+                                            await updateDoc(doc(db, col, item.id), { status: e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1) });
+                                            addToast("Status Updated");
+                                          } catch(err: any) { addToast(err.message); }
                                         }}
-                                        className="w-11 h-11 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-all shadow-sm group-hover:shadow-md"
-                                        title="Approve"
+                                        className="bg-slate-50 border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest p-2 rounded-xl focus:border-blue-500 outline-none w-28 shadow-sm cursor-pointer"
                                       >
-                                         <CheckCircle2 size={20}/>
-                                      </button>
+                                        <option value="pending">Pending</option>
+                                        <option value="approved">Approved</option>
+                                        <option value="flagged">Flagged</option>
+                                        <option value="resolved">Resolved</option>
+                                        <option value="deleted">Deleted (Trash)</option>
+                                      </select>
                                       
-                                      <button 
+                                      <button aria-label="Shift Content"
                                         onClick={() => {
                                            if (activeSubTab === 'reports' && reportsType === 'posts') {
                                               onEditPost(item);
@@ -2683,35 +2803,77 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                               });
                                            }
                                         }}
-                                        className="w-11 h-11 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                                        title="Shift Content"
+                                        className="w-10 h-10 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                        title="Edit Content"
                                       >
-                                         <Edit3 size={20}/>
+                                         <Edit3 size={18}/>
                                       </button>
 
-                                      <button 
-                                        onClick={async () => {
-                                           const res = await Swal.fire({
-                                             title: 'Purge Item?',
-                                             text: 'This action will permanently remove the log from local records.',
-                                             icon: 'warning',
-                                             showCancelButton: true,
-                                             confirmButtonColor: '#ef4444',
-                                             confirmButtonText: 'Yes, Purge'
-                                           });
-                                           if (res.isConfirmed) {
-                                              try {
-                                                const col = activeSubTab === 'reports' ? (reportsType === 'posts' ? 'posts' : 'problems') : 'suggestions';
-                                                await deleteDoc(doc(db, col, item.id));
-                                                addToast("Target Purged");
-                                              } catch(e: any) { addToast(e.message); }
-                                           }
-                                        }}
-                                        className="w-11 h-11 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                                        title="Eliminate"
-                                      >
-                                         <Trash2 size={20}/>
-                                      </button>
+                                      {item.status?.toLowerCase() === 'deleted' ? (
+                                        <div className="flex items-center gap-2">
+                                          <button aria-label="Restore"
+                                             onClick={async () => {
+                                                try {
+                                                  const col = activeSubTab === 'reports' ? (reportsType === 'posts' ? 'posts' : 'problems') : 'suggestions';
+                                                  await updateDoc(doc(db, col, item.id), { status: 'Pending' });
+                                                  addToast("Restored from Trash");
+                                                } catch(err: any) { addToast(err.message); }
+                                             }}
+                                             className="px-3 py-2 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm text-xs font-bold gap-2"
+                                             title="Restore Item"
+                                          >
+                                             <RotateCcw size={14}/> Restore
+                                          </button>
+
+                                          <button aria-label="Permanently Delete"
+                                             onClick={async () => {
+                                                const res = await Swal.fire({
+                                                  title: 'Permanently Delete?',
+                                                  text: 'This action cannot be undone.',
+                                                  icon: 'error',
+                                                  showCancelButton: true,
+                                                  confirmButtonColor: '#ef4444',
+                                                  confirmButtonText: 'Yes, Delete Permanently'
+                                                });
+                                                if (res.isConfirmed) {
+                                                   try {
+                                                     const col = activeSubTab === 'reports' ? (reportsType === 'posts' ? 'posts' : 'problems') : 'suggestions';
+                                                     await deleteDoc(doc(db, col, item.id));
+                                                     addToast("Permanently Deleted");
+                                                   } catch(err: any) { addToast(err.message); }
+                                                }
+                                             }}
+                                             className="px-3 py-2 bg-red-100 text-red-600 rounded-xl flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-sm text-xs font-bold gap-2"
+                                             title="Permanently Delete"
+                                          >
+                                             <Trash2 size={14}/> Permanently Delete
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button aria-label="Trash Item"
+                                          onClick={async () => {
+                                             const res = await Swal.fire({
+                                               title: 'Move to Trash?',
+                                               text: 'This item will be marked as deleted.',
+                                               icon: 'warning',
+                                               showCancelButton: true,
+                                               confirmButtonColor: '#ef4444',
+                                               confirmButtonText: 'Yes, Trash'
+                                             });
+                                             if (res.isConfirmed) {
+                                                try {
+                                                  const col = activeSubTab === 'reports' ? (reportsType === 'posts' ? 'posts' : 'problems') : 'suggestions';
+                                                  await updateDoc(doc(db, col, item.id), { status: 'Deleted' });
+                                                  addToast("Moved to Trash");
+                                                } catch(err: any) { addToast(err.message); }
+                                             }
+                                          }}
+                                          className="w-10 h-10 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                                          title="Move to Trash"
+                                        >
+                                           <Trash2 size={18}/>
+                                        </button>
+                                      )}
                                    </div>
                                 </td>
                              </motion.tr>
@@ -2722,67 +2884,130 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
             </div>
         )}
         {activeSubTab === 'users' && (
-           <div className="space-y-8 pb-20">
-              <div className="flex bg-slate-100/50 p-2 rounded-3xl w-fit border border-slate-100 shadow-inner">
-                <button 
-                  onClick={() => setUserViewMode('access')}
-                  className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${userViewMode === 'access' ? 'bg-indigo-900 text-white shadow-xl shadow-indigo-100 scale-105' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                  🛡️ Access Control
-                </button>
-                <button 
-                  onClick={() => setUserViewMode('directory')}
-                  className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${userViewMode === 'directory' ? 'bg-indigo-900 text-white shadow-xl shadow-indigo-100 scale-105' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                  📋 Member Directory
-                </button>
-              </div>
-
-              {userViewMode === 'access' ? (
+           <div className="space-y-12 pb-20">
+              <div className="pt-8 text-left">
+                <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-6 bg-white rounded-[32px] shadow-sm border border-slate-100">
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+                      🛡️ Access Control
+                    </h3>
+                    <p className="text-sm font-bold text-slate-500 mt-1">Manage user roles, visibility and suspensions.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button aria-label="All Users" onClick={() => setUsersFilter('All')} className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${usersFilter === 'All' ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-105' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>All Users</button>
+                    <button aria-label="Deleted Users" onClick={() => setUsersFilter('Deleted')} className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${usersFilter === 'Deleted' ? 'bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20 scale-105' : 'bg-rose-50 border-rose-100 text-rose-500 hover:bg-rose-100 hover:border-rose-200'}`}>Deleted (Trash)</button>
+                    
+                    {usersFilter === 'Deleted' && (
+                        <button aria-label="Empty User Trash"
+                          onClick={async () => {
+                             const res = await Swal.fire({
+                                title: 'Empty Trash?',
+                                text: 'This will permanently delete all users in the trash. This action cannot be undone.',
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#ef4444',
+                                confirmButtonText: 'Yes, Empty Trash'
+                             });
+                             if (res.isConfirmed) {
+                                const deletedUsers = users.filter(u => u.isDeleted || u.role === 'deleted');
+                                try {
+                                   await Promise.all(deletedUsers.map(u => deleteDoc(doc(db, 'users', u.id))));
+                                   addToast(`Permanently deleted ${deletedUsers.length} users`);
+                                } catch(e: any) { addToast("Error: " + e.message); }
+                             }
+                          }}
+                          className="px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border bg-red-50 border-red-100 text-red-600 hover:bg-red-600 hover:text-white flex items-center gap-2 shadow-sm"
+                        >
+                           <Trash2 size={14} /> Empty Trash
+                        </button>
+                     )}
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                   {users.map(u => (
+                   {users.filter(u => usersFilter === 'Deleted' ? (u.isDeleted || u.role === 'deleted') : (!u.isDeleted && u.role !== 'deleted')).map(u => (
                      <motion.div 
                        layout
                        key={u.id}
                        className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl shadow-slate-100/40 relative overflow-hidden group"
                      >
                         <div className="absolute top-0 right-0 p-4 flex gap-2">
-                          <button 
-                            onClick={async () => {
-                              try {
-                                const nextRole = u.role === 'suspended' ? 'user' : 'suspended';
-                                await updateDoc(doc(db, 'users', u.id), { role: nextRole });
-                                addToast(nextRole === 'suspended' ? "User Access Restricted" : "User Access Restored");
-                                
-                                await addDoc(collection(db, 'security_logs'), {
-                                  admin: auth.currentUser?.email || 'System',
-                                  action: `${nextRole === 'suspended' ? 'Blocked' : 'Unblocked'} User: ${u.email || u.id}`,
-                                  time: Date.now()
-                                });
-                              } catch (e: any) { addToast(e.message); }
-                            }} 
-                            title={u.role === 'suspended' ? "Unblock User" : "Block User"}
-                            className={`p-2 rounded-lg transition-colors ${u.role === 'suspended' ? 'text-red-500 bg-red-50 animate-pulse' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'}`}
-                          >
-                            <ShieldAlert size={16}/>
-                          </button>
-                          <button 
-                            onClick={async () => {
-                              try {
-                                await updateDoc(doc(db, 'users', u.id), { hidden: !u.hidden });
-                                addToast(u.hidden ? "Profile Restored" : "Profile Hidden");
-                              } catch (e: any) { addToast(e.message); }
-                            }} 
-                            title={u.hidden ? "Show Profile" : "Hide Profile"}
-                            className={`p-2 rounded-lg transition-colors ${u.hidden ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-blue-500 hover:bg-slate-50'}`}
-                          >
-                            {u.hidden ? <EyeOff size={16}/> : <Eye size={16}/>}
-                          </button>
-                          <button onClick={() => deleteUser(u.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                           {usersFilter === 'Deleted' ? (
+                             <>
+                               <button aria-label="Restore Settings" 
+                                  onClick={async () => {
+                                     try {
+                                        await updateDoc(doc(db, 'users', u.id), { isDeleted: false, role: u.role === 'deleted' ? 'user' : u.role });
+                                        addToast("User restored from trash");
+                                     } catch (err: any) { addToast("Error: " + err.message); }
+                                  }}
+                                  className="p-2 text-blue-500 bg-blue-50 hover:bg-blue-600 hover:text-white rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
+                                  title="Restore User"
+                               >
+                                  <RotateCcw size={16} /> Restore
+                               </button>
+                               <button aria-label="Permanently Delete User" 
+                                  onClick={async () => {
+                                     const res = await Swal.fire({
+                                        title: 'Permanently Delete User?',
+                                        text: 'This action cannot be undone.',
+                                        icon: 'error',
+                                        showCancelButton: true,
+                                        confirmButtonColor: '#ef4444',
+                                        confirmButtonText: 'Yes, Delete Permanently'
+                                     });
+                                     if (res.isConfirmed) {
+                                        try {
+                                           await deleteDoc(doc(db, 'users', u.id));
+                                           addToast("User permanently deleted");
+                                        } catch (err: any) { addToast("Error: " + err.message); }
+                                     }
+                                  }}
+                                  className="p-2 text-red-500 bg-red-50 hover:bg-red-600 hover:text-white rounded-lg transition-colors"
+                                  title="Permanently Delete"
+                               >
+                                  <X size={16} />
+                               </button>
+                             </>
+                           ) : (
+                             <>
+                               <button aria-label={u.role === 'suspended' ? 'Unblock User' : 'Block User'}
+                                 onClick={async () => {
+                                   try {
+                                     const nextRole = u.role === 'suspended' ? 'user' : 'suspended';
+                                     await updateDoc(doc(db, 'users', u.id), { role: nextRole });
+                                     addToast(nextRole === 'suspended' ? "User Access Restricted" : "User Access Restored");
+                                     
+                                     await addDoc(collection(db, 'security_logs'), {
+                                       admin: auth.currentUser?.email || 'System',
+                                       action: `${nextRole === 'suspended' ? 'Blocked' : 'Unblocked'} User: ${u.email || u.id}`,
+                                       time: Date.now()
+                                     });
+                                   } catch (e: any) { addToast(e.message); }
+                                 }} 
+                                 title={u.role === 'suspended' ? "Unblock User" : "Block User"}
+                                 className={`p-2 rounded-lg transition-colors ${u.role === 'suspended' ? 'text-red-500 bg-red-50 animate-pulse' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'}`}
+                               >
+                                 <ShieldAlert size={16}/>
+                               </button>
+                               <button aria-label={u.hidden ? 'Show Profile' : 'Hide Profile'}
+                                 onClick={async () => {
+                                   try {
+                                     await updateDoc(doc(db, 'users', u.id), { hidden: !u.hidden });
+                                     addToast(u.hidden ? "Profile Restored" : "Profile Hidden");
+                                   } catch (e: any) { addToast(e.message); }
+                                 }} 
+                                 title={u.hidden ? "Show Profile" : "Hide Profile"}
+                                 className={`p-2 rounded-lg transition-colors ${u.hidden ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-blue-500 hover:bg-slate-50'}`}
+                               >
+                                 {u.hidden ? <EyeOff size={16}/> : <Eye size={16}/>}
+                               </button>
+                               <button aria-label="Delete user" onClick={() => deleteUser(u.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Move to Trash"><Trash2 size={16}/></button>
+                             </>
+                           )}
                         </div>
                         <div className="flex items-start gap-4 mb-6 pt-2">
                           <div className={`w-14 h-14 bg-slate-100 rounded-2xl shrink-0 flex items-center justify-center overflow-hidden border-2 shadow-sm transition-all ${u.role === 'suspended' ? 'grayscale border-red-200 scale-95' : 'border-white'}`}>
-                             {u.photoURL ? <img src={u.photoURL} className="w-full h-full object-cover" /> : <User size={24} className="text-slate-300" />}
+                             {u.photoURL ? <img src={u.photoURL} alt={u.name || "User"} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" /> : <User size={24} className="text-slate-300" />}
                           </div>
                           <div>
                              <h4 className="font-black text-primary text-sm mb-1 flex items-center gap-2">
@@ -2823,7 +3048,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                 <span className="text-[10px] font-black uppercase tracking-widest text-primary">Profile Visibility</span>
                                 <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{u.hidden ? 'Hidden from Directory' : 'Visible to Public'}</span>
                              </div>
-                             <button 
+                             <button aria-label="Toggle Profile Visibility"
                                onClick={async () => {
                                  try {
                                    await updateDoc(doc(db, 'users', u.id), { hidden: !u.hidden });
@@ -2838,7 +3063,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
 
                           <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
                              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location: {u.mandal ? `${u.mandal}, ${u.district}` : (u.village || 'Undefined')}</div>
-                             <button onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)} className="text-[10px] font-black text-blue-500 uppercase hover:underline">View Full File</button>
+                             <button aria-label="View Full File" onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)} className="text-[10px] font-black text-blue-500 uppercase hover:underline">View Full File</button>
                           </div>
                           {expandedUser === u.id && (
                              <div className="pt-4 border-t border-slate-50 grid grid-cols-2 gap-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-left">
@@ -2857,9 +3082,167 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                      </motion.div>
                    ))}
                 </div>
-              ) : (
-                <DirectorySection allUsers={users.filter(u => !u.hidden && u.role !== 'suspended')} />
-              )}
+              </div>
+           </div>
+        )}
+
+        {activeSubTab === 'trash' && (
+           <div className="space-y-8 pb-20">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
+                 <div>
+                    <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                       <Trash2 className="text-rose-500" />
+                       Recycle Bin System
+                    </h3>
+                    <p className="text-sm font-bold text-slate-500 mt-1">Manage and permanently drop deleted resources.</p>
+                 </div>
+                 <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-100 shadow-inner">
+                    {(['posts', 'problems', 'suggestions', 'users'] as const).map(tab => (
+                       <button aria-label={tab} key={tab}
+                          onClick={() => setTrashTab(tab)}
+                          className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${trashTab === tab ? 'bg-white text-rose-500 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100/50'}`}
+                       >
+                          {tab}
+                       </button>
+                    ))}
+                 </div>
+              </div>
+
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                 <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                       <thead className="bg-slate-50 border-b border-slate-100">
+                          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                             <th className="p-5 pl-8">Item Detail</th>
+                             <th className="p-5">Type / Category</th>
+                             <th className="text-right p-5 pr-8">Actions</th>
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-slate-100">
+                          {(() => {
+                             let list: any[] = [];
+                             let col = '';
+                             if (trashTab === 'posts') {
+                                list = posts.filter((p: any) => p.status?.toLowerCase() === 'deleted');
+                                col = 'posts';
+                             } else if (trashTab === 'problems') {
+                                list = problems.filter((p: any) => p.status?.toLowerCase() === 'deleted');
+                                col = 'problems';
+                             } else if (trashTab === 'suggestions') {
+                                list = suggestions.filter((s: any) => s.status?.toLowerCase() === 'deleted');
+                                col = 'suggestions';
+                             } else if (trashTab === 'users') {
+                                list = users.filter((u: any) => u.isDeleted || u.role === 'deleted');
+                                col = 'users';
+                             }
+
+                             if (list.length === 0) {
+                                return (
+                                   <tr>
+                                      <td colSpan={3} className="p-12 text-center">
+                                         <Trash2 size={40} className="mx-auto text-slate-200 mb-4" />
+                                         <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No deleted {trashTab} found</p>
+                                      </td>
+                                   </tr>
+                                );
+                             }
+
+                             return (
+                                <>
+                                  <tr>
+                                     <td colSpan={3} className="p-4 bg-rose-50/50 border-b border-rose-100 text-right pr-8">
+                                        <button aria-label="Empty Trash"
+                                           onClick={async () => {
+                                              const res = await Swal.fire({
+                                                title: `Empty ${trashTab} Trash?`,
+                                                text: 'This will permanently delete ALL items in this category. This action cannot be undone.',
+                                                icon: 'warning',
+                                                showCancelButton: true,
+                                                confirmButtonColor: '#ef4444',
+                                                confirmButtonText: 'Yes, Empty Trash'
+                                              });
+                                              if (res.isConfirmed) {
+                                                 try {
+                                                    await Promise.all(list.map(item => deleteDoc(doc(db, col, item.id))));
+                                                    addToast(`Permanently deleted ${list.length} ${trashTab}`);
+                                                 } catch(e: any) { addToast("Error: " + e.message); }
+                                              }
+                                           }}
+                                           className="px-5 py-2.5 bg-rose-100 text-rose-600 rounded-xl text-xs font-black tracking-widest uppercase hover:bg-rose-500 hover:text-white transition-all inline-flex items-center gap-2 shadow-sm"
+                                        >
+                                           <Trash2 size={16} /> Empty {trashTab} Trash
+                                        </button>
+                                     </td>
+                                  </tr>
+                                  {list.map((item, idx) => (
+                                     <tr key={item.id || idx} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="p-5 pl-8">
+                                           <p className="text-sm font-bold text-slate-700 decoration-rose-200 decoration-2 line-through">
+                                              {trashTab === 'posts' ? item.title || 'Untitled Post' : ''}
+                                              {trashTab === 'problems' ? item.title || item.desc?.substring(0, 40) || 'Unknown Problem' : ''}
+                                              {trashTab === 'suggestions' ? item.title || item.desc?.substring(0, 40) || 'Unknown Suggestion' : ''}
+                                              {trashTab === 'users' ? item.email || item.name || 'Unknown User' : ''}
+                                           </p>
+                                           <p className="text-xs font-medium text-slate-400 mt-1 max-w-md truncate">
+                                              {item.id}
+                                           </p>
+                                        </td>
+                                        <td className="p-5">
+                                           <span className="px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-rose-100">
+                                              {trashTab}
+                                           </span>
+                                        </td>
+                                        <td className="p-5 pr-8">
+                                           <div className="flex justify-end gap-2">
+                                              <button aria-label="Restore"
+                                                 onClick={async () => {
+                                                    try {
+                                                       if (trashTab === 'users') {
+                                                          await updateDoc(doc(db, 'users', item.id), { isDeleted: false, role: item.role === 'deleted' ? 'user' : item.role });
+                                                       } else {
+                                                          await updateDoc(doc(db, col, item.id), { status: 'Pending' });
+                                                       }
+                                                       addToast("Restored from Trash");
+                                                    } catch(err: any) { addToast("Error: " + err.message); }
+                                                 }}
+                                                 className="px-3 py-2 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm text-[10px] uppercase tracking-widest font-black gap-2"
+                                                 title="Restore Item"
+                                              >
+                                                 <RotateCcw size={14}/> Restore
+                                              </button>
+                                              <button aria-label="Permanently Delete"
+                                                 onClick={async () => {
+                                                    const res = await Swal.fire({
+                                                      title: 'Permanently Delete?',
+                                                      text: 'This action cannot be undone.',
+                                                      icon: 'error',
+                                                      showCancelButton: true,
+                                                      confirmButtonColor: '#ef4444',
+                                                      confirmButtonText: 'Yes, Delete Permanently'
+                                                    });
+                                                    if (res.isConfirmed) {
+                                                       try {
+                                                          await deleteDoc(doc(db, col, item.id));
+                                                          addToast("Permanently Deleted");
+                                                       } catch(err: any) { addToast("Error: " + err.message); }
+                                                    }
+                                                 }}
+                                                 className="px-3 py-2 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm text-[10px] uppercase tracking-widest font-black gap-2"
+                                                 title="Permanently Delete"
+                                              >
+                                                 <Trash2 size={14}/> Permanent
+                                              </button>
+                                           </div>
+                                        </td>
+                                     </tr>
+                                  ))}
+                                </>
+                             );
+                          })()}
+                       </tbody>
+                    </table>
+                 </div>
+              </div>
            </div>
         )}
 
@@ -2883,21 +3266,32 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                     if(!text) return;
                     try {
                       await addDoc(collection(db, 'updates'), { text, time: Date.now(), type: 'flash', status: 'visible' });
+                      
+                      // Global Broadcast
+                      await addDoc(collection(db, 'notifications'), {
+                        uid: 'all',
+                        title: "🚀 New Update",
+                        message: text.substring(0, 80) + (text.length > 80 ? '...' : ''),
+                        type: "flash_update",
+                        read: false,
+                        time: Date.now()
+                      });
+
                       f.reset();
-                      addToast("Intelligence Transmitted");
+                      addToast("Intelligence Transmitted & Broadcasted");
                     } catch (err) { handleFirestoreError(err, OperationType.WRITE, 'updates'); }
                   }}
                   className="flex flex-col sm:flex-row gap-4 relative z-10"
                >
                   <input name="text" placeholder="Enter flash bulletin content..." className="flex-1 !mb-0 p-5 rounded-[24px] border-slate-100 bg-slate-50 focus:bg-white focus:border-amber-400 shadow-inner text-sm font-bold placeholder:text-slate-300 transition-all" />
-                  <button className="bg-amber-500 hover:bg-amber-600 text-white px-12 py-5 rounded-[24px] font-black uppercase text-[11px] tracking-widest shadow-xl shadow-amber-200 active:scale-95 transition-all">Transmit</button>
+                  <button aria-label="Transmit" className="bg-amber-500 hover:bg-amber-600 text-white px-12 py-5 rounded-[24px] font-black uppercase text-[11px] tracking-widest shadow-xl shadow-amber-200 active:scale-95 transition-all">Transmit</button>
                </form>
             </div>
 
             <div className="space-y-4">
                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] px-2">Active Signal Feed</h4>
                <div className="grid gap-4">
-                  {updates.filter(u => u.type === 'flash' || !u.type).map((u, idx) => (
+                  {updates.filter(u => u.type === 'flash' || !u.type).sort((a: any, b: any) => (b.time || 0) - (a.time || 0)).map((u, idx) => (
                     <div key={u.id || `upd-${idx}`} className={`bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center group hover:border-blue-200 transition-all ${u.status === 'hidden' ? 'opacity-50 grayscale bg-slate-50 border-dashed' : ''}`}>
                        <div className="flex items-center gap-4 flex-1">
                           <div className={`w-2 h-2 rounded-full ${u.status === 'hidden' ? 'bg-slate-400' : 'bg-blue-500 animate-pulse'}`} />
@@ -2917,7 +3311,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                           </div>
                        </div>
                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
+                          <button aria-label={u.status === 'hidden' ? "Make Visible" : "Hide From Public"}
                             onClick={async () => {
                               try {
                                 const nextStatus = u.status === 'hidden' ? 'visible' : 'hidden';
@@ -2930,7 +3324,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                           >
                              {u.status === 'hidden' ? <Eye size={16} /> : <EyeOff size={16} />}
                           </button>
-                          <button 
+                          <button aria-label="Delete Transmission"
                             onClick={() => {
                               Swal.fire({
                                 title: 'Delete Transmission?',
@@ -2949,6 +3343,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                               });
                             }}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            aria-label="Delete Transmission"
                           >
                              <Trash2 size={16} />
                           </button>
@@ -2962,121 +3357,42 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
 
         {activeSubTab === 'logs' && (
            <div className="space-y-8 pb-20">
-              {/* Administrative Security Section */}
-              <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-6">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shadow-inner">
-                      <Shield size={24} />
-                    </div>
-                    <div>
-                      <h4 className="text-xl font-black text-slate-900 tracking-tight">Administrative Audits</h4>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Master Control Logs</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => exportLogsToCSV()}
-                    className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg active:scale-95 w-full sm:w-auto"
-                  >
-                    <Download size={14} /> Export Admin CSV
-                  </button>
-                </div>
-
-                <div className="bg-[#0f1115] rounded-[24px] p-2 overflow-hidden shadow-2xl border border-white/5">
-                   <div className="overflow-x-auto">
-                      <table className="w-full text-left text-white/80 border-collapse">
-                         <thead className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 bg-white/[0.02]">
-                            <tr>
-                               <th className="p-6 font-black border-b border-white/5 uppercase">Trace ID</th>
-                               <th className="p-6 font-black border-b border-white/5 uppercase">Admin Email</th>
-                               <th className="p-6 font-black border-b border-white/5 uppercase">Action Token</th>
-                               <th className="p-6 font-black border-b border-white/5 uppercase">Temporal Sync</th>
-                               <th className="p-6 font-black border-b border-white/5 uppercase text-right">Status</th>
-                            </tr>
-                         </thead>
-                         <tbody className="divide-y divide-white/5 text-[11px] font-medium font-mono">
-                            {logsError ? (
-                              <tr><td colSpan={5} className="p-12 text-center text-white/10 font-bold uppercase tracking-widest">Access Restricted</td></tr>
-                            ) : (
-                               logs.filter(log => !!log.admin && ['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(log.admin)).length > 0 ? (
-                                 logs.filter(log => !!log.admin && ['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(log.admin)).map((log, lidx) => (
-                                  <tr key={`admin-log-${log.id || lidx}`} className="hover:bg-white/5 transition-all">
-                                     <td className="p-6 text-blue-400 font-black">#{log.id?.substring(0,8).toUpperCase()}</td>
-                                     <td className="p-6">
-                                        <div className="flex items-center gap-3">
-                                           <div className="w-1.5 h-6 rounded-full bg-amber-500" />
-                                           <span className="opacity-90">{log.admin}</span>
-                                        </div>
-                                     </td>
-                                     <td className="p-6">
-                                        <span className={`px-2.5 py-1 rounded-md border text-[9px] font-black uppercase tracking-wider ${
-                                          log.action?.toLowerCase().includes('delete') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 
-                                          'bg-blue-500/10 border-blue-500/20 text-blue-400'
-                                        }`}>{log.action || 'Admin Event'}</span>
-                                     </td>
-                                     <td className="p-6 text-white/40">{new Date(getValidTime(log)).toLocaleString()}</td>
-                                     <td className="p-6 text-emerald-500 font-black tracking-tighter italic text-right">Verified</td>
-                                  </tr>
-                                ))
-                               ) : (
-                                 <tr><td colSpan={5} className="p-12 text-center text-white/5 font-black uppercase tracking-widest">No Administrative events discovered</td></tr>
-                               )
-                            )}
-                         </tbody>
-                      </table>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {logsError ? (
+                   <div className="col-span-full p-12 text-center bg-slate-50 rounded-[32px] text-slate-400 font-bold uppercase tracking-widest border-2 border-dashed border-slate-200">
+                      Access Restricted
                    </div>
-                </div>
-              </div>
-
-              {/* Public Activity Section */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner">
-                    <Users size={24} />
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-black text-slate-800 tracking-tight">Public Activity Logs</h4>
-                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em]">Citizen & Member Interaction History</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                   {logsError ? (
-                     <div className="col-span-full p-12 text-center bg-slate-50 rounded-[32px] text-slate-400 font-bold uppercase tracking-widest border-2 border-dashed border-slate-200">
-                        Access Restricted
-                     </div>
-                   ) : (
-                      logs.filter(log => !log.admin || !['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(log.admin)).length > 0 ? (
-                        logs.filter(log => !log.admin || !['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(log.admin)).map((log, lidx) => (
-                          <div key={`public-card-${log.id || lidx}`} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
-                             <div className="flex justify-between items-start mb-4">
-                               <div className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-wider rounded-full border border-emerald-100">
-                                 {log.action || 'Event'}
-                               </div>
-                               <span className="text-[10px] font-mono text-slate-300">#{log.id?.substring(0,6).toUpperCase()}</span>
+                 ) : (
+                    logs.filter(log => !log.admin || !['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(log.admin)).length > 0 ? (
+                      logs.filter(log => !log.admin || !['rakeshkumardhawan123@gmail.com', 'mpo.kasipett@gmail.com'].includes(log.admin)).map((log, lidx) => (
+                        <div key={`public-card-${log.id || lidx}`} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                           <div className="flex justify-between items-start mb-4">
+                             <div className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-wider rounded-full border border-emerald-100">
+                               {log.action || 'Event'}
                              </div>
-                             <div className="space-y-2 mb-4">
-                               <div className="text-[13px] font-bold text-slate-800 break-all">
-                                 {log.userEmail || log.userId || 'Anonymous Citizen'}
-                               </div>
-                               <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                                 <Clock size={12} />
-                                 {new Date(getValidTime(log)).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                               </div>
+                             <span className="text-[10px] font-mono text-slate-300">#{log.id?.substring(0,6).toUpperCase()}</span>
+                           </div>
+                           <div className="space-y-2 mb-4">
+                             <div className="text-[13px] font-bold text-slate-800 break-all">
+                               {log.userEmail || log.userId || 'Anonymous Citizen'}
                              </div>
-                             <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                               <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest italic">Verified Log</span>
-                               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                             <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                               <Clock size={12} />
+                               {new Date(getValidTime(log)).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                              </div>
-                          </div>
-                       ))
-                      ) : (
-                        <div className="col-span-full p-12 text-center bg-slate-50 rounded-[32px] text-slate-400 font-bold uppercase tracking-widest border-2 border-dashed border-slate-200">
-                           No Citizen activity recorded
+                           </div>
+                           <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                             <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest italic">Verified Log</span>
+                             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                           </div>
                         </div>
-                      )
-                   )}
-                </div>
+                     ))
+                    ) : (
+                      <div className="col-span-full p-12 text-center bg-slate-50 rounded-[32px] text-slate-400 font-bold uppercase tracking-widest border-2 border-dashed border-slate-200">
+                         No Citizen activity recorded
+                      </div>
+                    )
+                 )}
               </div>
            </div>
         )}
@@ -3088,7 +3404,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                   <h4 className="text-xl font-black text-primary mb-2">🚀 What's New Management</h4>
                   <p className="text-xs text-slate-400 font-medium tracking-tight">Manage the "What's New" (changelog) entries for citizens.</p>
                 </div>
-                <button 
+                <button aria-label="Post New Update"
                   onClick={() => {
                     Swal.fire({
                       title: 'Post New Update',
@@ -3134,7 +3450,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                         <p className="text-sm font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">{upd.text}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button aria-label="Edit Update"
                           onClick={() => {
                             Swal.fire({
                               title: 'Edit Update',
@@ -3160,7 +3476,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                         >
                           <Edit3 size={18} />
                         </button>
-                        <button 
+                        <button aria-label="Delete Update"
                           onClick={() => {
                             Swal.fire({
                               title: 'Delete Update?',
@@ -3181,6 +3497,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                             });
                           }}
                           className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          aria-label="Delete Update"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -3195,6 +3512,64 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                   </div>
                 )}
               </div>
+           </div>
+        )}
+
+        {activeSubTab === 'logs' && (
+           <div className="space-y-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xl font-black text-primary mb-2 flex items-center gap-3">
+                    <ShieldAlert size={24} className="text-primary" />
+                    Security Audits & Logs
+                  </h4>
+                  <p className="text-xs text-slate-400 font-medium tracking-tight">System activity monitoring and administration logs.</p>
+                </div>
+              </div>
+
+              {logsError ? (
+                <div className="p-6 bg-red-50 border border-red-100 rounded-3xl text-red-600 text-sm font-bold text-center">
+                  Error loading security logs. Required index might be missing.
+                </div>
+              ) : (
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                   <div className="overflow-x-auto">
+                     <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-slate-100">
+                           <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                              <th className="p-5 pl-8">Admin / User</th>
+                              <th className="p-5">Action Performed</th>
+                              <th className="p-5 text-right pr-8">Timestamp</th>
+                           </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                           {logs.length === 0 ? (
+                             <tr>
+                               <td colSpan={3} className="p-8 text-center text-slate-400 font-bold text-sm">No security logs recorded yet.</td>
+                             </tr>
+                           ) : (
+                             logs.map((log: any, i: number) => (
+                               <tr key={log.id || i} className="hover:bg-slate-50/50 transition-colors">
+                                  <td className="p-5 pl-8">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                                        <User size={14} />
+                                      </div>
+                                      <span className="text-[12px] font-bold text-slate-700">{log.admin || log.userEmail || 'System'}</span>
+                                    </div>
+                                  </td>
+                                  <td className="p-5 text-[12px] font-medium text-slate-600">{log.action}</td>
+                                  <td className="p-5 text-[11px] font-bold text-slate-400 text-right pr-8 uppercase tracking-widest">
+                                     {new Date(getValidTime(log)).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  </td>
+                               </tr>
+                             ))
+                           )}
+                        </tbody>
+                     </table>
+                   </div>
+                </div>
+              )}
            </div>
         )}
 
@@ -3227,7 +3602,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                             defaultValue={currentAdminPin} 
                             maxLength={4} 
                           />
-                          <button 
+                          <button aria-label="Toggle PIN visibility"
                             type="button"
                             onClick={() => setShowPin(!showPin)}
                             className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-primary transition-colors"
@@ -3237,7 +3612,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                        </div>
                     </div>
 
-                    <button 
+                    <button aria-label="Sync Global Configuration"
                       onClick={async () => {
                          const pin = (document.getElementById('pin-config-field') as HTMLInputElement)?.value;
                          if (pin && pin.length === 4) {
@@ -3274,7 +3649,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                  </div>
                  
                  <div className="grid grid-cols-1 gap-4">
-                    <button className="p-6 bg-white border-2 border-slate-100 rounded-3xl flex items-center justify-between group hover:border-green-500 transition-all">
+                    <button aria-label="Full Snapshot" className="p-6 bg-white border-2 border-slate-100 rounded-3xl flex items-center justify-between group hover:border-green-500 transition-all">
                        <div className="flex items-center gap-4">
                           <div className="p-3 bg-green-50 text-green-500 rounded-2xl group-hover:bg-green-500 group-hover:text-white transition-all"><Download size={24}/></div>
                           <div className="text-left">
@@ -3285,7 +3660,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                        <ChevronRight size={18} className="text-slate-300" />
                     </button>
 
-                    <button className="p-6 bg-white border-2 border-slate-100 rounded-3xl flex items-center justify-between group hover:border-amber-500 transition-all">
+                    <button aria-label="Point-in-time Restore" className="p-6 bg-white border-2 border-slate-100 rounded-3xl flex items-center justify-between group hover:border-amber-500 transition-all">
                        <div className="flex items-center gap-4">
                           <div className="p-3 bg-amber-50 text-amber-500 rounded-2xl group-hover:bg-amber-500 group-hover:text-white transition-all"><Upload size={24}/></div>
                           <div className="text-left">
@@ -3304,7 +3679,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                     <p className="text-[10px] text-red-700/60 font-bold uppercase mb-4 leading-relaxed">
                        Permanent system resets and partition wipes can only be executed via the Secure Root Shell.
                     </p>
-                    <button className="px-6 py-2.5 bg-red-600 text-white font-black text-[10px] rounded-xl uppercase tracking-widest shadow-lg shadow-red-600/20">Wipe Interaction Cache</button>
+                    <button aria-label="Wipe Interaction Cache" className="px-6 py-2.5 bg-red-600 text-white font-black text-[10px] rounded-xl uppercase tracking-widest shadow-lg shadow-red-600/20">Wipe Interaction Cache</button>
                  </div>
               </div>
            </div>
@@ -3399,6 +3774,7 @@ function SmartAssistant({ title, placeholder, systemInstruction, icon: Icon }: {
           onKeyDown={e => e.key === 'Enter' && handleAsk()}
         />
         <button 
+          aria-label="Ask assistant"
           onClick={handleAsk}
           disabled={loading}
           className="bg-primary text-white p-2 rounded-xl disabled:opacity-50"
@@ -3463,7 +3839,7 @@ function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => v
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '20px' }}>
              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h3 style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}><GraduationCap /> Digital Workflows</h3>
-                <button onClick={() => setShowTrainingBot(!showTrainingBot)} style={{ background: '#f1f5f9', border: 'none', padding: '5px 12px', borderRadius: '15px', color: 'var(--primary)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <button aria-label="Ask Training Bot" onClick={() => setShowTrainingBot(!showTrainingBot)} style={{ background: '#f1f5f9', border: 'none', padding: '5px 12px', borderRadius: '15px', color: 'var(--primary)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <Bot size={14} /> {showTrainingBot ? "Hide Help" : "Ask Training Bot"}
                 </button>
              </div>
@@ -3558,7 +3934,7 @@ function FormsHub({ addToast, user }: { addToast: (s:string) => void, user: Fire
           <h3 className="font-bold">Forms Hub</h3>
           <p className="text-sm text-slate-500">Download essential technical forms or contribute new ones.</p>
         </div>
-        <button 
+        <button aria-label="Share Form"
           onClick={() => {
             if (requireLoginAlert(user)) return;
             setShowUpload(!showUpload);
@@ -3579,7 +3955,7 @@ function FormsHub({ addToast, user }: { addToast: (s:string) => void, user: Fire
               <textarea placeholder="Who uses it and how is it used?" value={formUsage} onChange={e => setFormUsage(e.target.value)} className="w-full bg-slate-50 p-3 rounded-xl outline-none focus:border-primary/50 border border-slate-200 text-sm h-24 custom-scrollbar" />
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-slate-400 font-bold uppercase w-2/3">Note: All uploaded forms are publicly visible and verified by Admin.</p>
-                <button disabled={submitting} onClick={handleUpload} className="bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-2.5 rounded-xl disabled:opacity-50 text-sm transition-colors">
+                <button aria-label="Publish Form" disabled={submitting} onClick={handleUpload} className="bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-2.5 rounded-xl disabled:opacity-50 text-sm transition-colors">
                    {submitting ? 'Sharing...' : 'Publish Form'}
                 </button>
               </div>
@@ -3613,7 +3989,7 @@ function FormsHub({ addToast, user }: { addToast: (s:string) => void, user: Fire
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">By {f.userName}</p>
                     </div>
                   </div>
-                  <button onClick={() => addToast("Starting download...")} className="p-2 bg-slate-50 hover:bg-primary hover:text-white text-slate-600 rounded-xl transition-all">
+                  <button aria-label="Download form" onClick={() => addToast("Starting download...")} className="p-2 bg-slate-50 hover:bg-primary hover:text-white text-slate-600 rounded-xl transition-all">
                     <Download size={18} />
                   </button>
                 </div>
@@ -3709,7 +4085,7 @@ function DirectorySection({ allUsers }: { allUsers: UserProfile[] }) {
           >
             <div className="flex items-start gap-4 mb-6">
                <div className="w-16 h-16 rounded-2xl bg-slate-50 border-2 border-white shadow-md overflow-hidden shrink-0">
-                  {u.photoURL ? <img src={u.photoURL} alt={u.name} className="w-full h-full object-cover" /> : <User size={30} className="m-auto mt-3 text-slate-200" />}
+                  {u.photoURL ? <img src={u.photoURL} alt={u.name} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" /> : <User size={30} className="m-auto mt-3 text-slate-200" />}
                </div>
                <div className="flex-1 min-w-0">
                   <h4 className="font-black text-primary text-base truncate leading-tight">
@@ -3752,7 +4128,7 @@ function DirectorySection({ allUsers }: { allUsers: UserProfile[] }) {
                   <span className="text-[8px] font-black text-slate-300 uppercase tracking-[0.2em]">Contact</span>
                   <span className="text-[10px] font-bold text-slate-400">{u.mobile ? `+91 ${u.mobile.substring(0, 5)}...` : 'Not Public'}</span>
                </div>
-               <button onClick={() => {
+               <button aria-label="View Card" onClick={() => {
                   Swal.fire({
                     title: `<div class="font-black text-primary p-2">${u.name || ''} ${u.surname || ''}</div>`,
                     html: `
@@ -3841,6 +4217,7 @@ function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, us
     if (files.length === 0) return;
 
     setIsAnalyzing(true);
+    await loadHeavyModules();
     const newAggregated = new Map(aggregatedData);
     const datesFound = new Set(allDates);
     const updatedRawRows: any[][] = [...rawRows];
@@ -4082,7 +4459,8 @@ function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, us
     }
   };
 
-  const downloadRawExcel = () => {
+  const downloadRawExcel = async () => {
+    await loadHeavyModules();
     if (rawRows.length === 0) return;
     const ws = XLSX.utils.aoa_to_sheet(rawRows);
     const wb = XLSX.utils.book_new();
@@ -4091,7 +4469,8 @@ function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, us
     addToast("మొత్తం కలిపిన Raw డేటా డౌన్లోడ్ అవుతోంది...");
   };
 
-  const downloadRawPdf = () => {
+  const downloadRawPdf = async () => {
+    await loadHeavyModules();
     if (rawRows.length === 0) return;
     const doc = new jsPDF('l', 'mm', 'a4');
     autoTable(doc, {
@@ -4102,7 +4481,8 @@ function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, us
     doc.save(`MultiDay_Combined_Raw_${new Date().toLocaleDateString()}.pdf`);
   };
 
-  const downloadMandalSummary = () => {
+  const downloadMandalSummary = async () => {
+    await loadHeavyModules();
     if (aggregatedData.size === 0) return;
     const mandalSummary = new Map<string, { total: number, present: number }>();
     filteredData.forEach((info) => {
@@ -4128,7 +4508,8 @@ function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, us
     addToast("మండల్ అటెండెన్స్ సమ్మరీ డౌన్లోడ్ అవుతోంది...");
   };
 
-  const downloadGPSummary = () => {
+  const downloadGPSummary = async () => {
+    await loadHeavyModules();
     if (aggregatedData.size === 0) return;
     const aoa: any[][] = [];
     
@@ -4209,7 +4590,8 @@ function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, us
     addToast("GP వైజ్ కంపారిటివ్ రిపోర్ట్ డౌన్లోడ్ అవుతోంది...");
   };
 
-  const downloadMultiPdf = () => {
+  const downloadMultiPdf = async () => {
+    await loadHeavyModules();
     if (aggregatedData.size === 0) return;
     const doc = new jsPDF('l', 'mm', 'a4');
     const head = [['S.No', 'District', 'Mandal', 'Panchayat Name', ...allDates.map(d => `Attendance\n${d}`)]];
@@ -4332,13 +4714,13 @@ function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, us
                 </select>
              </div>
              <div className="flex gap-2">
-                <button 
+                <button aria-label="Expand All Mandals"
                   onClick={() => toggleAllMandals(true)}
                   className="bg-primary/10 text-primary px-4 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-primary/20 transition-colors border border-primary/20"
                 >
                   Expand All
                 </button>
-                <button 
+                <button aria-label="Collapse All Mandals"
                   onClick={() => toggleAllMandals(false)}
                   className="bg-slate-100 text-slate-600 px-4 py-3 rounded-xl font-black text-[10px] uppercase hover:bg-slate-200 transition-colors border border-slate-200"
                 >
@@ -4363,11 +4745,11 @@ function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, us
                 </div>
              </div>
              <div className="col-span-2 flex gap-3">
-               <button onClick={downloadMandalSummary} className="flex-1 bg-white border border-slate-100 p-5 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-2 shadow-sm hover:shadow-md">
+               <button aria-label="Download Mandal Summary" onClick={downloadMandalSummary} className="flex-1 bg-white border border-slate-100 p-5 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-2 shadow-sm hover:shadow-md">
                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 mb-1"><BarChart3 size={18}/></div>
                  Mandal Summary (XL)
                </button>
-               <button onClick={downloadGPSummary} className="flex-1 bg-white border border-slate-100 p-5 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-2 shadow-sm hover:shadow-md">
+               <button aria-label="Download GP Comparative" onClick={downloadGPSummary} className="flex-1 bg-white border border-slate-100 p-5 rounded-[24px] text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 transition-all flex flex-col items-center justify-center gap-2 shadow-sm hover:shadow-md">
                  <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 mb-1"><Database size={18}/></div>
                  GP Comparative (XL)
                </button>
@@ -4512,7 +4894,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
+      await loadHeavyModules();
       const dataBuffer = evt.target?.result as ArrayBuffer;
       let allRows: any[][] = [];
       
@@ -4717,7 +5100,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
     reader.readAsArrayBuffer(file);
   };
 
-  const downloadMandalReport = () => {
+  const downloadMandalReport = async () => {
+    await loadHeavyModules();
     if (Object.keys(mandalSummaries).length === 0) return;
     
     const exportData = Object.entries(mandalSummaries).map(([mandal, s]: [string, any]) => ({
@@ -4739,7 +5123,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
     addToast("మండల్ సమ్మరీ రిపోర్ట్ డౌన్లోడ్ అవుతోంది...");
   };
 
-  const downloadFullReport = () => {
+  const downloadFullReport = async () => {
+    await loadHeavyModules();
     if (data.length === 0) return;
     
     const exportData = data.map(r => ({
@@ -4758,7 +5143,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
     addToast("పూర్తి రిపోర్ట్ డౌన్లోడ్ అవుతోంది...");
   };
 
-  const downloadRawExcel = () => {
+  const downloadRawExcel = async () => {
+    await loadHeavyModules();
     if (rawJson.length === 0) return;
     const ws = XLSX.utils.aoa_to_sheet(rawJson);
     const wb = XLSX.utils.book_new();
@@ -4767,7 +5153,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
     addToast("ఒరిజినల్ Raw ఫైల్ (Excel) డౌన్లోడ్ అవుతోంది...");
   };
 
-  const downloadRawPdf = () => {
+  const downloadRawPdf = async () => {
+    await loadHeavyModules();
     if (rawJson.length === 0) return;
     const doc = new jsPDF('l', 'mm', 'a4');
     
@@ -4831,36 +5218,36 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
       {data.length > 0 && user && !user.isAnonymous && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
-            <button onClick={() => setActiveFilter(null)} className="text-left w-full"><StatCard label="Total" val={stats.total} color="blue" /></button>
-            <button onClick={() => setActiveFilter('P')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'P' ? 'ring-2 ring-emerald-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Present" val={stats.present} color="emerald" /></button>
+            <button aria-label="Filter Total" onClick={() => setActiveFilter(null)} className="text-left w-full"><StatCard label="Total" val={stats.total} color="blue" /></button>
+            <button aria-label="Filter Present" onClick={() => setActiveFilter('P')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'P' ? 'ring-2 ring-emerald-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Present" val={stats.present} color="emerald" /></button>
             <button title="ఉదయం 9:00 కంటే ముందు విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('B9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'B9' ? 'ring-2 ring-indigo-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Attendance in time" val={stats.before901} color="indigo" /></button>
             <button title="ఉదయం 9:01 తర్వాత విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('A9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'A9' ? 'ring-2 ring-rose-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Late Attendance" val={stats.after900} color="rose" /></button>
-            <button onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR" val={stats.dsr} color="blue" /></button>
-            <button onClick={() => setActiveFilter('M')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'M' ? 'ring-2 ring-cyan-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Meeting" val={stats.meeting} color="cyan" /></button>
-            <button onClick={() => setActiveFilter('T')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'T' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Training" val={stats.training} color="amber" /></button>
-            <button onClick={() => setActiveFilter('L')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'L' ? 'ring-2 ring-slate-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Leave" val={stats.leave} color="slate" /></button>
+            <button aria-label="Filter DSR" onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR" val={stats.dsr} color="blue" /></button>
+            <button aria-label="Filter Meeting" onClick={() => setActiveFilter('M')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'M' ? 'ring-2 ring-cyan-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Meeting" val={stats.meeting} color="cyan" /></button>
+            <button aria-label="Filter Training" onClick={() => setActiveFilter('T')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'T' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Training" val={stats.training} color="amber" /></button>
+            <button aria-label="Filter Leave" onClick={() => setActiveFilter('L')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'L' ? 'ring-2 ring-slate-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Leave" val={stats.leave} color="slate" /></button>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 py-2">
-             <button 
+             <button aria-label="Mandal Export"
                onClick={downloadMandalReport}
                className="flex items-center justify-center gap-2 bg-blue-50 text-blue-700 border border-blue-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-blue-100 hover:border-blue-200 active:scale-95 transition-all"
              >
                <Download size={14} /> Mandal Export
              </button>
-             <button 
+             <button aria-label="GP Export"
                onClick={downloadFullReport}
                className="flex items-center justify-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-slate-100 active:scale-95 transition-all"
              >
                <Download size={14} /> GP Export
              </button>
-             <button 
+             <button aria-label="Raw Excel Download"
                onClick={downloadRawExcel}
                className="flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-emerald-100 hover:border-emerald-200 active:scale-95 transition-all"
              >
                <Download size={14} /> Raw Excel
              </button>
-             <button 
+             <button aria-label="Raw PDF Download"
                onClick={downloadRawPdf}
                className="flex items-center justify-center gap-2 bg-rose-50 text-rose-700 border border-rose-100 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider shadow-sm hover:bg-rose-100 hover:border-rose-200 active:scale-95 transition-all"
              >
@@ -4955,7 +5342,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(mandalSummaries).map(([mandal, mStats]: [string, any], mIdx) => (
-                <button 
+                <button aria-label={`View mandal ${mandal}`}
                   key={`${mandal}_${mIdx}`}
                   onClick={() => setSearchTerm(mandal)}
                   className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md hover:border-primary/30 transition-all text-left group"
@@ -5018,9 +5405,9 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
                    activeFilter === 'D' ? 'DSR Reported' : 
                    activeFilter === 'M' ? 'In Meeting' : 
                    activeFilter === 'T' ? 'In Training' : 'On Leave'}
-                  <button onClick={() => setActiveFilter(null)} className="hover:opacity-70"><XCircle size={12} /></button>
+                  <button aria-label="Clear filter" onClick={() => setActiveFilter(null)} className="hover:opacity-70"><XCircle size={12} /></button>
                 </span>
-                <button onClick={() => setActiveFilter(null)} className="text-[9px] font-bold text-primary hover:underline uppercase">Clear Filter</button>
+                <button aria-label="Clear Filter" onClick={() => setActiveFilter(null)} className="text-[9px] font-bold text-primary hover:underline uppercase">Clear Filter</button>
               </div>
             )}
           </div>
@@ -5120,7 +5507,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
     <div className="post-card">
       <div className="flex items-center gap-4 mb-6">
         <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-primary font-black overflow-hidden border shadow-sm">
-           {post.userPhoto ? <img src={post.userPhoto} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <div className="text-lg">{(post.userName || 'U').charAt(0).toUpperCase()}</div>}
+           {post.userPhoto ? <img src={post.userPhoto} alt={post.userName || "Author"} loading="lazy" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <div className="text-lg">{(post.userName || 'U').charAt(0).toUpperCase()}</div>}
         </div>
         <div className="flex-1">
            <div className="flex items-center gap-2">
@@ -5133,6 +5520,11 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
               {isAdmin && post.status === 'Deleted' && (
                  <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider animate-pulse">Deleted Archive</span>
               )}
+              {post.pinned && (
+                 <span className="bg-amber-100 text-amber-700 text-[9px] px-2.5 py-1 rounded-lg font-black uppercase tracking-widest flex items-center gap-1 border border-amber-200">
+                   <Pin size={10} fill="currentColor" /> Pinned Post
+                 </span>
+              )}
            </div>
            <div className="flex items-center gap-2 text-xs text-slate-400 font-bold uppercase mt-1">
               <Clock size={12} />
@@ -5142,10 +5534,28 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
            </div>
         </div>
         <div className="flex gap-2">
+           {isAdmin && (
+              <button aria-label={post.pinned ? "Unpin Post" : "Pin Post"}
+                onClick={async () => {
+                  try {
+                    await updateDoc(doc(db, 'posts', post.id), { 
+                      pinned: !post.pinned 
+                    });
+                    addToast(post.pinned ? "Post Unpinned" : "Post Pinned Successfully 📍");
+                  } catch (e: any) {
+                    handleFirestoreError(e, OperationType.WRITE, `posts/${post.id}`);
+                  }
+                }}
+                className={`p-1.5 transition-all rounded-lg ${post.pinned ? 'text-amber-600 bg-amber-50' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'}`}
+                title={post.pinned ? "Unpin Post" : "Pin Post"}
+              >
+                <Pin size={16} fill={post.pinned ? "currentColor" : "none"} />
+              </button>
+           )}
            {isOwner && (
               <>
                 <button onClick={() => onEdit(post)} className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-primary transition-all rounded-lg" title="Edit"><Edit3 size={16} /></button>
-                <button onClick={async () => {
+                <button aria-label="Delete Post" onClick={async () => {
                   if (isAdmin) {
                     if (post.status === 'Deleted') {
                       const res = await Swal.fire({ 
@@ -5204,12 +5614,12 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
       
       <h4 className="post-title !mt-0">{post.title || 'Platform Update'}</h4>
       
-      <div className={`post-body mb-4 ${isExpanded ? '' : 'line-clamp-4'} whitespace-pre-wrap`}>
+      <div className={`post-body mb-4 ${isExpanded ? '' : 'line-clamp-4'} [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline`}>
         <ReactMarkdown remarkPlugins={[remarkBreaks]}>{post.content || (post as any).message || (post as any).text || (post as any).desc || ''}</ReactMarkdown>
       </div>
 
       {post.content && post.content.length > 200 && (
-        <button onClick={toggleExpansion} className="text-xs font-black text-primary uppercase underline underline-offset-4 mb-6 block">
+        <button aria-label={isExpanded ? 'View Less' : 'Read Post'} onClick={toggleExpansion} className="text-xs font-black text-primary uppercase underline underline-offset-4 mb-6 block">
           {isExpanded ? 'View Less' : 'Read Post'}
         </button>
       )}
@@ -5226,7 +5636,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
 
       <div className="flex flex-wrap gap-4 justify-between items-center pt-6 border-t border-slate-100 mt-6">
          <div className="flex items-center gap-6">
-           <button 
+            <button aria-label="Like Post"
              onClick={async () => {
                const userId = auth.currentUser?.uid;
                if (requireLoginAlert()) return;
@@ -5254,7 +5664,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
               <span className="text-sm font-bold text-slate-400">{post.views || 0}</span>
            </div>
            
-           <button onClick={() => setShowComments(!showComments)} className="flex items-center gap-2 group text-slate-400 hover:text-primary" title="Comments">
+           <button aria-label="Toggle Comments" onClick={() => setShowComments(!showComments)} className="flex items-center gap-2 group text-slate-400 hover:text-primary" title="Comments">
               <MessageCircle size={20} className="group-hover:scale-110 transition-transform" />
               <span className="text-sm font-black">{post.commentCount || 0}</span>
            </button>
@@ -5262,6 +5672,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
 
          <div className="flex items-center gap-3">
            <button 
+             aria-label="Share Post"
              onClick={() => {
                const url = `${window.location.origin}${window.location.pathname}?postId=${post.id}`;
                navigator.clipboard.writeText(url);
@@ -5289,6 +5700,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
                 className="flex-1 text-sm bg-slate-50 p-2 rounded-xl border border-slate-200 outline-none focus:border-primary/30 m-0" 
               />
               <button 
+                aria-label="Submit comment"
                 disabled={submittingComment}
                 onClick={handleAddComment} 
                 className="bg-primary text-white p-2 rounded-xl text-sm font-bold disabled:opacity-50"
@@ -5396,7 +5808,7 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
         <h3 className="font-black text-primary uppercase text-lg flex items-center gap-2">
           {editingPost ? '✏️ Edit Update' : '📝 New Update'}
         </h3>
-        <button type="button" onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors font-black text-lg">✕</button>
+        <button aria-label="Close edit modal" type="button" onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors font-black text-lg">✕</button>
       </div>
 
       <div className="space-y-4">
@@ -5429,9 +5841,9 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
                     {media.type.startsWith('video') ? (
                       <video src={media.url} className="h-32 w-full object-cover rounded-xl border shadow-sm" />
                     ) : (
-                      <img src={media.url} className="h-32 w-full object-cover rounded-xl border shadow-sm" />
+                      <img src={media.url} alt="Uploaded media preview" loading="lazy" className="h-32 w-full object-cover rounded-xl border shadow-sm" />
                     )}
-                    <button 
+                    <button aria-label="Remove media"
                       type="button" 
                       onClick={(e) => { e.stopPropagation(); setMedia(null); }} 
                       className="absolute -top-2 -right-2 bg-danger text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform"
@@ -5460,7 +5872,7 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
         </div>
       </div>
 
-      <button disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-all active:scale-95 mt-6 disabled:opacity-50" style={{ background: '#0d3b66' }}>
+      <button aria-label={editingPost ? 'Save Changes' : 'Publish Now'} disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-all active:scale-95 mt-6 disabled:opacity-50" style={{ background: '#0d3b66' }}>
         {loading ? (editingPost ? 'SAVING... 🚀' : 'PUBLISHING... 🚀') : (editingPost ? 'SAVE CHANGES 🚀' : 'PUBLISH NOW 🚀')}
       </button>
     </motion.form>
@@ -5487,13 +5899,44 @@ function MenuButton({ label, active, onClick, emoji, icon: Icon }: { label: stri
 
 function ChatSection({ messages, user, addToast, userProfile }: { messages: ChatMessage[], user: any, addToast: (s:string) => void, userProfile: UserProfile | null }) {
   const [msg, setMsg] = useState("");
+  const [isAiMode, setIsAiMode] = useState(false);
+  const [aiHistory, setAiHistory] = useState<{role: 'user'|'model', text: string}[]>([]);
+  const [isAiTyping, setIsAiTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, aiHistory]);
 
   const send = async () => {
     if (!msg.trim()) return;
     if (requireLoginAlert(user)) return;
+    
+    if (isAiMode) {
+      const userText = msg.trim();
+      setMsg("");
+      setAiHistory(prev => [...prev, { role: 'user', text: userText }]);
+      setIsAiTyping(true);
+      try {
+         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+         const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: [
+              ...aiHistory.map(h => ({ role: h.role, parts: [{ text: h.text }] })),
+              { role: 'user', parts: [{ text: userText }] }
+            ] as any,
+            config: {
+              systemInstruction: "You are a helpful AP Panchayat Secretary Assistant Bot. Respond clearly and concisely, limitlessly helping the user.",
+            }
+         });
+         setAiHistory(prev => [...prev, { role: 'model', text: response.text || "No response received." }]);
+      } catch (err) {
+         console.error(err);
+         addToast("AI Bot error");
+      } finally {
+         setIsAiTyping(false);
+      }
+      return;
+    }
+
     try {
       await addDoc(collection(db, 'chat'), { 
         msg, 
@@ -5510,10 +5953,18 @@ function ChatSection({ messages, user, addToast, userProfile }: { messages: Chat
 
   return (
     <div className="bg-white rounded-3xl border shadow-sm flex flex-col h-[600px] overflow-hidden">
-      <div className="p-4 border-b bg-slate-50 font-black text-primary flex items-center gap-3"><MessageCircle size={20}/> LIVE FEED</div>
+      <div className="p-4 border-b bg-slate-50 flex items-center justify-between">
+        <div className="font-black text-primary flex items-center gap-3">
+           {isAiMode ? <Bot size={20}/> : <MessageCircle size={20}/>} 
+           {isAiMode ? "AI ASSISTANT (NO LIMITS)" : "LIVE FEED"}
+        </div>
+        <button aria-label="Toggle AI Mode" onClick={() => setIsAiMode(!isAiMode)} className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest transition-all ${isAiMode ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}>
+          {isAiMode ? "Switch to Live" : "Chat with AI"}
+        </button>
+      </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8fafc] custom-scrollbar">
         <AnimatePresence initial={false}>
-          {messages.map(m => (
+          {!isAiMode && messages.map(m => (
             <motion.div 
               key={m.id} 
               initial={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -5530,12 +5981,36 @@ function ChatSection({ messages, user, addToast, userProfile }: { messages: Chat
               </div>
             </motion.div>
           ))}
+          {isAiMode && aiHistory.map((m, i) => (
+            <motion.div 
+              key={i} 
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className="flex flex-col max-w-[80%]">
+                <span className={`text-[10px] font-black uppercase mb-1 px-1 ${m.role === 'user' ? 'text-right text-primary/40' : 'text-amber-500'}`}>
+                  {m.role === 'user' ? 'You' : 'AI Assistant'}
+                </span>
+                <div className={`p-3 rounded-2xl text-sm font-medium shadow-sm ${m.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'bg-amber-50 border-amber-200 border rounded-tl-none text-slate-800 markdown-body'}`} style={m.role === 'user' ? { background: '#0d3b66' } : {}}>
+                  <Markdown>{m.text}</Markdown>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+          {isAiMode && isAiTyping && (
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+                 <div className="p-3 bg-amber-50 border-amber-200 border rounded-2xl rounded-tl-none font-bold text-slate-400 text-xs flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin" /> Thinking limitlessly...
+                 </div>
+             </motion.div>
+          )}
         </AnimatePresence>
         <div ref={scrollRef} />
       </div>
       <div className="p-4 border-t flex gap-2">
-        <input value={msg} onChange={e => setMsg(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="Type..." className="mb-0" />
-        <button onClick={send} className="bg-primary text-white p-3 rounded-xl" style={{ background: '#0d3b66' }}><Send size={18}/></button>
+        <input value={msg} onChange={e => setMsg(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder={isAiMode ? "Ask the AI assistant anything..." : "Type..."} className="mb-0 flex-1 bg-slate-50 border border-slate-200 p-3 rounded-xl focus:outline-none focus:border-primary/50 text-sm" />
+        <button aria-label={isAiMode ? "Send to AI" : "Send message"} onClick={send} disabled={isAiTyping} className="bg-primary text-white p-3 rounded-xl disabled:opacity-50" style={{ background: '#0d3b66' }}><Send size={18}/></button>
       </div>
     </div>
   );
@@ -5624,7 +6099,7 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
           <h2 className="text-xl font-black text-primary">Post Not Found</h2>
           <p className="text-slate-500 font-medium">Sorry, we couldn't find that update. It may have been removed.</p>
         </div>
-        <button onClick={onBack} className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-opacity-90 inline-flex items-center gap-2">
+        <button aria-label="Return to Feed" onClick={onBack} className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-opacity-90 inline-flex items-center gap-2">
           <ArrowLeft size={16} /> Return to Feed
         </button>
       </div>
@@ -5633,7 +6108,7 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
 
   return (
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-6 md:p-10 rounded-[32px] shadow-sm border space-y-8">
-       <button onClick={onBack} className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-slate-500 hover:text-primary transition-colors font-bold text-sm w-fit group">
+       <button aria-label="Back to Feed" onClick={onBack} className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-slate-500 hover:text-primary transition-colors font-bold text-sm w-fit group">
          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to Feed
        </button>
        
@@ -5688,6 +6163,7 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
             </div>
             
             <button 
+               aria-label="Share Post"
                onClick={() => {
                  navigator.clipboard.writeText(`${window.location.origin}/?postId=${post.id}`);
                  addToast("Link Copied!");
@@ -5762,7 +6238,7 @@ function PostComments({ post, addToast, userProfile }: { post: Post, addToast: (
                placeholder="Type your comment here..." 
                className="flex-1 text-base bg-white p-4 rounded-xl border-2 border-transparent focus:border-accent outline-none shadow-sm transition-all text-slate-700" 
              />
-             <button 
+             <button aria-label="Post Comment"
                disabled={submittingComment || !newComment.trim()}
                onClick={handleAddComment} 
                className="bg-primary text-white py-4 px-8 rounded-xl font-black uppercase tracking-wider disabled:opacity-50 hover:bg-opacity-90 flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
@@ -5911,50 +6387,56 @@ function AuthModal({ onClose, addToast, handleGoogleLogin }: { onClose: () => vo
       <motion.div 
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-lg bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="w-full max-w-[280px] sm:max-w-xs bg-white rounded-[16px] shadow-2xl overflow-hidden flex flex-col max-h-[98vh]"
       >
-        <div className="bg-primary p-6 text-white text-center relative">
-          <button onClick={onClose} className="absolute top-4 right-4 text-white/60 hover:text-white"><X size={24} /></button>
-          <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">
-             <Bot size={28} className="text-accent" style={{ color: '#fbbf24' }} />
+        <div className="bg-[#0f2e4a] p-2 text-white text-center relative flex flex-col items-center">
+          <button aria-label="Close auth modal" onClick={onClose} className="absolute top-2.5 right-2.5 text-white/60 hover:text-white transition-colors">
+            <X size={14} />
+          </button>
+          
+          <div className="mb-0.5">
+            <EVAnimatedLogo size={24} />
           </div>
-          <h2 className="text-2xl font-black uppercase tracking-tighter">E-VEDHIKA</h2>
-          <p className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] mt-1">
-             {isSignup ? 'Create User Login' : 'Access Your Portal'}
+          
+          <h2 className="text-lg font-black uppercase tracking-widest leading-none mb-0.5" style={{ color: '#fbe947', fontFamily: '"Arial Black", Impact, sans-serif' }}>
+            E<span style={{ color: '#facc15' }}>-</span>VEDHIKA
+          </h2>
+          <p className="text-[7px] font-black text-white/50 uppercase tracking-[0.2em]">
+            Access Your Portal
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
-          <div className="mb-6">
-             <h3 className="text-xl font-black text-primary tracking-tight">{isSignup ? 'New Account Registration' : 'Welcome Back'}</h3>
-             <p className="text-sm font-bold text-slate-400 mt-1">
+        <div className="flex-1 overflow-y-auto px-3 py-2 bg-white custom-scrollbar">
+          <div className="mb-2 text-center">
+             <h3 className="text-sm font-black text-[#0f2e4a] tracking-tight leading-none">{isSignup ? 'Create Account' : 'Welcome Back'}</h3>
+             <p className="text-[8px] font-bold text-slate-400 mt-0.5">
                {isSignup ? 'Fill in your details to get started.' : 'Sign in with your credentials.'}
              </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-1.5">
             {isSignup && (
               <>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Surname *</label>
-                    <input value={surname} onChange={e => setSurname(e.target.value)} placeholder="Surname" required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
+                    <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Surname *</label>
+                    <input value={surname} onChange={e => setSurname(e.target.value)} placeholder="Surname" required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Name *</label>
-                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Name" required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
+                    <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Name *</label>
+                    <input value={name} onChange={e => setName(e.target.value)} placeholder="Name" required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Username / Display Name *</label>
-                  <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Display name" required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
+                  <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Username / Display Name *</label>
+                  <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Display name" required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Gender</label>
-                    <select value={gender} onChange={e => setGender(e.target.value)} className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm">
+                    <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Gender</label>
+                    <select value={gender} onChange={e => setGender(e.target.value)} className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors">
                        <option value="">Select Gender</option>
                        <option>Male</option>
                        <option>Female</option>
@@ -5962,94 +6444,100 @@ function AuthModal({ onClose, addToast, handleGoogleLogin }: { onClose: () => vo
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Mobile No *</label>
-                    <input value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Phone" required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
+                    <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Mobile No *</label>
+                    <input value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Phone" required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">State</label>
-                    <select value={state} onChange={e => setState(e.target.value)} className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm">
+                    <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">State</label>
+                    <select value={state} onChange={e => setState(e.target.value)} className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors">
                        <option>Telangana</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">District *</label>
-                    <select value={district} onChange={e => { setDistrict(e.target.value); setMandal(''); }} required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm">
+                    <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">District *</label>
+                    <select value={district} onChange={e => { setDistrict(e.target.value); setMandal(''); }} required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors">
                        <option value="">Select District</option>
                        {Object.keys(TELANGANA_DATA).sort().map(d => <option key={d}>{d}</option>)}
                     </select>
                   </div>
                 </div>
 
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                     <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Mandal *</label>
-                     <select value={mandal} onChange={e => setMandal(e.target.value)} required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" disabled={!district}>
+                     <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Mandal *</label>
+                     <select value={mandal} onChange={e => setMandal(e.target.value)} required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" disabled={!district}>
                         <option value="">Select Mandal</option>
                         {mandals.map((m, idx) => <option key={`${m}_${idx}`} value={m}>{m}</option>)}
                      </select>
                    </div>
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Village / GP</label>
-                    <input value={village} onChange={e => setVillage(e.target.value)} placeholder="Enter Village" className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
+                    <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Village / GP</label>
+                    <input value={village} onChange={e => setVillage(e.target.value)} placeholder="Enter Village" className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Designation *</label>
-                  <input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Type Designation" required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
+                  <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Designation *</label>
+                  <input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Type Designation" required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
                 </div>
               </>
             )}
 
             <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Email Address *</label>
-              <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="email@example.com" required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
+              <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Email Address *</label>
+              <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="email@example.com" required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
             </div>
 
-            <div className={isSignup ? "grid grid-cols-2 gap-4" : ""}>
+            <div className={isSignup ? "grid grid-cols-2 gap-2" : ""}>
                <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Password *</label>
-                <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••" required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
+                <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Password *</label>
+                <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••" required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
               </div>
               {isSignup && (
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block tracking-wider">Confirm Password</label>
-                  <input value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} type="password" placeholder="••••••••" required className="w-full bg-slate-50 border-2 border-transparent focus:border-primary/20 p-3 rounded-xl outline-none font-bold text-sm" />
+                  <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Confirm Password</label>
+                  <input value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} type="password" placeholder="••••••••" required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
                 </div>
               )}
             </div>
 
-            <button 
+            <button aria-label={isSignup ? 'Register Now' : 'Sign In Now'}
+              type="submit"
               disabled={loading}
-              className="w-full bg-primary text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg hover:shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
+              className="w-full bg-[#0f2e4a] text-white py-1.5 rounded-[6px] font-black uppercase text-[9px] tracking-widest shadow-md hover:shadow-lg transition-all active:scale-[0.98] mt-px disabled:opacity-50 disabled:transform-none flex justify-center items-center gap-1.5"
             >
-              {loading ? <Loader2 className="animate-spin mx-auto" size={18} /> : (isSignup ? 'Create Account' : 'Sign In Now')}
+              {loading ? <Loader2 className="animate-spin mx-auto" size={12} /> : (isSignup ? 'Register Now' : 'Sign In Now')}
             </button>
           </form>
 
-          <div className="my-6 flex items-center gap-4">
-             <div className="flex-1 h-px bg-slate-100"></div>
-             <span className="text-[10px] font-black text-slate-300 uppercase">OR</span>
-             <div className="flex-1 h-px bg-slate-100"></div>
-          </div>
+          {!isSignup && (
+            <>
+              <div className="my-2 flex items-center gap-2">
+                 <div className="flex-1 h-px bg-slate-100"></div>
+                 <span className="text-[7px] font-black text-slate-300 uppercase">OR</span>
+                 <div className="flex-1 h-px bg-slate-100"></div>
+              </div>
 
-          <button 
-            onClick={handleGoogleLogin}
-            className="w-full border-2 border-slate-100 py-3.5 rounded-xl font-black text-primary text-xs uppercase flex items-center justify-center gap-3 hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/></svg>
-            Continue with Google
-          </button>
+              <button aria-label="Continue with Google"
+                type="button"
+                onClick={handleGoogleLogin}
+                className="w-full border border-slate-200 py-1.5 rounded-[6px] font-black text-[#0f2e4a] text-[8px] uppercase flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-all active:scale-[0.98] shadow-sm"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/></svg>
+                Continue with Google
+              </button>
+            </>
+          )}
 
-          <div className="mt-8 text-center pb-4">
-             <button 
+          <div className="mt-3 text-center pb-1">
+             <button aria-label={isSignup ? "Switch to Sign In" : "Switch to Sign Up"}
                onClick={() => setIsSignup(!isSignup)}
-               className="text-primary font-black text-xs uppercase underline underline-offset-4 hover:text-accent transition-colors"
+               className="text-[#0f2e4a] font-black text-[8px] uppercase underline underline-offset-2 hover:text-[#0a2034] transition-colors"
              >
-               {isSignup ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+               {isSignup ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
              </button>
           </div>
         </div>
@@ -6107,11 +6595,11 @@ function SuggestionForm({ addToast, onCancel }: { addToast: (s: string) => void,
         <p className="text-slate-500 font-bold">మీ సూచన మా దృష్టికి వచ్చింది. ధన్యవాదాలు.</p>
         
         <div className="gap-3 flex flex-col pt-4">
-           <button onClick={() => {
+           <button aria-label="Send another suggestion" onClick={() => {
               setSubmitted(false);
               setName(''); setVillage(''); setMobile(''); setCategory('General Suggestion'); setSuggestion('');
            }} className="bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90">మరో సూచన పంపండి</button>
-           <button onClick={onCancel} className="bg-slate-100 text-slate-600 py-4 rounded-2xl font-black hover:bg-slate-200">తిరిగి వెళ్ళండి</button>
+           <button aria-label="Go back" onClick={onCancel} className="bg-slate-100 text-slate-600 py-4 rounded-2xl font-black hover:bg-slate-200">తిరిగి వెళ్ళండి</button>
         </div>
       </div>
     );
@@ -6122,7 +6610,7 @@ function SuggestionForm({ addToast, onCancel }: { addToast: (s: string) => void,
       <div className="bg-[#a855f7] p-8 text-white relative">
         <h2 className="text-2xl font-black tracking-tighter">Portal Feedback & Suggestions</h2>
         <p className="text-white/80 font-bold text-sm">మీ విలువైన సూచనలను ఇక్కడ తెలియజేయండి</p>
-        <button onClick={onCancel} className="absolute top-6 right-6 p-2 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors">
+        <button aria-label="Close suggestion form" onClick={onCancel} className="absolute top-6 right-6 p-2 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors">
            <X size={20} />
         </button>
       </div>
@@ -6161,7 +6649,7 @@ function SuggestionForm({ addToast, onCancel }: { addToast: (s: string) => void,
         </div>
 
         <div className="flex gap-4 pt-2">
-          <button disabled={isSubmitting} onClick={handleSubmit} className="flex-1 bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98]">
+          <button aria-label="Submit Suggestion" disabled={isSubmitting} onClick={handleSubmit} className="flex-1 bg-[#a855f7] text-white py-4 rounded-2xl font-black shadow-lg hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98]">
             {isSubmitting ? 'పంపిస్తున్నాము...' : 'Submit Suggestion'}
           </button>
         </div>

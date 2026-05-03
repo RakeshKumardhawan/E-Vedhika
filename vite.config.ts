@@ -41,7 +41,20 @@ export default defineConfig(({mode}) => {
         workbox: {
           maximumFileSizeToCacheInBytes: 4 * 1024 * 1024 // 4MiB
         }
-      })
+      }),
+      {
+        name: 'google-verification',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url === '/google46d0fa093843f771.html') {
+              res.setHeader('Content-Type', 'text/html');
+              res.end('google-site-verification: google46d0fa093843f771.html');
+              return;
+            }
+            next();
+          });
+        }
+      }
     ],
     build: {
       outDir: '.dist',
