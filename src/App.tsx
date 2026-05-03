@@ -1736,8 +1736,9 @@ export default function App() {
               <motion.div key="suggestions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <div className="bg-white p-4 sm:p-8 rounded-3xl shadow-sm border border-slate-200">
                   <div className="border-b border-slate-100 pb-4 mb-6">
-                    <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                       <Lightbulb className="text-amber-500" /> e-Vedhika Suggestion Portal
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-800 flex flex-row items-center flex-wrap gap-2">
+                       <Lightbulb className="text-amber-500 shrink-0" /> 
+                       <span>e-Vedhika Suggestion Portal</span>
                     </h2>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">మీ సూచనలు మాకు ఎంతో ముఖ్యం</p>
                   </div>
@@ -1817,8 +1818,7 @@ export default function App() {
                     </div>
 
                     <div 
-                      className="relative bg-white p-8 rounded-3xl border-2 border-dashed border-slate-100"
-                      style={{ height: '220.028px' }}
+                      className="relative bg-white p-5 sm:p-8 rounded-3xl border-2 border-dashed border-slate-100 flex flex-col h-full"
                     >
                       {(!user || user?.isAnonymous) && (
                         <div 
@@ -1839,18 +1839,13 @@ export default function App() {
                            }}
                         />
                       )}
-                      <div 
-                        className={(!user || user?.isAnonymous) ? "opacity-30 pointer-events-none" : ""}
-                        // style={{ width: '508.997px', height: '220.028px' }}
-                      >
-                       <h3 
-                         className="text-lg font-black text-slate-800 mb-2"
-                         style={{ height: '27.9792px', width: '444.444px', marginLeft: '-3px', marginTop: '-22px', fontStyle: 'normal', fontFamily: '"Times New Roman", Times, serif' }}
-                       >Submit Suggestion & Feedback</h3>
-                       <p 
-                         className="text-xs font-bold text-slate-500 uppercase tracking-tight mb-6"
-                         style={{ marginTop: '5px', fontFamily: '"Times New Roman", Times, serif', fontStyle: 'italic' }}
-                       >మీ అమూల్యమైన సూచనలను ఇక్కడ నమోదు చేయండి</p>
+                      <div className={(!user || user?.isAnonymous) ? "opacity-30 pointer-events-none" : ""}>
+                       <h3 className="text-xl sm:text-2xl font-black text-slate-800 mb-2">
+                         Submit Suggestion & Feedback
+                       </h3>
+                       <p className="text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-tight mb-6">
+                         మీ అమూల్యమైన సూచనలను ఇక్కడ నమోదు చేయండి
+                       </p>
                        
                        <form onSubmit={async (e) => {
                         e.preventDefault();
@@ -1897,8 +1892,8 @@ export default function App() {
                           handleFirestoreError(error, OperationType.CREATE, 'suggestions');
                           addToast("సబ్మిట్ చేయడంలో లోపం కలిగింది.");
                         }
-                      }} className="space-y-4" style={{ height: '236.858px' }}>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ height: '63.184px' }}>
+                      }} className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                            <div className="space-y-1.5">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">మీ పేరు (Name)</label>
                               <input 
@@ -1923,8 +1918,8 @@ export default function App() {
                            </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ marginTop: '11px', marginBottom: '11px' }}>
-                           <div className="space-y-1.5" style={{ height: '65.184px' }}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                           <div className="space-y-1.5">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">మొబైల్ నంబర్ (Mobile)</label>
                               <input 
                                 name="mobile" 
@@ -1957,7 +1952,7 @@ export default function App() {
                            </div>
                         </div>
 
-                        <div className="space-y-1.5" style={{ height: '35px', width: '441.448px', marginTop: '13px' }}>
+                        <div className="space-y-1.5 pt-2">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">మీ సూచన (Suggestion)</label>
                           <textarea 
                             name="suggestion" 
@@ -4854,9 +4849,9 @@ function MultiDayAnalyzer({ addToast, user }: { addToast: (s:string) => void, us
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-indigo-600 text-white font-bold text-xs text-left">
                     <th className="p-3 border border-indigo-700 w-12 text-sm text-center">S.No</th>
-                    <th className="p-3 border border-indigo-700 text-sm" style={{ width: '7.9791px' }}>District Name</th>
+                    <th className="p-3 border border-indigo-700 text-sm min-w-[120px]">District Name</th>
                     <th className="p-3 border border-indigo-700 min-w-[120px] text-sm">Mandal Name</th>
-                    <th className="p-3 border border-indigo-700 min-w-[150px] text-sm" style={{ width: '276.092px' }}>Panchayat Name</th>
+                    <th className="p-3 border border-indigo-700 min-w-[150px] text-sm">Panchayat Name</th>
                     {sortedDates.map(d => (
                        <th key={d} className="p-3 border border-indigo-700 min-w-[120px] text-center text-sm">Attendance ({d})</th>
                     ))}
