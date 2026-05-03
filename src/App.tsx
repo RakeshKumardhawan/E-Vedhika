@@ -233,7 +233,6 @@ interface UserProfile {
   email?: string;
   photoURL?: string;
   office?: string;
-  bio?: string;
   role?: string;
   hidden?: boolean;
   time: number;
@@ -480,18 +479,29 @@ body {
 
 .mana-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 15px;
+}
+@media (min-width: 640px) {
+  .mana-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+  }
 }
 .mana-card {
   background: #fff;
   border: 1.5px solid #f1f5f9;
   border-radius: 28px;
-  padding: 35px 25px;
+  padding: 20px 15px;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+}
+@media (min-width: 640px) {
+  .mana-card {
+    padding: 35px 25px;
+  }
 }
 .mana-card:hover {
   border-color: var(--primary);
@@ -1214,7 +1224,6 @@ export default function App() {
               WebkitBackgroundClip: 'initial',
               filter: 'none',
               animation: 'none',
-              fontSize: '24px',
               fontWeight: '900',
               letterSpacing: '1px',
               fontFamily: '"Arial Black", Impact, sans-serif',
@@ -1303,7 +1312,7 @@ export default function App() {
         <div className="latest-text flex-1">
           <span>
             {(() => {
-              const visibleUpdates = updates.filter(u => (u.type === 'flash' || (!u.type && !u.status)) && u.status !== 'hidden');
+              const visibleUpdates = updates.filter(u => (u.type === 'flash' || (!u.type && !u.status)) && u.status !== 'hidden' && u.status?.toLowerCase() !== 'deleted');
               return visibleUpdates.length > 0 
                 ? visibleUpdates.map(u => u.text || (u as any).msg || (u as any).update).join('  •  ') 
                 : '🔥 Welcome to E-Vedhika Portal... 🔥 • 🔥 The E-Vedhika Portal is now live – Empowering Governance with Digital Excellence.. 🔥';
@@ -1469,7 +1478,7 @@ export default function App() {
           </div>
         </aside>
 
-        <main className="flex-1 w-full h-full overflow-y-auto custom-scrollbar p-4 lg:p-8">
+        <main className="flex-1 w-full h-full overflow-y-auto custom-scrollbar p-3 sm:p-6 lg:p-8">
           {postIdFromUrl ? (
             <PostDetail 
                postId={postIdFromUrl} 
@@ -1487,18 +1496,18 @@ export default function App() {
                 <motion.div key="home" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4 sm:space-y-6">
 
 
-                  <div className="bg-white rounded-[1px] shadow-sm border border-dashed border-slate-100" style={{ height: '63.396px', paddingTop: '0px', paddingBottom: '0px', marginBottom: '27px', paddingLeft: '0px', paddingRight: '0px' }}>
-                    <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 sm:gap-6">
-                       <div className="flex-1">
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 sm:p-8 mb-8">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-6">
+                       <div className="flex-1 w-full text-center sm:text-left">
                           {user && !user.isAnonymous ? (
                             <h3 className="text-xl font-black text-primary uppercase tracking-tighter">📝 Portal Updates</h3>
                           ) : (
-                            <div className="flex items-center gap-3 flex-1 border border-slate-200 rounded-3xl px-6 py-4 bg-slate-50 shadow-sm focus-within:bg-white focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/5 transition-all">
-                               <Search size={24} className="text-slate-400 shrink-0" />
+                            <div className="flex items-center gap-2 sm:gap-3 flex-1 border border-slate-200 rounded-3xl px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 shadow-sm focus-within:bg-white focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/5 transition-all">
+                               <Search size={20} className="text-slate-400 shrink-0 sm:w-6 sm:h-6" />
                                <input 
                                  type="text" 
                                  placeholder="Search latest news, reports or notices..." 
-                                 className="!bg-transparent !border-none !p-0 !m-0 focus:!ring-0 text-[18px] w-full font-bold text-primary placeholder:text-slate-400"
+                                 className="!bg-transparent !border-none !p-0 !m-0 focus:!ring-0 text-[16px] sm:text-[18px] w-full font-bold text-primary placeholder:text-slate-400"
                                  value={searchQuery}
                                  onChange={(e) => setSearchQuery(e.target.value)}
                                />
@@ -1627,7 +1636,7 @@ export default function App() {
                        time: 1712851200000,
                        type: 'changelog'
                      },
-                     ...updates.filter(u => u.type === 'changelog'),
+                     ...updates.filter(u => u.type === 'changelog' && u.status?.toLowerCase() !== 'deleted'),
                      ...posts.map(p => ({
                         id: p.id,
                         text: `New Post created by Admin: ${p.title || (p.content ? p.content.substring(0, 50) + "..." : "Updates added")}`,
@@ -2034,7 +2043,6 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
   const [photoURL, setPhotoURL] = useState(userProfile?.photoURL || user?.photoURL || '');
   const [designation, setDesignation] = useState(userProfile?.designation || '');
   const [office, setOffice] = useState(userProfile?.office || '');
-  const [bio, setBio] = useState(userProfile?.bio || '');
   const [saving, setSaving] = useState(false);
 
   const mandals = district ? TELANGANA_DATA[district] || [] : [];
@@ -2078,7 +2086,6 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
         village,
         designation,
         office,
-        bio,
         mobile,
         email,
         photoURL,
@@ -2264,7 +2271,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
   const isEditor = userRole === 'admin' || userRole === 'editor' || isDevEmail;
   const [activeSubTab, setActiveSubTab] = useState('dash');
   const [usersFilter, setUsersFilter] = useState<'All' | 'Deleted'>('All');
-  const [trashTab, setTrashTab] = useState<'posts' | 'problems' | 'suggestions' | 'users'>('posts');
+  const [trashTab, setTrashTab] = useState<'posts' | 'problems' | 'suggestions' | 'users' | 'updates'>('posts');
   const [userViewMode, setUserViewMode] = useState<'access' | 'directory'>('access');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showPin, setShowPin] = useState(false);
@@ -2589,13 +2596,13 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+              className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6"
             >
               {[
-                { label: 'Citizens Enrolled', value: users.filter(u => !(u.isDeleted || u.role === 'deleted')).length, icon: <Users />, color: 'blue' },
-                { label: 'Unresolved Issues', value: allProblems.filter(p => !p.status || (!['solved','resolved'].includes((p.status||'').toLowerCase()))).length, icon: <AlertTriangle />, color: 'rose' },
-                { label: 'Pending Curation', value: posts.filter(p => !p.status || (p.status||'').toLowerCase() === 'pending').length, icon: <Megaphone />, color: 'amber' },
-                { label: 'Flash Broadcasts', value: updates.length, icon: <Zap />, color: 'emerald' },
+                { label: 'Citizens Enrolled', value: users.filter(u => !(u.isDeleted || u.role === 'deleted')).length, icon: <Users size={20} className="sm:w-6 sm:h-6" />, color: 'blue' },
+                { label: 'Unresolved Issues', value: allProblems.filter(p => !p.status || (!['solved','resolved','deleted'].includes((p.status||'').toLowerCase()))).length, icon: <AlertTriangle size={20} className="sm:w-6 sm:h-6" />, color: 'rose' },
+                { label: 'Pending Curation', value: posts.filter(p => !p.status || (p.status||'').toLowerCase() === 'pending').length, icon: <Megaphone size={20} className="sm:w-6 sm:h-6" />, color: 'amber' },
+                { label: 'Flash Broadcasts', value: updates.filter(u => (u.type === 'flash' || !u.type) && u.status?.toLowerCase() !== 'deleted').length, icon: <Zap size={20} className="sm:w-6 sm:h-6" />, color: 'emerald' },
               ].map((stat, i) => (
                 <div 
                   key={i} 
@@ -2605,12 +2612,12 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                     else if (stat.label === 'Pending Curation') { setActiveSubTab('reports'); setReportsType('posts'); }
                     else if (stat.label === 'Flash Broadcasts') setActiveSubTab('updates');
                   }}
-                  className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex items-center gap-4 group hover:shadow-xl transition-all cursor-pointer"
+                  className="bg-white p-3 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-slate-100 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 group hover:shadow-xl transition-all cursor-pointer"
                 >
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-50 text-slate-600 group-hover:scale-110 transition-transform">{stat.icon}</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{stat.label}</p>
-                    <p className="text-xl font-black text-slate-800 tracking-tighter">{stat.value}</p>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-[14px] sm:rounded-2xl flex shrink-0 items-center justify-center bg-slate-50 text-slate-600 group-hover:scale-110 transition-transform">{stat.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight sm:leading-none mb-1 sm:mb-1 truncate">{stat.label}</p>
+                    <p className="text-lg sm:text-xl font-black text-slate-800 tracking-tighter">{stat.value}</p>
                   </div>
                 </div>
               ))}
@@ -3082,8 +3089,8 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                     </h3>
                     <p className="text-sm font-bold text-slate-500 mt-1">Manage and permanently drop deleted resources.</p>
                  </div>
-                 <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-100 shadow-inner">
-                    {(['posts', 'problems', 'suggestions', 'users'] as const).map(tab => (
+                 <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-100 shadow-inner overflow-x-auto whitespace-nowrap scrollbar-hide">
+                    {(['posts', 'problems', 'suggestions', 'users', 'updates'] as const).map(tab => (
                        <button aria-label={tab} key={tab}
                           onClick={() => setTrashTab(tab)}
                           className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${trashTab === tab ? 'bg-white text-rose-500 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100/50'}`}
@@ -3120,6 +3127,9 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                              } else if (trashTab === 'users') {
                                 list = users.filter((u: any) => u.isDeleted || u.role === 'deleted');
                                 col = 'users';
+                             } else if (trashTab === 'updates') {
+                                list = updates.filter((u: any) => u.status?.toLowerCase() === 'deleted');
+                                col = 'updates';
                              }
 
                              if (list.length === 0) {
@@ -3168,6 +3178,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                               {trashTab === 'problems' ? item.title || item.desc?.substring(0, 40) || 'Unknown Problem' : ''}
                                               {trashTab === 'suggestions' ? item.title || item.desc?.substring(0, 40) || 'Unknown Suggestion' : ''}
                                               {trashTab === 'users' ? item.email || item.name || 'Unknown User' : ''}
+                                              {trashTab === 'updates' ? item.text || item.title || 'Unknown Update' : ''}
                                            </p>
                                            <p className="text-xs font-medium text-slate-400 mt-1 max-w-md truncate">
                                               {item.id}
@@ -3185,6 +3196,8 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                                     try {
                                                        if (trashTab === 'users') {
                                                           await updateDoc(doc(db, 'users', item.id), { isDeleted: false, role: item.role === 'deleted' ? 'user' : item.role });
+                                                       } else if (trashTab === 'updates') {
+                                                          await updateDoc(doc(db, 'updates', item.id), { status: 'visible' });
                                                        } else {
                                                           await updateDoc(doc(db, col, item.id), { status: 'Pending' });
                                                        }
@@ -3277,7 +3290,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
             <div className="space-y-4">
                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] px-2">Active Signal Feed</h4>
                <div className="grid gap-4">
-                  {updates.filter(u => u.type === 'flash' || !u.type).sort((a: any, b: any) => (b.time || 0) - (a.time || 0)).map((u, idx) => (
+                  {updates.filter(u => (u.type === 'flash' || !u.type) && u.status?.toLowerCase() !== 'deleted').sort((a: any, b: any) => (b.time || 0) - (a.time || 0)).map((u, idx) => (
                     <div key={u.id || `upd-${idx}`} className={`bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center group hover:border-blue-200 transition-all ${u.status === 'hidden' ? 'opacity-50 grayscale bg-slate-50 border-dashed' : ''}`}>
                        <div className="flex items-center gap-4 flex-1">
                           <div className={`w-2 h-2 rounded-full ${u.status === 'hidden' ? 'bg-slate-400' : 'bg-blue-500 animate-pulse'}`} />
@@ -3322,9 +3335,9 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                               }).then(async (result) => {
                                 if (result.isConfirmed) {
                                   try {
-                                    await deleteDoc(doc(db, 'updates', u.id));
-                                    addToast("Transmission Purged");
-                                  } catch(e: any) { handleFirestoreError(e, OperationType.DELETE, `updates/${u.id}`); }
+                                    await updateDoc(doc(db, 'updates', u.id), { status: 'Deleted', deletedAt: Date.now() });
+                                    addToast("Transmission Trash-ed");
+                                  } catch(e: any) { handleFirestoreError(e, OperationType.UPDATE, `updates/${u.id}`); }
                                 }
                               });
                             }}
@@ -3423,7 +3436,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               </div>
 
               <div className="grid grid-cols-1 gap-6">
-                {[...updates].filter(u => u.type === 'changelog' || u.status === 'Approved').sort((a:any, b:any) => (b.time || 0) - (a.time || 0)).map((upd: any) => (
+                {[...updates].filter(u => (u.type === 'changelog' || u.status === 'Approved') && u.status?.toLowerCase() !== 'deleted').sort((a:any, b:any) => (b.time || 0) - (a.time || 0)).map((upd: any) => (
                   <div key={upd.id} className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition-shadow group">
                     <div className="flex justify-between items-start gap-6">
                       <div className="flex-1">
@@ -3474,10 +3487,10 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                             }).then(async (result) => {
                               if (result.isConfirmed) {
                                 try {
-                                  await deleteDoc(doc(db, 'updates', upd.id));
-                                  addToast("Update deleted.");
+                                  await updateDoc(doc(db, 'updates', upd.id), { status: 'Deleted', deletedAt: Date.now() });
+                                  addToast("Update moved to trash.");
                                 } catch (err) {
-                                  handleFirestoreError(err, OperationType.DELETE, `updates/${upd.id}`);
+                                  handleFirestoreError(err, OperationType.UPDATE, `updates/${upd.id}`);
                                 }
                               }
                             });
@@ -5550,8 +5563,8 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
                       });
                       if (res.isConfirmed) {
                         try {
-                          await deleteDoc(doc(db, 'posts', post.id));
-                          addToast("Permanently Deleted");
+                          await updateDoc(doc(db, 'posts', post.id), { status: 'Deleted', deletedAt: Date.now() });
+                          addToast("Moved to Trash");
                         } catch (err: any) {
                           addToast("Error: " + err.message);
                         }
@@ -5578,11 +5591,11 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
                       }
                     }
                   } else {
-                    const res = await Swal.fire({ title: 'Delete?', text: 'Delete this post permanently?', icon: 'warning', showCancelButton: true });
+                    const res = await Swal.fire({ title: 'Delete?', text: 'Move this post to recycle bin?', icon: 'warning', showCancelButton: true });
                     if (res.isConfirmed) {
                       try {
-                        await deleteDoc(doc(db, 'posts', post.id));
-                        addToast("Deleted successfully");
+                        await updateDoc(doc(db, 'posts', post.id), { status: 'Deleted', deletedAt: Date.now() });
+                        addToast("Moved to recycle bin");
                       } catch (err: any) {
                         addToast("Failed to delete post. " + (isAdmin ? err.message : "You can only delete posts within 1 hour of creation."));
                       }

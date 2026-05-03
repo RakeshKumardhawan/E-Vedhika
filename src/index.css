@@ -30,6 +30,13 @@ button {
   --nav-h: 56px;
 }
 
+@media (max-width: 639px) {
+  :root {
+    --header-h: 64px;
+    --nav-h: 52px;
+  }
+}
+
 body {
   margin: 0;
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -55,7 +62,7 @@ header {
 .brand-title {
   font-family: 'Inter', sans-serif;
   font-weight: 900;
-  font-size: 24px;
+  font-size: 20px;
   margin: 0;
   letter-spacing: -0.5px;
   text-transform: uppercase;
@@ -68,6 +75,9 @@ header {
   -webkit-text-fill-color: transparent;
   animation: color-shimmer 4s linear infinite;
   filter: drop-shadow(0 2px 8px rgba(16, 185, 129, 0.4));
+}
+@media (min-width: 640px) {
+  .brand-title { font-size: 24px; }
 }
 
 @keyframes color-shimmer {
@@ -92,8 +102,11 @@ header {
   filter: drop-shadow(0 4px 15px rgba(0,0,0,0.25));
   animation: glowPulse 2s infinite ease-in-out;
   position: relative;
-  width: 60px;
-  height: 60px;
+  width: 48px;
+  height: 48px;
+}
+@media (min-width: 640px) {
+  .logo-pro { width: 60px; height: 60px; }
 }
 
 /* గ్లో యానిమేషన్ */
@@ -118,11 +131,14 @@ header {
 /* 🌟 పార్టికల్స్ యానిమేషన్ 🌟 */
 .logo-particles {
   position: absolute;
-  width: 50px;
-  height: 50px;
+  width: 40px;
+  height: 40px;
   pointer-events: none;
-  top: 5px;
-  left: 5px;
+  top: 4px;
+  left: 4px;
+}
+@media (min-width: 640px) {
+  .logo-particles { width: 50px; height: 50px; top: 5px; left: 5px; }
 }
 
 .logo-particles span {
@@ -161,14 +177,14 @@ header {
 /* TICKER */
 .latest-bar { 
   background: #fff; 
-  padding: 6px 3%; 
+  padding: 8px 3%; 
   display: flex; 
   align-items: center; 
   border-bottom: 1px solid #f1f5f9;
-  font-size: 8px;
+  font-size: 11px;
 }
 @media (min-width: 640px) {
-  .latest-bar { padding: 8px 4%; font-size: 9px; }
+  .latest-bar { padding: 8px 4%; font-size: 13px; }
 }
 .latest-label { 
   background: var(--danger); 
@@ -259,7 +275,7 @@ header {
   background: #fff;
   position: fixed;
   z-index: 1100;
-  top: 130px; 
+  top: calc(var(--header-h) + var(--nav-h) + 40px); 
   bottom: 20px; 
   left: 0;
   border-radius: 0 20px 20px 0;
