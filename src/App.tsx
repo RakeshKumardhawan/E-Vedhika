@@ -2583,7 +2583,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
             >
               {[
-                { label: 'Citizens Enrolled', value: users.length, icon: <Users />, color: 'blue' },
+                { label: 'Citizens Enrolled', value: users.filter(u => !(u.isDeleted || u.role === 'deleted')).length, icon: <Users />, color: 'blue' },
                 { label: 'Unresolved Issues', value: allProblems.filter(p => !p.status || (!['solved','resolved'].includes((p.status||'').toLowerCase()))).length, icon: <AlertTriangle />, color: 'rose' },
                 { label: 'Pending Curation', value: posts.filter(p => !p.status || (p.status||'').toLowerCase() === 'pending').length, icon: <Megaphone />, color: 'amber' },
                 { label: 'Flash Broadcasts', value: updates.length, icon: <Zap />, color: 'emerald' },
@@ -2786,7 +2786,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                         <option value="deleted">Deleted (Trash)</option>
                                       </select>
                                       
-                                      <button aria-label="Shift Content"
+                                      <button aria-label="Edit Post"
                                         onClick={() => {
                                            if (activeSubTab === 'reports' && reportsType === 'posts') {
                                               onEditPost(item);
@@ -3027,6 +3027,10 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                        </div>
                        
                        <div className="space-y-4">
+                          <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-400">
+                             <span>Registered</span>
+                             <span className="text-slate-600 tracking-normal font-bold normal-case">{u.time ? new Date(u.time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown'}</span>
+                          </div>
                           <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-slate-400">
                              <span>Access Level</span>
                              <span className={`px-2 py-0.5 rounded-full ${u.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>{u.role || 'User'}</span>
@@ -5559,7 +5563,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
            )}
            {isOwner && (
               <>
-                <button onClick={() => onEdit(post)} className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-primary transition-all rounded-lg" title="Edit"><Edit3 size={16} /></button>
+                {isAdmin && <button onClick={() => onEdit(post)} className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-primary transition-all rounded-lg" title="Edit"><Edit3 size={16} /></button>}
                 <button aria-label="Delete Post" onClick={async () => {
                   if (isAdmin) {
                     if (post.status === 'Deleted') {
@@ -5765,7 +5769,8 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
           title: postData.title,
           content: postData.content,
           category: postData.category,
-
+          mediaUrl: postData.mediaUrl,
+          mediaType: postData.mediaType,
           lastEditedAt: Date.now(),
           lastEditedBy: auth.currentUser?.uid || 'system',
           lastEditedRole: isAdmin ? "admin" : "user",
