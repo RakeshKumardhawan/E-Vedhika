@@ -118,6 +118,18 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
+const logUserActivity = async (actionDesc: string) => {
+  if (!auth.currentUser) return;
+  try {
+    const userDisplay = auth.currentUser.email || auth.currentUser.displayName || auth.currentUser.uid || 'Registered User';
+    await addDoc(collection(db, 'security_logs'), {
+      admin: userDisplay,
+      action: actionDesc,
+      time: Date.now()
+    });
+  } catch (e) {}
+};
+
 function EVAnimatedLogo({ size = 64 }: { size?: number }) {
   const scale = size / 64;
   return (
@@ -626,7 +638,7 @@ export default function App() {
     const unsub = onSnapshot(collection(db, 'users'), (snap) => {
       const uArr: UserProfile[] = [];
       snap.forEach(d => uArr.push({ id: d.id, ...d.data() } as UserProfile));
-      setAllUsers(uArr);
+      setAllUsers(uArr.sort((a, b) => (b.time || 0) - (a.time || 0)));
     }, (e) => console.error("Users List Error:", e));
     return () => unsub();
   }, []);
@@ -786,11 +798,17 @@ export default function App() {
         const p = { id: snap.id, ...snap.data() } as UserProfile;
         setUserProfile(p);
         
-        // Show greeting on first load
-        if (p.status === 'Approved' && !hasGreetedRef.current) {
-           hasGreetedRef.current = true;
-           const honorific = p.gender === 'Female' ? 'Madam' : 'Sir';
-           addToast(`Welcome to E-vedhika website, ${honorific}!`);
+        // Force setup if required fields are missing
+        if (!p.name || !p.surname || !p.username || !p.mobile || !p.district || !p.mandal || !p.designation) {
+           setShowForcedProfileSetup(true);
+        } else {
+           setShowForcedProfileSetup(false);
+           // Show greeting on first load
+           if (p.status === 'Approved' && !hasGreetedRef.current) {
+              hasGreetedRef.current = true;
+              const honorific = p.gender === 'Female' ? 'Madam' : 'Sir';
+              addToast(`Welcome to E-vedhika website, ${honorific}!`);
+           }
         }
       } else {
         setUserProfile(null);
@@ -1798,6 +1816,7 @@ export default function App() {
                             status: 'pending',
                             uid: user?.uid || 'anonymous'
                           });
+                          await logUserActivity(`Submitted Suggestion: ${category}`);
                           target.name.value = userProfile ? `${userProfile.name || ''} ${userProfile.surname || ''}`.trim() : '';
                           target.village.value = userProfile ? `${userProfile.mandal || ''} / ${userProfile.district || ''}`.trim().replace(/^ \/ | \/ $/g, '') : '';
                           target.mobile.value = userProfile?.mobile || '';
@@ -1920,6 +1939,7 @@ export default function App() {
                            time: Date.now(),
                            uid: user.uid
                          });
+                         await logUserActivity(`Reported Problem: ${cat}`);
                          addToast("Problem reported successfully!");
                          target.reset();
                        } catch(err) { handleFirestoreError(err, OperationType.WRITE, 'problems'); }
@@ -2195,17 +2215,6 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
             <input value={office} onChange={e => setOffice(e.target.value)} placeholder="Office location / Building" className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" />
           </div>
 
-          <div>
-             <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Bio / About</label>
-             <textarea 
-               value={bio} 
-               onChange={e => setBio(e.target.value)} 
-               placeholder="Write something about your role or professional background..." 
-               rows={2}
-               className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs resize-none" 
-             />
-          </div>
-
           <div className="flex flex-wrap gap-3 mt-4">
             {!isForced && (
               <>
@@ -2454,7 +2463,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
             exit={{ x: -300 }}
             className={`w-full lg:w-64 bg-[#1a1c1e] text-white p-6 shrink-0 flex flex-col absolute lg:relative z-50 h-full lg:h-auto ${adminMenuOpen ? 'fixed inset-y-0 left-0 max-w-[280px]' : 'hidden lg:flex'}`}
           >
-            <div className="flex items-center justify-between mb-10 pb-6 border-b border-white/5">
+            <div className="flex items-center justify-between mb-0 pb-0 border-b border-white/5 text-[13px] leading-[18px]">
               <div className="flex items-center gap-3">
                 <div className="logo-pro logo-pro-glow relative">
                   <div className="logo-particles"><span></span><span></span><span></span></div>
@@ -2508,7 +2517,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               ))}
             </nav>
 
-            <div className="mt-auto pt-4 lg:pt-6 border-t border-white/5 space-y-1.5">
+            <div className="mt-auto pt-0 border-t border-white/5 space-y-1.5">
               <button aria-label="Exit to Portal" onClick={onExit} className="w-full flex items-center gap-3 p-2.5 lg:p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:bg-white/5 hover:text-white transition-all">
                 <LogOut size={16} />
                 Exit to Portal
@@ -2607,38 +2616,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               ))}
             </motion.div>
 
-            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/5">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h3 className="text-xl font-black text-slate-800 tracking-tight">Consolidated Activity Terminal</h3>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Cross-Platform Activity Monitor</p>
-                  </div>
-                </div>
-                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                  {[...posts, ...allProblems, ...suggestions].sort((a,b) => (b.time || 0) - (a.time || 0)).slice(0, 50).map((item: any, i) => (
-                    <div key={i} className="p-5 bg-slate-50/50 rounded-3xl border border-slate-100 flex items-center gap-6 hover:bg-white transition-all group">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${
-                        item.msg ? 'bg-amber-100 text-amber-600' : 
-                        item.problem ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'
-                      }`}>
-                        {item.msg ? <Lightbulb size={20}/> : item.problem ? <AlertOctagon size={20}/> : <Megaphone size={20}/>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-full">{item.msg ? 'Suggestion' : item.problem ? 'Issue' : 'Post'}</span>
-                          <h4 className="text-[13px] font-black text-slate-800 truncate">{item.userName || item.name || 'System Admin'}</h4>
-                        </div>
-                        <p className="text-[11px] text-slate-500 font-medium line-clamp-1 italic italic leading-relaxed">
-                           "{item.msg || item.problem || item.content || 'Activity log record...'}"
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(item.time || 0).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-            </div>
+
           </div>
         )}
 
@@ -2748,8 +2726,8 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                 <td className="py-6">
                                    <div className="space-y-4">
                                       <div className="flex flex-wrap items-center gap-2">
-                                         <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                                           item.status === 'Approved' || item.status === 'Resolved' || item.status === 'solved' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 
+                                         <span className={`whitespace-nowrap px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                                           item.status === 'Approved' || item.status === 'Resolved' || item.status === 'solved' || item.status === 'approved' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 
                                            item.status === 'flagged' ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-amber-50 border-amber-100 text-amber-600'
                                          }`}>
                                             {item.status || 'Processing'}
@@ -2777,7 +2755,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                             addToast("Status Updated");
                                           } catch(err: any) { addToast(err.message); }
                                         }}
-                                        className="bg-slate-50 border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest p-2 rounded-xl focus:border-blue-500 outline-none w-28 shadow-sm cursor-pointer"
+                                        className="bg-slate-50 border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest p-2 pr-8 rounded-xl focus:border-blue-500 outline-none w-auto min-w-[150px] shadow-sm cursor-pointer"
                                       >
                                         <option value="pending">Pending</option>
                                         <option value="approved">Approved</option>
@@ -2929,7 +2907,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                   {users.filter(u => usersFilter === 'Deleted' ? (u.isDeleted || u.role === 'deleted') : (!u.isDeleted && u.role !== 'deleted')).map(u => (
+                   {users.filter(u => usersFilter === 'Deleted' ? (u.isDeleted || u.role === 'deleted') : (!u.isDeleted && u.role !== 'deleted')).sort((a, b) => (b.time || 0) - (a.time || 0)).map(u => (
                      <motion.div 
                        layout
                        key={u.id}
@@ -3084,7 +3062,6 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                 <div><span className="text-slate-400 block mb-1">Mandal</span>{u.mandal || 'N/A'}</div>
                                 <div className="col-span-2"><span className="text-slate-400 block mb-1">Village/Town</span>{u.village || 'N/A'}</div>
                                 <div><span className="text-slate-400 block mb-1">Office</span>{u.office || u.village || (u.mandal ? `${u.mandal} Office` : 'N/A')}</div>
-                                <div className="col-span-2"><span className="text-slate-400 block mb-1">Bio</span><span className="normal-case text-slate-600 line-clamp-3 leading-relaxed">{u.bio || 'Professional PR/RD Member'}</span></div>
                              </div>
                           )}
                        </div>
@@ -4142,10 +4119,6 @@ function DirectorySection({ allUsers }: { allUsers: UserProfile[] }) {
                     title: `<div class="font-black text-primary p-2">${u.name || ''} ${u.surname || ''}</div>`,
                     html: `
                       <div class="text-left space-y-4 p-4">
-                        <div class="flex flex-col gap-1">
-                          <span class="text-[10px] font-black text-slate-400 uppercase italic">Professional Status</span>
-                          <p class="text-sm font-bold text-slate-700 leading-relaxed">"${u.bio || 'Professional Public Representative dedicated to rural development and effective governance.'}"</p>
-                        </div>
                         <div class="grid grid-cols-2 gap-4 mt-6">
                           <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
                              <span class="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Mandal</span>
@@ -5776,6 +5749,7 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
           lastEditedRole: isAdmin ? "admin" : "user",
           lastEditedName: currentUserProfile?.username || ""
         });
+        await logUserActivity(`Edited Post: ${postData.title.slice(0, 20)}`);
         addToast("Update Saved!");
       } else {
         await addDoc(collection(db, "posts"), {
@@ -5796,6 +5770,7 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
           userPhoto: currentUserProfile?.photoURL || "",
           status: isAdmin ? 'Approved' : 'Pending'
         });
+        await logUserActivity(`Published Post: ${title.slice(0, 20)}`);
         addToast("Post Published! " + (!isAdmin ? "Waiting for admin approval." : ""));
       }
       onCancel();
@@ -6585,6 +6560,7 @@ function SuggestionForm({ addToast, onCancel }: { addToast: (s: string) => void,
         time: Date.now(),
         createdAt: Date.now()
       });
+      await logUserActivity(`Submitted Suggestion: ${category}`);
       setSubmitted(true);
       addToast("మీ సూచన విజయవంతంగా పంపబడింది!");
     } catch (err) {
