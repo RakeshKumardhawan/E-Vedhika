@@ -1171,14 +1171,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <header className="sticky top-0 z-[1001] shadow-2xl" style={{ 
-        background: '#103052', 
-        height: 'var(--header-h)', 
-        borderBottom: '3px solid var(--accent)', 
-        display: 'flex', 
-        alignItems: 'center', 
-        padding: '0 4%' 
-      }}>
+      <header className="sticky top-0 z-[1001] shadow-2xl bg-[#103052] border-b-[3px] border-accent flex items-center">
         <div className="brand-wrapper cursor-pointer flex items-center gap-4" onClick={() => { setCurrentTab('home'); setSidebarOpen(false); }}>
           {/* లోగో HTML స్ట్రక్చర్ */}
           <div className="logo-pro cursor-pointer transition-transform hover:scale-105 active:scale-95 duration-200">
@@ -1244,24 +1237,24 @@ export default function App() {
             <div className="relative" ref={dropdownRef}>
               <div 
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)} 
-                className="hidden sm:flex items-center gap-3 bg-gradient-to-r from-[#174b7c] to-transparent pl-1.5 pr-5 py-1.5 rounded-[16px] border border-accent/30 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_0_20px_rgba(250,204,21,0.25)] hover:border-accent/60 transition-all duration-300 relative overflow-hidden group cursor-pointer"
+                className="flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-[#174b7c] to-transparent pl-1.5 pr-2 sm:pr-5 py-1.5 rounded-[16px] border border-accent/30 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_0_20px_rgba(250,204,21,0.25)] hover:border-accent/60 transition-all duration-300 relative overflow-hidden group cursor-pointer"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/10 to-accent/0 -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out"></div>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-[#d97706] flex items-center justify-center text-primary font-black text-lg shadow-inner border-[2px] border-white/20 relative z-10 shadow-[0_0_10px_rgba(250,204,21,0.5)] overflow-hidden">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gradient-to-br from-accent to-[#d97706] flex items-center justify-center text-primary font-black text-lg shadow-inner border-[2px] border-white/20 relative z-10 shadow-[0_0_10px_rgba(250,204,21,0.5)] overflow-hidden">
                    {user?.photoURL ? (
                      <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
                    ) : (
-                     <User size={18} className="text-primary" />
+                     <User size={16} className="text-primary sm:w-[18px] sm:h-[18px]" />
                    )}
                 </div>
-                <div className="flex flex-col justify-center relative z-10">
+                <div className="hidden sm:flex flex-col justify-center relative z-10">
                   <span className="text-white text-[12px] font-black tracking-wide leading-tight drop-shadow-sm">{userProfile?.username || "Panchayat Member"}</span>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="w-2 h-2 rounded-full bg-[#10b981] shadow-[0_0_6px_#10b981] animate-pulse"></span>
                     <span className="text-accent text-[9px] font-bold uppercase tracking-[0.15em] drop-shadow-sm">{isAdmin ? 'System Admin' : isEditor ? 'Editor' : 'Active User'}</span>
                   </div>
                 </div>
-                <ChevronDown size={14} className={`text-accent/50 group-hover:text-accent transition-transform duration-300 relative z-10 ${showProfileDropdown ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`hidden sm:block text-accent/50 group-hover:text-accent transition-transform duration-300 relative z-10 ${showProfileDropdown ? 'rotate-180' : ''}`} />
               </div>
 
               <AnimatePresence>
@@ -1334,7 +1327,7 @@ export default function App() {
 
         <div className="flex items-center gap-4">
           <div 
-            className="notif-bell"
+            className="notif-bell p-2 -mr-2"
             onClick={() => setShowNotifications(!showNotifications)}
           >
             <Bell size={20} />
@@ -1435,7 +1428,8 @@ export default function App() {
             {sidebarOpen && (
               <button aria-label="Close sidebar"
                 onClick={() => setSidebarOpen(false)}
-                className="absolute top-0 right-0 p-2 text-slate-400 hover:text-primary transition-colors focus:outline-none"
+                className="absolute right-2 p-2 text-slate-400 hover:text-primary transition-colors focus:outline-none"
+                style={{ top: 'calc(8px + env(safe-area-inset-top))' }}
                 title="Close sidebar"
               >
                 <X size={20} />
@@ -1478,7 +1472,7 @@ export default function App() {
           </div>
         </aside>
 
-        <main className="flex-1 w-full h-full overflow-y-auto custom-scrollbar p-3 sm:p-6 lg:p-8">
+        <main className="flex-1 w-full h-full overflow-y-auto custom-scrollbar p-3 sm:p-6 lg:p-8" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
           {postIdFromUrl ? (
             <PostDetail 
                postId={postIdFromUrl} 
@@ -2551,7 +2545,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
         )}
       </AnimatePresence>
 
-              <main className="flex-1 p-2 lg:p-6 bg-slate-50 overflow-y-auto custom-scrollbar flex flex-col relative w-full h-full">
+              <main className="flex-1 p-2 lg:p-6 bg-slate-50 overflow-y-auto custom-scrollbar flex flex-col relative w-full h-full" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200 !bg-transparent !h-auto !p-0">
           <div className="flex items-center gap-4">
             <button aria-label="Open Admin Menu" className="lg:hidden p-2 bg-white text-slate-600 rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition-colors" onClick={() => setAdminMenuOpen(true)}>

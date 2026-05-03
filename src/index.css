@@ -43,14 +43,17 @@ body {
   background-color: #f8fafc;
   color: #1e293b;
   overflow-x: hidden;
+  overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
 }
 
 /* --- HEADER --- */
 header {
   background: var(--primary);
-  height: var(--header-h);
-  padding: 0 4%;
+  height: calc(var(--header-h) + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  padding-left: max(4%, env(safe-area-inset-left));
+  padding-right: max(4%, env(safe-area-inset-right));
   display: flex;
   justify-content: flex-start; 
   align-items: center;
@@ -245,7 +248,7 @@ header {
 .notif-bell { position: relative; cursor: pointer; color: var(--primary); display: flex; align-items: center; }
 .notif-badge {
   position: absolute;
-  top: -4px; right: -4px;
+  top: 4px; right: 4px;
   background: var(--danger);
   color: white;
   font-size: 8px;
@@ -290,11 +293,27 @@ header {
 }
 
 @media (max-width: 768px) {
-  .sidebar { width: 0; left: 0; border-radius: 0; }
-  .main-layout.sidebar-open .sidebar { width: 280px; left: 0; border-radius: 0; }
+  .sidebar { 
+    width: 0; 
+    left: 0; 
+    border-radius: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 2000;
+  }
+  .main-layout.sidebar-open .sidebar { 
+    width: 280px; 
+    left: 0; 
+    border-radius: 0; 
+  }
 }
 
-.sidebar-inner { width: 250px; padding: 15px; }
+.sidebar-inner { 
+  width: 250px; 
+  padding: 15px; 
+  padding-top: calc(15px + env(safe-area-inset-top)); 
+  padding-bottom: calc(15px + env(safe-area-inset-bottom));
+}
 
 .side-btn { 
   display: flex; align-items: center; width: 100%; padding: 12px 15px; margin-bottom: 6px; 
@@ -348,7 +367,7 @@ header {
 input, textarea, select { 
   width: 100%; padding: 12px 16px; margin-bottom: 12px; 
   border: 1.5px solid #e2e8f0; border-radius: 12px; 
-  font-family: inherit; font-size: 14px; outline: none; box-sizing: border-box;
+  font-family: inherit; font-size: 16px; outline: none; box-sizing: border-box;
 }
 .btn-primary { 
   background: var(--primary); color: #fff; border: none; 
