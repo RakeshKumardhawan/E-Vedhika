@@ -4,6 +4,18 @@ import {createRoot} from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import './index.css';
 import App from './App.tsx';
+import { registerSW } from 'virtual:pwa-register';
+
+// Automatically check for updates and update the service worker
+const updateSW = registerSW({
+  onNeedRefresh() {
+    // Force the service worker to update immediately when a new update is found
+    updateSW(true);
+  },
+  onOfflineReady() {
+    console.log("App is ready for offline use");
+  },
+});
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
   constructor(props: {children: React.ReactNode}) {
