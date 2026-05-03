@@ -950,7 +950,12 @@ export default function App() {
   };
 
   const filteredPosts = posts.filter(p => {
-    if (!isEditor && p.status === 'Deleted') return false;
+    if (p.status === 'Deleted') return false;
+    
+    // Normal users shouldn't see unapproved posts (unless it's their own)
+    const pStatus = (p.status || '').toLowerCase();
+    if (!isAdmin && !['approved', 'active'].includes(pStatus) && p.uid !== user?.uid) return false;
+
     const q = searchQuery.toLowerCase().trim();
     const tMatch = (p.title || "").toLowerCase().includes(q);
     const cMatch = (p.content || "").toLowerCase().includes(q);
@@ -2530,14 +2535,14 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
         )}
       </AnimatePresence>
 
-      <main className="flex-1 p-3 lg:p-10 bg-slate-50 overflow-y-auto custom-scrollbar flex flex-col relative w-full h-full">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-6 border-b border-slate-200 !bg-transparent !h-auto !p-0">
+              <main className="flex-1 p-2 lg:p-6 bg-slate-50 overflow-y-auto custom-scrollbar flex flex-col relative w-full h-full">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200 !bg-transparent !h-auto !p-0">
           <div className="flex items-center gap-4">
-            <button aria-label="Open Admin Menu" className="lg:hidden p-2.5 bg-white text-slate-600 rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition-colors" onClick={() => setAdminMenuOpen(true)}>
+            <button aria-label="Open Admin Menu" className="lg:hidden p-2 bg-white text-slate-600 rounded-2xl shadow-sm border border-slate-100 hover:bg-slate-50 transition-colors" onClick={() => setAdminMenuOpen(true)}>
               <Menu size={20} />
             </button>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+              <h1 className="text-xl lg:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
                 {activeSubTab === 'dash' && '📊 Dashboard Hub'}
                 {activeSubTab === 'reports' && '🚩 Posts & Issues'}
                 {activeSubTab === 'users' && '👥 User Access & Directory'}
@@ -2579,8 +2584,8 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
             >
               {[
                 { label: 'Citizens Enrolled', value: users.length, icon: <Users />, color: 'blue' },
-                { label: 'Unresolved Issues', value: allProblems.filter(p => !p.status || (p.status !== 'solved' && p.status !== 'resolved')).length, icon: <AlertTriangle />, color: 'rose' },
-                { label: 'Pending Curation', value: posts.filter(p => !p.status || p.status === 'pending').length, icon: <Megaphone />, color: 'amber' },
+                { label: 'Unresolved Issues', value: allProblems.filter(p => !p.status || (!['solved','resolved'].includes((p.status||'').toLowerCase()))).length, icon: <AlertTriangle />, color: 'rose' },
+                { label: 'Pending Curation', value: posts.filter(p => !p.status || (p.status||'').toLowerCase() === 'pending').length, icon: <Megaphone />, color: 'amber' },
                 { label: 'Flash Broadcasts', value: updates.length, icon: <Zap />, color: 'emerald' },
               ].map((stat, i) => (
                 <div 
@@ -2706,7 +2711,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                         {(activeSubTab === 'reports' ? (reportsType === 'posts' ? posts : allProblems) : suggestions)
                           .filter(item => {
                              if (reportsFilter === 'All') return (item.status || '').toLowerCase() !== 'deleted';
-                             if (reportsFilter === 'Pending') return !item.status || item.status === 'pending';
+                             if (reportsFilter === 'Pending') return !item.status || (item.status||'').toLowerCase() === 'pending';
                              return (item.status || '').toLowerCase() === reportsFilter.toLowerCase();
                           })
                           .map((item, idx) => (
@@ -2717,13 +2722,13 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                key={item.id} 
                                className={`group bg-white rounded-[32px] overflow-hidden shadow-sm hover:shadow-xl hover:scale-[1.01] transition-all border border-slate-100 ${activeSubTab === 'suggestions' ? 'border-l-4 border-l-amber-400 bg-amber-50/10' : ''}`}
                              >
-                                <td className="py-6 pl-8">
-                                   <div className="flex items-center gap-4 mb-4">
-                                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${
+                                <td className="py-4 pl-6">
+                                   <div className="flex items-center gap-4 mb-3">
+                                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-inner ${
                                         activeSubTab === 'suggestions' ? 'bg-amber-100 text-amber-600' :
                                         reportsType === 'posts' ? 'bg-blue-100 text-blue-600' : 'bg-rose-100 text-rose-600'
                                       }`}>
-                                         {item.photoURL ? <img src={item.photoURL} alt="Profile" className="w-full h-full object-cover rounded-2xl" loading="lazy" referrerPolicy="no-referrer" /> : <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-300"><User size={20}/></div>}
+                                         {item.photoURL ? <img src={item.photoURL} alt="Profile" className="w-full h-full object-cover rounded-2xl" loading="lazy" referrerPolicy="no-referrer" /> : <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-300"><User size={18}/></div>}
                                       </div>
                                       <div>
                                          <h5 className="font-black text-slate-800 text-[15px] leading-tight mb-1">
@@ -2761,8 +2766,8 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                       </div>
                                    </div>
                                 </td>
-                                <td className="py-6 text-right pr-8">
-                                   <div className="flex justify-end items-center gap-2.5">
+                                <td className="py-4 text-right pr-6">
+                                   <div className="flex justify-end items-center gap-2">
                                       <select 
                                         value={(item.status || 'pending').toLowerCase()}
                                         onChange={async (e) => {
@@ -5784,9 +5789,9 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
           uid: auth.currentUser?.uid || 'system',
           userName: currentUserProfile?.username || auth.currentUser.displayName || "User",
           userPhoto: currentUserProfile?.photoURL || "",
-          status: 'Active' 
+          status: isAdmin ? 'Approved' : 'Pending'
         });
-        addToast("Post Published!");
+        addToast("Post Published! " + (!isAdmin ? "Waiting for admin approval." : ""));
       }
       onCancel();
     } catch (err: any) { 
