@@ -546,6 +546,47 @@ function getValidTime(obj: any): number {
   return Date.now();
 }
 
+let globalAudioContext: AudioContext | null = null;
+
+export const playNotificationSound = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    
+    if (!globalAudioContext) {
+      globalAudioContext = new AudioContextClass();
+    }
+    
+    if (globalAudioContext.state === 'suspended') {
+      globalAudioContext.resume().catch(() => {});
+    }
+    
+    const playNote = (freq: number, startTime: number, duration: number) => {
+      if (!globalAudioContext) return;
+      const oscillator = globalAudioContext.createOscillator();
+      const gainNode = globalAudioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(freq, globalAudioContext.currentTime + startTime);
+      
+      gainNode.gain.setValueAtTime(0, globalAudioContext.currentTime + startTime);
+      gainNode.gain.linearRampToValueAtTime(0.5, globalAudioContext.currentTime + startTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, globalAudioContext.currentTime + startTime + duration);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(globalAudioContext.destination);
+
+      oscillator.start(globalAudioContext.currentTime + startTime);
+      oscillator.stop(globalAudioContext.currentTime + startTime + duration);
+    };
+
+    playNote(1318.51, 0, 0.4);
+    playNote(1760.00, 0.15, 0.6);
+  } catch (e) {
+    console.error("Audio playback error:", e);
+  }
+};
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -557,6 +598,8 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRole, setUserRole] = useState<'admin' | 'editor' | 'user'>('user');
   const hasGreetedRef = useRef(false);
+  const initialUpdatesLoaded = useRef(false);
+  const initialPostsLoaded = useRef(false);
   
   const isDevEmail = user?.email?.toLowerCase() === 'rakeshkumardhawan123@gmail.com';
   const isAdmin = userRole === 'admin' || isDevEmail;
@@ -770,6 +813,15 @@ export default function App() {
       const uArr: Update[] = [];
       snap.forEach(d => uArr.push({ id: d.id, ...(d.data() as any) } as Update));
       setUpdates(uArr);
+      
+      if (!initialUpdatesLoaded.current) {
+        initialUpdatesLoaded.current = true;
+      } else {
+        const hasNew = snap.docChanges().some(change => change.type === 'added');
+        if (hasNew) {
+          playNotificationSound();
+        }
+      }
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'updates'));
     
     const unsubSuggestions = onSnapshot(collection(db, 'suggestions'), (snap) => {
@@ -790,6 +842,15 @@ export default function App() {
         if (pinSort !== 0) return pinSort;
         return (b.time || 0) - (a.time || 0);
       }));
+
+      if (!initialPostsLoaded.current) {
+        initialPostsLoaded.current = true;
+      } else {
+        const hasNew = snap.docChanges().some(change => change.type === 'added');
+        if (hasNew) {
+          playNotificationSound();
+        }
+      }
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'posts'));
 
     return () => {
@@ -2260,6 +2321,22 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
   );
 }
 
+function ClockWidget() {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div className="text-right hidden sm:block">
+      <p className="text-sm font-black text-slate-800">{time.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+      <p className="text-[14px] font-mono font-black text-slate-600 tracking-wider">
+        {time.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+      </p>
+    </div>
+  );
+}
+
 function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLocked, adminLocked, notifications, requests, updates, userRole, onExit, onNewPost, onEditPost, isDevEmail, currentAdminPin, setCurrentAdminPin }: any) {
   const isAdmin = userRole === 'admin' || isDevEmail;
   const isEditor = userRole === 'admin' || userRole === 'editor' || isDevEmail;
@@ -2267,7 +2344,6 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
   const [usersFilter, setUsersFilter] = useState<'All' | 'Deleted'>('All');
   const [trashTab, setTrashTab] = useState<'posts' | 'problems' | 'suggestions' | 'users' | 'updates'>('posts');
   const [userViewMode, setUserViewMode] = useState<'access' | 'directory'>('access');
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [showPin, setShowPin] = useState(false);
   const [logType, setLogType] = useState<'admin' | 'public'>('admin');
   const [logActionFilter, setLogActionFilter] = useState('');
@@ -2308,11 +2384,6 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
     document.body.removeChild(link);
     addToast("Logs exported as CSV");
   };
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const [reportsType, setReportsType] = useState<'issues' | 'posts'>('posts');
   const [reportsFilter, setReportsFilter] = useState<'All' | 'Pending' | 'Approved' | 'Flagged' | 'Resolved'>('Pending');
@@ -2575,12 +2646,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                  <PlusCircle size={18} /> Create New Post
                </button>
              )}
-             <div className="text-right hidden sm:block">
-              <p className="text-sm font-black text-slate-800">{currentTime.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-              <p className="text-[14px] font-mono font-black text-slate-600 tracking-wider">
-                {currentTime.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </p>
-            </div>
+             <ClockWidget />
           </div>
         </header>
 
@@ -3635,6 +3701,23 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
 
               <div className="space-y-8">
                  <div>
+                    <h4 className="text-xl font-black text-primary mb-2">Systems & Audio</h4>
+                    <p className="text-xs text-slate-400 font-medium tracking-tight">Audio context and system tools</p>
+                 </div>
+                 <div className="grid grid-cols-1 gap-4">
+                    <button aria-label="Test Notification Sound" onClick={() => { playNotificationSound(); addToast("Playing notification sound..."); }} className="p-6 bg-white border-2 border-slate-100 rounded-3xl flex items-center justify-between group hover:border-blue-500 transition-all">
+                       <div className="flex items-center gap-4">
+                          <div className="p-3 bg-blue-50 text-blue-500 rounded-2xl group-hover:bg-blue-500 group-hover:text-white transition-all"><Play size={24}/></div>
+                          <div className="text-left">
+                             <h5 className="font-black text-primary text-sm uppercase">Test Notification Sound</h5>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase">Initialize & play ding-ding sound</p>
+                          </div>
+                       </div>
+                       <ChevronRight size={18} className="text-slate-300" />
+                    </button>
+                 </div>
+
+                 <div>
                     <h4 className="text-xl font-black text-primary mb-2">Data Integrity</h4>
                     <p className="text-xs text-slate-400 font-medium tracking-tight">Backup and recovery protocols</p>
                  </div>
@@ -3663,14 +3746,36 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                     </button>
                  </div>
 
-                 <div className="p-6 bg-red-50 rounded-3xl border border-red-100">
-                    <h5 className="text-[11px] font-black text-red-600 uppercase flex items-center gap-2 mb-2">
-                       <ShieldAlert size={14} /> Danger Zone
-                    </h5>
-                    <p className="text-[10px] text-red-700/60 font-bold uppercase mb-4 leading-relaxed">
-                       Permanent system resets and partition wipes can only be executed via the Secure Root Shell.
-                    </p>
-                    <button aria-label="Wipe Interaction Cache" className="px-6 py-2.5 bg-red-600 text-white font-black text-[10px] rounded-xl uppercase tracking-widest shadow-lg shadow-red-600/20">Wipe Interaction Cache</button>
+                 <div className="p-6 bg-red-50 rounded-3xl border border-red-100 flex flex-col gap-3">
+                    <div>
+                       <h5 className="text-[11px] font-black text-red-600 uppercase flex items-center gap-2 mb-2">
+                          <ShieldAlert size={14} /> Danger Zone
+                       </h5>
+                       <p className="text-[10px] text-red-700/60 font-bold uppercase mb-2 leading-relaxed">
+                          Permanent system resets and partition wipes can only be executed via the Secure Root Shell.
+                       </p>
+                    </div>
+                    <button aria-label="Restart Server" 
+                       onClick={() => {
+                          Swal.fire({
+                             title: 'Restarting Server...',
+                             text: 'Please wait while system connections are re-initialized.',
+                             icon: 'info',
+                             allowOutsideClick: false,
+                             showConfirmButton: false,
+                             didOpen: () => {
+                                Swal.showLoading();
+                                setTimeout(() => {
+                                   window.location.reload();
+                                }, 2000);
+                             }
+                          });
+                       }}
+                       className="w-full p-4 bg-red-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-red-700 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-600/20"
+                    >
+                       <RefreshCw size={16} /> Restart Application Server
+                    </button>
+                    <button aria-label="Wipe Interaction Cache" className="w-full py-2.5 bg-red-600/10 text-red-700 hover:bg-red-600 hover:text-white transition-colors font-black text-[10px] rounded-xl uppercase tracking-widest">Wipe Interaction Cache</button>
                  </div>
               </div>
            </div>
