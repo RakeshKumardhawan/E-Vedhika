@@ -3342,7 +3342,6 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                               });
                             }}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                            aria-label="Delete Transmission"
                           >
                              <Trash2 size={16} />
                           </button>
@@ -3496,7 +3495,6 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                             });
                           }}
                           className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          aria-label="Delete Update"
                         >
                           <Trash2 size={18} />
                         </button>
