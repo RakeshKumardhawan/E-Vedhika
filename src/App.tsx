@@ -5091,7 +5091,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
         const isM = attStatusRaw.includes("meeting") || attStatusRaw.startsWith("m") || attStatusRaw.includes("సమావేశం");
         const isT = attStatusRaw.includes("training") || attStatusRaw.startsWith("t") || attStatusRaw.includes("శిక్షణ");
         const isL = attStatusRaw.includes("leave") || attStatusRaw.startsWith("l") || attStatusRaw.includes("సెలవు");
-        const isD = dsrStatusRaw.includes("entered") || dsrStatusRaw.includes("yes") || dsrStatusRaw.includes("✅") || dsrStatusRaw.includes("uploaded");
+        const isD = (dsrStatusRaw.includes("entered") && !dsrStatusRaw.includes("not")) || dsrStatusRaw.includes("yes") || dsrStatusRaw.includes("✅") || dsrStatusRaw.includes("uploaded") || (dsrTimeStr && dsrTimeStr.length > 3 && dsrTimeStr.includes(":"));
         const attTimeStr = String(r[attTimeIdx] || "");
 
         // Time Check (10:30 AM)
@@ -5138,8 +5138,10 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
         if (isM) meeting++;
         else if (isT) training++;
         else if (isL) leave++;
-        else if (isD) dsr++;
-        else pending++;
+        
+        // Count DSR vs Pending
+        if (isD) dsr++;
+        else if (!isM && !isT && !isL) pending++;
         
         // Aggregate Mandal Stats
         const currentM = mandalStats.get(mandalRaw) || { total: 0, onTime: 0, late: 0, pending: 0, meeting: 0, training: 0, leave: 0, dsrPending: 0 };
