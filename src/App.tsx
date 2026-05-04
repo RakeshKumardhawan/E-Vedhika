@@ -1631,7 +1631,7 @@ export default function App() {
             )}
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-4">Navigations</h3>
             <MenuButton label="Home" emoji="🏠" active={currentTab === 'home'} onClick={() => {setCurrentTab('home'); setCurrentFilter('All'); setSidebarOpen(false);}} />
-            <MenuButton label="🏛️ E-Vedhika" emoji="📊" active={currentTab === 'workspace'} onClick={() => {setCurrentTab('workspace'); setSidebarOpen(false);}} />
+            <MenuButton label="🏛️ Mana Panchayath" emoji="📊" active={currentTab === 'workspace'} onClick={() => {setCurrentTab('workspace'); setSidebarOpen(false);}} />
             <MenuButton label="Schemes info and govt" emoji="📢" active={currentTab === 'schemes'} onClick={() => {setCurrentTab('schemes'); setSidebarOpen(false);}} />
             <MenuButton label="Live Chat" emoji="💬" active={currentTab === 'chat'} onClick={() => {setCurrentTab('chat'); setSidebarOpen(false);}} />
             <MenuButton label="Union Corner" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
@@ -3011,9 +3011,16 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                       </div>
                                    </div>
                                    <div className={`p-5 rounded-2xl border ${activeSubTab === 'suggestions' ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
-                                      <p className="text-[12px] text-slate-700 font-bold leading-relaxed italic whitespace-pre-wrap">
-                                        "{item.msg || item.content || item.text || item.problem || item.suggestion}"
-                                      </p>
+                                      {item.title && <h4 className="text-sm font-black text-slate-800 mb-2 whitespace-pre-wrap break-words">{item.title}</h4>}
+                                      {activeSubTab === 'reports' && reportsType === 'posts' ? (
+                                        <div className="text-[12px] text-slate-700 font-medium leading-relaxed whitespace-pre-wrap [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline">
+                                          <ReactMarkdown remarkPlugins={[remarkBreaks]}>{item.content || ""}</ReactMarkdown>
+                                        </div>
+                                      ) : (
+                                        <p className="text-[12px] text-slate-700 font-bold leading-relaxed italic whitespace-pre-wrap">
+                                          "{item.msg || item.content || item.text || item.problem || item.suggestion}"
+                                        </p>
+                                      )}
                                    </div>
                                 </td>
                                 <td className="py-6">
@@ -4131,7 +4138,7 @@ function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => v
         animate={{ x: 0, opacity: 1 }}
         style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px' }}
       >
-        <LayoutDashboard size={24} style={{ color: '#0891b2' }} /> E-Vedhika Hub
+        <LayoutDashboard size={24} style={{ color: '#0891b2' }} /> Mana Panchayath
       </motion.h2>
       <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>Advanced tools for PR & RD Officers.</p>
 
@@ -5988,7 +5995,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
         </div>
       </div>
       
-      <h4 className="post-title !mt-0">{post.title || 'Platform Update'}</h4>
+      <h4 className="post-title !mt-0 whitespace-pre-wrap break-words">{post.title || 'Platform Update'}</h4>
       
       <div className={`post-body mb-4 whitespace-pre-wrap ${isExpanded ? '' : 'line-clamp-4'} [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline`}>
         <ReactMarkdown remarkPlugins={[remarkBreaks]}>{post.content || (post as any).message || (post as any).text || (post as any).desc || ''}</ReactMarkdown>
@@ -6542,7 +6549,7 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
            </div>
          </div>
          
-         <h1 className="text-3xl md:text-5xl font-black text-primary leading-tight tracking-tight">{post.title}</h1>
+         <h1 className="text-3xl md:text-5xl font-black text-primary leading-tight tracking-tight whitespace-pre-wrap break-words">{post.title}</h1>
          
          <div className="flex items-center gap-3 text-sm font-bold text-slate-600">
            <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white border-2 border-white shadow-sm ring-2 ring-slate-50 overflow-hidden">
