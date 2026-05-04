@@ -5504,38 +5504,38 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
                <table className="w-full text-left">
                   <thead>
                      <tr className="bg-slate-50 border-b text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        <th className="p-4">Mandal / GP</th>
-                        <th className="p-4 text-center">Attendance</th>
-                        <th className="p-4 text-center">DSR Status</th>
-                        <th className="p-4 text-center">Submitted At</th>
+                        <th className="p-2 sm:p-4 text-[9px] sm:text-[10px]">Mandal / GP</th>
+                        <th className="p-2 sm:p-4 text-center text-[9px] sm:text-[10px]">Attendance</th>
+                        <th className="p-2 sm:p-4 text-center text-[9px] sm:text-[10px]">DSR Status</th>
+                        <th className="p-2 sm:p-4 text-center text-[9px] sm:text-[10px]">Submitted</th>
                      </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                     {filteredData.map((row, i) => (
-                       <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="p-4">
-                             <div className="text-[10px] font-bold text-slate-400 uppercase">{row.mandal}</div>
-                             <div className="text-sm font-black text-primary uppercase">{row.gp}</div>
-                          </td>
-                          <td className="p-4 text-center">
-                             <StatusCell status={row.isPresent ? 'P' : row.isMeeting ? 'M' : row.isTraining ? 'T' : row.isLeave ? 'L' : 'A'} />
-                             <div className="text-[9px] text-slate-400 font-mono mt-1">{row.attTime || '-'}</div>
-                          </td>
-                          <td className="p-4 text-center">
-                             {/* Logic: Green if OnTime OR Meeting/Training/Leave. Red if Late. Amber if simply Not Entered (Present but no DSR) */}
-                             <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${
-                               (row.isOnTime || row.isMeeting || row.isTraining || row.isLeave) 
-                                 ? 'bg-emerald-100 text-emerald-700' 
-                                 : row.isLate 
-                                   ? 'bg-rose-100 text-rose-700' 
-                                   : 'bg-amber-100 text-amber-700'
-                             }`}>
-                                {row.isMeeting ? 'Meeting' : row.isTraining ? 'Training' : row.isLeave ? 'Leave' : row.isOnTime ? 'Attendance in time' : row.isLate ? 'Late Attendance' : 'Not Entered'}
-                             </span>
-                          </td>
-                          <td className="p-4 text-center text-[10px] font-mono text-slate-500">{row.dsrTime || '-'}</td>
-                       </tr>
-                     ))}
+                      {filteredData.map((row, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
+                           <td className="p-2 sm:p-4">
+                              <div className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase truncate max-w-[80px] sm:max-w-none">{row.mandal}</div>
+                              <div className="text-xs sm:text-sm font-black text-primary uppercase truncate max-w-[120px] sm:max-w-none">{row.gp}</div>
+                           </td>
+                           <td className="p-2 sm:p-4 text-center">
+                              <StatusCell status={row.isPresent ? (row.isAttBefore901 ? 'P-I' : row.isAttAfter900 ? 'P-L' : 'P') : row.isMeeting ? 'M' : row.isTraining ? 'T' : row.isLeave ? 'L' : 'A'} />
+                              <div className="text-[8px] sm:text-[9px] text-slate-400 font-mono mt-1">{row.attTime || '-'}</div>
+                           </td>
+                           <td className="p-2 sm:p-4 text-center">
+                              {/* Logic: Green if OnTime OR Meeting/Training/Leave. Red if Late. Amber if simply Not Entered (Present but no DSR) */}
+                              <span className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black uppercase inline-block whitespace-nowrap ${
+                                (row.isOnTime || row.isMeeting || row.isTraining || row.isLeave) 
+                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                                  : row.isLate 
+                                    ? 'bg-rose-100 text-rose-700 border border-rose-200' 
+                                    : 'bg-amber-100 text-amber-700 border border-amber-200'
+                              }`}>
+                                 {row.isMeeting ? 'Meeting' : row.isTraining ? 'Training' : row.isLeave ? 'Leave' : row.isOnTime ? 'DSR On Time' : row.isLate ? 'Late DSR Entry' : 'Not Entered'}
+                              </span>
+                           </td>
+                           <td className="p-2 sm:p-4 text-center text-[8px] sm:text-[10px] font-mono text-slate-500">{row.dsrTime || '-'}</td>
+                        </tr>
+                      ))}
                   </tbody>
                </table>
             </div>
