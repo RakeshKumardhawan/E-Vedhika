@@ -1,7 +1,7 @@
 {
-  "name": "Mana Panchayath Portal",
-  "short_name": "ManaPanchayath",
-  "description": "Government Schemes and Public Feedback Portal",
+  "name": "E-Vedhika Portal",
+  "short_name": "E-Vedhika",
+  "description": "A comprehensive community portal for reporting problems and getting updates on schemes, elections and daily reports.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d3b66",

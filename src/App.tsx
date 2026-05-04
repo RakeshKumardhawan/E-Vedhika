@@ -12,7 +12,7 @@ import {
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
   Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, MessageSquare,
   Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock, Shield, Pin,
-  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw
+  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, ArrowRight, ArrowUpRight, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -198,6 +198,7 @@ interface Post {
   subCategory?: string;
   mediaUrl?: string;
   mediaType?: string;
+  mediaName?: string;
   likes: number;
   views: number;
   comments: Comment[];
@@ -209,6 +210,7 @@ interface Post {
   uid: string;
   status?: string;
   pinned?: boolean;
+  isAdminPost?: boolean;
 }
 
 interface Comment {
@@ -600,13 +602,87 @@ export default function App() {
   const hasGreetedRef = useRef(false);
   const initialUpdatesLoaded = useRef(false);
   const initialPostsLoaded = useRef(false);
+  const initialNotificationsLoaded = useRef(false);
   
   const isDevEmail = user?.email?.toLowerCase() === 'rakeshkumardhawan123@gmail.com';
   const isAdmin = userRole === 'admin' || isDevEmail;
   const isEditor = userRole === 'admin' || userRole === 'editor' || isDevEmail;
   
+  useEffect(() => {
+    // Suppress benign Vite WebSocket error logs that confuse the user
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    
+    console.error = (...args) => {
+      const msg = args[0];
+      const isBenignError = typeof msg === 'string' && (
+        msg.includes('WebSocket') || 
+        msg.includes('vite') || 
+        msg.includes('web-socket') ||
+        msg.includes('closed without opened') ||
+        msg.includes('connection failed') ||
+        msg.includes('@firebase/firestore') ||
+        msg.includes('WebChannelConnection')
+      );
+      
+      // Check for error objects as well
+      const isBenignErrorObject = msg instanceof Error && (
+        msg.message.includes('WebSocket') ||
+        msg.message.includes('closed without opened') ||
+        msg.message.includes('vite') ||
+        msg.message.includes('@firebase/firestore')
+      );
+
+      if (isBenignError || isBenignErrorObject) {
+        return;
+      }
+      originalError.apply(console, args);
+    };
+
+    console.warn = (...args) => {
+      const msg = args[0];
+      if (typeof msg === 'string' && (
+        msg.includes('WebSocket') || 
+        msg.includes('vite') ||
+        msg.includes('closed without opened') ||
+        msg.includes('@firebase/firestore') ||
+        msg.includes('WebChannelConnection')
+      )) {
+        return;
+      }
+      originalWarn.apply(console, args);
+    };
+    
+    // Also suppress unhandled rejections related to the websocket
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      const isBenign = 
+        (reason && reason.message && (
+          reason.message.includes('WebSocket') || 
+          reason.message.includes('closed without opened')
+        )) ||
+        (typeof reason === 'string' && (
+           reason.includes('WebSocket') || 
+           reason.includes('closed without opened')
+        ));
+
+      if (isBenign) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      console.error = originalError;
+      console.warn = originalWarn;
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState('home');
+  const [activeInternalUrl, setActiveInternalUrl] = useState<string | null>(null);
   const [currentFilter, setCurrentFilter] = useState('All');
   const [posts, setPosts] = useState<Post[]>([]);
 
@@ -941,7 +1017,16 @@ export default function App() {
       const nArr: Notification[] = [];
       snap.forEach(d => nArr.push({ id: d.id, ...(d.data() as any) } as Notification));
       setNotifications(nArr.sort((a, b) => b.time - a.time).slice(0, 50));
-      setUnreadCount(nArr.filter(n => !n.read).length);
+      setUnreadCount(nArr.filter(n => n.uid === 'all' ? !(n as any).readBy?.includes(user?.uid) : !n.read).length);
+      
+      if (!initialNotificationsLoaded.current) {
+        initialNotificationsLoaded.current = true;
+      } else {
+        const hasNew = snap.docChanges().some(change => change.type === 'added');
+        if (hasNew) {
+          playNotificationSound();
+        }
+      }
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'notifications'));
 
     return () => {
@@ -1414,18 +1499,27 @@ export default function App() {
                  <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
                     {notifications.length > 0 ? (
                       <div className="divide-y divide-slate-50">
-                        {notifications.map(n => (
+                        {notifications.map(n => {
+                          const isUnread = n.uid === 'all' ? !(n as any).readBy?.includes(user?.uid) : !n.read;
+                          return (
                           <div 
                             key={n.id} 
                             onClick={async () => {
-                              if (!n.read) {
+                              if (isUnread) {
                                 try {
-                                  await updateDoc(doc(db, 'notifications', n.id), { read: true });
+                                  if (n.uid === 'all') {
+                                    await updateDoc(doc(db, 'notifications', n.id), { readBy: arrayUnion(user?.uid) });
+                                  } else {
+                                    await updateDoc(doc(db, 'notifications', n.id), { read: true });
+                                  }
                                 } catch(e) {}
+                              }
+                              if ((n as any).postId) {
+                                setSearchParams({ postId: (n as any).postId });
                               }
                               setShowNotifications(false);
                             }}
-                            className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors ${!n.read ? 'bg-blue-50/30' : ''}`}
+                            className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors ${isUnread ? 'bg-blue-50/30' : ''}`}
                           >
                              <div className="flex justify-between items-start mb-1">
                                 <span className={`text-[9px] font-black uppercase tracking-wider ${n.type === 'flash_update' ? 'text-amber-500' : 'text-primary'}`}>
@@ -1438,7 +1532,8 @@ export default function App() {
                              <h4 className="text-xs font-black text-slate-800 leading-tight mb-1">{n.title}</h4>
                              <p className="text-[10px] font-medium text-slate-500 line-clamp-2">{n.message}</p>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="p-10 text-center">
@@ -1498,7 +1593,7 @@ export default function App() {
             )}
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-4">Navigations</h3>
             <MenuButton label="Home" emoji="🏠" active={currentTab === 'home'} onClick={() => {setCurrentTab('home'); setCurrentFilter('All'); setSidebarOpen(false);}} />
-            <MenuButton label="🏛️ Mana Panchayath" emoji="📊" active={currentTab === 'workspace'} onClick={() => {setCurrentTab('workspace'); setSidebarOpen(false);}} />
+            <MenuButton label="🏛️ E-Vedhika" emoji="📊" active={currentTab === 'workspace'} onClick={() => {setCurrentTab('workspace'); setSidebarOpen(false);}} />
             <MenuButton label="Schemes info and govt" emoji="📢" active={currentTab === 'schemes'} onClick={() => {setCurrentTab('schemes'); setSidebarOpen(false);}} />
             <MenuButton label="Live Chat" emoji="💬" active={currentTab === 'chat'} onClick={() => {setCurrentTab('chat'); setSidebarOpen(false);}} />
             <MenuButton label="Union Corner" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
@@ -1641,13 +1736,111 @@ export default function App() {
                         { name: 'MGNREGS', desc: 'Ensuring wage employment and building durable assets in rural areas.', icon: '👷', link: 'https://nregs.telangana.gov.in/' },
                         { name: 'SERP', desc: 'Programs focused on poverty elimination and building community institutions.', icon: '🏘️', link: 'https://serp.telangana.gov.in/' }
                       ].map(s => (
-                        <div key={s.name} className="scheme-card">
+                        <div key={s.name} onClick={() => window.open(s.link, '_blank')} className="scheme-card cursor-pointer hover:scale-[1.02] transition-transform">
                           <div className="text-3xl mb-3">{s.icon}</div>
                           <h4 className="font-black text-lg text-primary">{s.name}</h4>
                           <p className="text-sm font-medium text-slate-600 mt-2 flex-1">{s.desc}</p>
+                          <div className="mt-4 text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-1">
+                            Visit Portal <ArrowRight size={10} />
+                          </div>
                         </div>
                       ))}
                     </div>
+
+                    {/* Internal URL Modal */}
+                    <AnimatePresence>
+                      {activeInternalUrl && (
+                        <motion.div 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="fixed inset-0 bg-black/80 backdrop-blur-md z-[20000] flex items-center justify-center p-1 sm:p-2"
+                        >
+                          <motion.div 
+                            initial={{ scale: 0.95, y: 10 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.95, y: 10 }}
+                            className="bg-white w-[100vw] h-[100dvh] sm:w-[98vw] sm:h-[96vh] rounded-none sm:rounded-[32px] overflow-hidden flex flex-col shadow-2xl shadow-black/90"
+                          >
+                            <div className="p-3 sm:p-4 bg-white border-b flex justify-between items-center shadow-sm relative z-10">
+                              <div className="flex items-center gap-2 sm:gap-3">
+                                <div className="p-2 sm:p-2.5 bg-blue-100 text-blue-600 rounded-xl shadow-inner">
+                                  <ShieldCheck size={20} className="sm:w-[22px] sm:h-[22px]" />
+                                </div>
+                                <div className="flex flex-col">
+                                  <h3 className="font-black text-primary uppercase tracking-widest text-[9px] sm:text-xs">Secure Internal Viewer</h3>
+                                  <div className="flex items-center gap-1 sm:gap-2">
+                                    <p className="text-[8px] sm:text-[11px] text-slate-500 font-bold uppercase tracking-tight">External Portal</p>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  onClick={() => {
+                                    const iframe = document.querySelector('iframe');
+                                    if (iframe) iframe.src = iframe.src;
+                                  }}
+                                  className="p-2 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all"
+                                  title="Refresh"
+                                >
+                                  <RefreshCw size={18} />
+                                </button>
+                                <a 
+                                  href={activeInternalUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="hidden md:flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200"
+                                >
+                                  Open In Browser <Bot size={12} />
+                                </a>
+                                <button 
+                                  onClick={() => setActiveInternalUrl(null)}
+                                  className="p-2 sm:p-3 bg-rose-50 text-rose-500 rounded-xl sm:rounded-2xl hover:bg-rose-100 transition-all shadow-sm active:scale-90 border border-rose-100"
+                                >
+                                  <XCircle size={22} className="sm:w-[24px] sm:h-[24px]" />
+                                </button>
+                              </div>
+                            </div>
+                             <div className="flex-1 bg-slate-50 relative overflow-hidden flex flex-col items-center justify-center p-4 sm:p-8 text-center">
+                              <motion.div 
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="max-w-md w-full bg-white p-6 sm:p-10 rounded-[32px] sm:rounded-[48px] shadow-2xl border border-slate-100 flex flex-col items-center"
+                              >
+                                <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-[28px] flex items-center justify-center mb-6 shadow-sm ring-8 ring-blue-50/50">
+                                  <ShieldCheck size={40} />
+                                </div>
+                                <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Security Check</h3>
+                                <p className="text-sm font-bold text-slate-500 mb-8 leading-relaxed px-2">
+                                  భద్రతా కారణాల దృష్ట్యా ఈ పేజీని ఇక్కడ నేరుగా చూపించలేము. ఈ క్రింది బటన్‌ను క్లిక్ చేసి అధికారిక పోర్టల్ ద్వారా వివరాలు తెలుసుకోండి.
+                                </p>
+                                <a 
+                                  href={activeInternalUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="w-full py-5 bg-blue-600 text-white rounded-3xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-800 transition-all shadow-xl shadow-blue-200 active:scale-95"
+                                >
+                                  ఓపెన్ అఫీషియల్ పోర్టల్ <ArrowUpRight size={20} />
+                                </a>
+                              </motion.div>
+                            </div>
+                            <div className="p-3 sm:p-4 bg-slate-50 text-center border-t flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-6">
+                              <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Powered by E-Vedhika Secure Sandbox</p>
+                              <div className="h-4 w-px bg-slate-200 hidden sm:block"></div>
+                              <a 
+                                href={activeInternalUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-[9px] sm:text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
+                              >
+                                Not loading? Click here to open in new tab
+                              </a>
+                            </div>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                  </div>
               </motion.div>
             )}
@@ -3900,7 +4093,7 @@ function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => v
         animate={{ x: 0, opacity: 1 }}
         style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px' }}
       >
-        <LayoutDashboard size={24} style={{ color: '#0891b2' }} /> Mana Panchayath
+        <LayoutDashboard size={24} style={{ color: '#0891b2' }} /> E-Vedhika Hub
       </motion.h2>
       <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>Advanced tools for PR & RD Officers.</p>
 
@@ -3941,7 +4134,7 @@ function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => v
                     <SmartAssistant 
                       title="Training Helper"
                       placeholder="How do I process a DSR? What is the login workflow?"
-                      systemInstruction="You are a helpful training assistant for the Mana Panchayath workspace. You help users understand workflows like DSR Analysis (uploading .xls files, viewing charts) and Digital Training steps. Keep answers short and instructional."
+                      systemInstruction="You are a helpful training assistant for the E-Vedhika workspace. You help users understand workflows like DSR Analysis (uploading .xls files, viewing charts) and Digital Training steps. Keep answers short and instructional."
                       icon={GraduationCap}
                     />
                   </motion.div>
@@ -4975,14 +5168,22 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
   const [mandalSummaries, setMandalSummaries] = useState<Record<string, any>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const onUpload = (e: any) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    setIsProcessing(true);
+    setUploadProgress(10);
+
     const reader = new FileReader();
     reader.onload = async (evt) => {
-      await loadHeavyModules();
+      try {
+        setUploadProgress(30);
+        await loadHeavyModules();
+        setUploadProgress(50);
       const dataBuffer = evt.target?.result as ArrayBuffer;
       let allRows: any[][] = [];
       
@@ -5014,9 +5215,12 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
       }
 
       if (allRows.length === 0) {
+        setIsProcessing(false);
+        setUploadProgress(0);
         addToast("క్షమించండి! ఫైల్ ఖాళీగా ఉంది లేదా చదవడం కుదరలేదు.");
         return;
       }
+      setUploadProgress(70);
 
       setRawJson(allRows);
 
@@ -5046,6 +5250,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
       }
 
       if (bestHeaderIdx === -1) {
+        setIsProcessing(false);
+        setUploadProgress(0);
         addToast("క్షమించండి! మీ ఫైల్‌లో 'Mandal Name' మరియు 'Panchayat Name' కాలమ్స్ దొరకలేదు.");
         return;
       }
@@ -5180,7 +5386,9 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
       });
 
       if (processed.length === 0) {
-        addToast("ప్రాసెస్ చేయబడింది, కానీ డేటా ఏమీ దొరకలేదు. ఫైల్ ఫార్మాట్ ఒకసారి చూడండి.");
+        setIsProcessing(false);
+        setUploadProgress(0);
+        addToast("ప్రాసెస్ చేయబడింది, కానీ డేటా ఏమీ దొరకలేదు. ఫైల్ ఫార్మార్ట్ ఒకసారి చూడండి.");
         return;
       }
 
@@ -5189,7 +5397,23 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
       setStats({ total: processed.length, present, dsr, pending, meeting, training, leave, before901, after900 });
       // @ts-ignore
       setMandalSummaries(Object.fromEntries(mandalStats));
+      setUploadProgress(100);
+      setTimeout(() => {
+        setIsProcessing(false);
+        setUploadProgress(0);
+      }, 500);
       addToast(`విజయవంతంగా ప్రాసెస్ చేయబడింది! ${processed.length} గ్రామ పంచాయతీలు దొరికాయి. 🚀`);
+      } catch (err) {
+        console.error("DSR Processing Error:", err);
+        setIsProcessing(false);
+        setUploadProgress(0);
+        addToast("ఫైల్ ప్రాసెస్ చేయడంలో లోపం సంభవించింది. దయచేసి మళ్ళీ ప్రయత్నించండి.");
+      }
+    };
+    reader.onerror = () => {
+      setIsProcessing(false);
+      setUploadProgress(0);
+      addToast("ఫైల్ చదవడంలో లోపం సంభవించింది.");
     };
     reader.readAsArrayBuffer(file);
   };
@@ -5294,11 +5518,28 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
 
   return (
     <div className="space-y-6">
-      <div className="p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px] text-center">
+      <div className="p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px] text-center relative overflow-hidden">
+        {isProcessing && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center z-10">
+            <div className="w-64">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[10px] font-black text-primary uppercase tracking-widest">Processing DSR...</span>
+                <span className="text-[10px] font-black text-primary">{uploadProgress}%</span>
+              </div>
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${uploadProgress}%` }}
+                  className="h-full bg-primary"
+                />
+              </div>
+            </div>
+          </div>
+        )}
         <h4 className="text-sm font-black text-primary uppercase tracking-widest mb-4">DSR Analytical Engine</h4>
-        <input type="file" onChange={onUpload} className="hidden" id="dsr-up" />
-        <label htmlFor="dsr-up" className="bg-primary text-white px-10 py-4 rounded-2xl font-black cursor-pointer shadow-xl hover:opacity-90 transition-all inline-block text-xs uppercase tracking-widest">
-           Select DSR File
+        <input type="file" onChange={onUpload} className="hidden" id="dsr-up" disabled={isProcessing} />
+        <label htmlFor="dsr-up" className={`bg-primary text-white px-10 py-4 rounded-2xl font-black shadow-xl transition-all inline-block text-xs uppercase tracking-widest ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-90 active:scale-95'}`}>
+           {isProcessing ? 'Processing...' : 'Select DSR File'}
         </label>
       </div>
 
@@ -5312,13 +5553,13 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
 
       {data.length > 0 && user && !user.isAnonymous && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
             <button aria-label="Filter Total" onClick={() => setActiveFilter(null)} className="text-left w-full"><StatCard label="Total" val={stats.total} color="blue" /></button>
             <button aria-label="Filter Present" onClick={() => setActiveFilter('P')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'P' ? 'ring-2 ring-emerald-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Present" val={stats.present} color="emerald" /></button>
-            <button title="ఉదయం 9:00 కంటే ముందు విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('B9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'B9' ? 'ring-2 ring-indigo-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Attendance in time" val={stats.before901} color="indigo" /></button>
-            <button title="ఉదయం 9:01 తర్వాత విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('A9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'A9' ? 'ring-2 ring-rose-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Late Attendance" val={stats.after900} color="rose" /></button>
-            <button aria-label="Filter DSR" onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR Reported" val={stats.dsr} color="emerald" /></button>
-            <button aria-label="Filter No DSR" onClick={() => setActiveFilter('NE')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'NE' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR Not Entered" val={stats.pending} color="amber" /></button>
+            <button title="ఉదయం 9:00 కంటే ముందు విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('B9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'B9' ? 'ring-2 ring-indigo-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="On Time" val={stats.before901} color="indigo" /></button>
+            <button title="ఉదయం 9:01 తర్వాత విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('A9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'A9' ? 'ring-2 ring-rose-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Late Att" val={stats.after900} color="rose" /></button>
+            <button aria-label="Filter DSR" onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR Rep" val={stats.dsr} color="emerald" /></button>
+            <button aria-label="Filter No DSR" onClick={() => setActiveFilter('NE')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'NE' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="No DSR" val={stats.pending} color="amber" /></button>
             <button aria-label="Filter Meeting" onClick={() => setActiveFilter('M')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'M' ? 'ring-2 ring-cyan-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Meeting" val={stats.meeting} color="cyan" /></button>
             <button aria-label="Filter Training" onClick={() => setActiveFilter('T')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'T' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Training" val={stats.training} color="amber" /></button>
             <button aria-label="Filter Leave" onClick={() => setActiveFilter('L')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'L' ? 'ring-2 ring-slate-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Leave" val={stats.leave} color="slate" /></button>
@@ -5609,9 +5850,9 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
         <div className="flex-1">
            <div className="flex items-center gap-2">
               <h5 className="text-[17px] font-black text-primary leading-tight">{post.userName || 'Portal Member'}</h5>
-              {post.uid === 'KGT2roF9bPTNhWIceHgWsJEnEnH3' && (
+              {(post.uid === 'KGT2roF9bPTNhWIceHgWsJEnEnH3' || post.userName === 'Admin' || post.isAdminPost) && (
                  <span className="bg-blue-600 text-white text-[9px] px-2.5 py-1 rounded-lg font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
-                   <ShieldCheck size={10} /> Official Support
+                   <ShieldCheck size={10} /> Official
                  </span>
               )}
               {isAdmin && post.status === 'Deleted' && (
@@ -5725,8 +5966,19 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
         <div className="mb-4">
           {post.mediaType?.startsWith('video') ? (
             <video src={post.mediaUrl} controls className="post-media" />
-          ) : (
+          ) : post.mediaType?.startsWith('image') ? (
             <img src={post.mediaUrl} alt={post.title} className="post-media" />
+          ) : (
+            <a href={post.mediaUrl} download={post.mediaName || 'Document'} target="_blank" rel="noreferrer" className="flex items-center p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:bg-slate-100 hover:border-primary/30 transition-colors w-full group">
+              <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex flex-shrink-0 items-center justify-center mr-4 group-hover:scale-110 transition-transform">
+                <FileText size={24} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h5 className="font-bold text-slate-800 text-sm truncate">{post.mediaName || 'Attached Document'}</h5>
+                <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mt-1">Download File</p>
+              </div>
+              <Download size={20} className="text-slate-400 group-hover:text-primary transition-colors ml-4" />
+            </a>
           )}
         </div>
       )}
@@ -5830,26 +6082,25 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
 
 function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin, isEditor }: { addToast: (s:string) => void, onCancel: () => void, currentUserProfile: UserProfile | null, editingPost: Post | null, isAdmin: boolean, isEditor: boolean }) {
   const [loading, setLoading] = useState(false);
-  const [media, setMedia] = useState<{ url: string, type: string } | null>(
-    editingPost ? (editingPost.mediaUrl ? { url: editingPost.mediaUrl, type: editingPost.mediaType || 'image/jpeg' } : null) : null
+  const [title, setTitle] = useState(editingPost?.title || "");
+  const [content, setContent] = useState(editingPost?.content || "");
+  const [category, setCategory] = useState(editingPost?.category || "General");
+  const [media, setMedia] = useState<{ url: string, type: string, name?: string } | null>(
+    editingPost ? (editingPost.mediaUrl ? { url: editingPost.mediaUrl, type: editingPost.mediaType || 'image/jpeg', name: editingPost.mediaName } : null) : null
   );
 
   const onSubmit = async (e: any) => {
     e.preventDefault();
     if (!auth.currentUser) return;
     setLoading(true);
-    const f = e.target;
     try {
-      const title = f.title.value;
-      const content = f.content.value;
-      const category = f.category.value;
-
       const postData = {
         title: title,
         content: content,
         category: category,
         mediaUrl: media?.url || "",
         mediaType: media?.type || "",
+        mediaName: media?.name || "",
       };
 
       if (editingPost) {
@@ -5859,21 +6110,26 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
           category: postData.category,
           mediaUrl: postData.mediaUrl,
           mediaType: postData.mediaType,
+          mediaName: postData.mediaName,
+          userName: isEditor ? "Admin" : (editingPost.userName || "User"),
+          userPhoto: isEditor ? "" : (editingPost.userPhoto || ""),
           lastEditedAt: Date.now(),
           lastEditedBy: auth.currentUser?.uid || 'system',
-          lastEditedRole: isAdmin ? "admin" : "user",
-          lastEditedName: currentUserProfile?.username || ""
+          lastEditedRole: isEditor ? "admin" : "user",
+          lastEditedName: isEditor ? "Admin" : (currentUserProfile?.username || ""),
+          isAdminPost: (editingPost as any).isAdminPost || isEditor
         });
         await logUserActivity(`Edited Post: ${postData.title.slice(0, 20)}`);
         addToast("Update Saved!");
       } else {
-        await addDoc(collection(db, "posts"), {
+        const newPostRef = await addDoc(collection(db, "posts"), {
           title: title,
           content: content || "",
           category: category,
           subCategory: "", 
           mediaUrl: media?.url || "",
           mediaType: media?.type || "",
+          mediaName: media?.name || "",
           likes: 0,
           likedBy: [],
           views: 0,
@@ -5881,11 +6137,25 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
           comments: [],
           time: Date.now(),
           uid: auth.currentUser?.uid || 'system',
-          userName: currentUserProfile?.username || auth.currentUser.displayName || "User",
-          userPhoto: currentUserProfile?.photoURL || "",
-          status: isAdmin ? 'Approved' : 'Pending'
+          userName: isEditor ? "Admin" : (currentUserProfile?.username || auth.currentUser.displayName || "User"),
+          userPhoto: isEditor ? "" : (currentUserProfile?.photoURL || ""),
+          isAdminPost: isEditor,
+          status: isEditor ? 'Approved' : 'Pending'
         });
         await logUserActivity(`Published Post: ${title.slice(0, 20)}`);
+        
+        if (isEditor && category === "Updates") {
+          await addDoc(collection(db, "notifications"), {
+            uid: "all",
+            title: "New Update",
+            message: title,
+            time: Date.now(),
+            read: false,
+            readBy: [],
+            postId: newPostRef.id
+          });
+        }
+        
         addToast("Post Published! " + (!isAdmin ? "Waiting for admin approval." : ""));
       }
       onCancel();
@@ -5914,12 +6184,12 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
       <div className="space-y-4">
         <div>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Title / Header</label>
-          <input name="title" required defaultValue={editingPost?.title} placeholder="Enter catchy title..." className="w-full text-lg font-black text-primary p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none transition-all" />
+          <input name="title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter catchy title..." className="w-full text-lg font-black text-primary p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none transition-all" />
         </div>
 
         <div>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Category</label>
-          <select name="category" defaultValue={editingPost?.category || "General"} className="w-full bg-slate-50 font-bold text-xs uppercase p-3 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none cursor-pointer">
+          <select name="category" value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-slate-50 font-bold text-xs uppercase p-3 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none cursor-pointer">
              <option value="Daily reports">📊 Daily Reports</option>
              <option value="Updates">📢 Updates</option>
              <option value="Election">🗳️ Election</option>
@@ -5929,7 +6199,7 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
 
         <div>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Content Details</label>
-          <textarea name="content" required defaultValue={editingPost?.content} placeholder="Write details here (Markdown supported)..." rows={5} className="w-full bg-slate-50 p-3 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none text-sm font-medium leading-relaxed" />
+          <textarea name="content" required value={content} onChange={(e) => setContent(e.target.value)} placeholder="Write details here (Markdown supported)..." rows={5} className="w-full bg-slate-50 p-3 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none text-sm font-medium leading-relaxed" />
         </div>
         
         <div>
@@ -5937,16 +6207,21 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
           <div className="py-8 border-2 border-dashed rounded-2xl text-center cursor-pointer relative bg-slate-50 overflow-hidden transition-all hover:bg-slate-100 hover:border-primary/20 group">
              {media?.url ? (
                <div className="space-y-3 px-4">
-                 <div className="relative inline-block">
+                 <div className="relative inline-block w-full max-w-sm">
                     {media.type.startsWith('video') ? (
                       <video src={media.url} className="h-32 w-full object-cover rounded-xl border shadow-sm" />
-                    ) : (
+                    ) : media.type.startsWith('image') ? (
                       <img src={media.url} alt="Uploaded media preview" loading="lazy" className="h-32 w-full object-cover rounded-xl border shadow-sm" />
+                    ) : (
+                      <div className="h-32 w-full bg-slate-100 flex flex-col items-center justify-center rounded-xl border shadow-sm p-4">
+                        <FileText size={32} className="text-slate-400 mb-2" />
+                        <span className="text-xs font-bold text-slate-600 truncate w-full px-4">{media.name || 'document'}</span>
+                      </div>
                     )}
                     <button aria-label="Remove media"
                       type="button" 
                       onClick={(e) => { e.stopPropagation(); setMedia(null); }} 
-                      className="absolute -top-2 -right-2 bg-danger text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform"
+                      className="absolute -top-2 -right-2 bg-danger text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform z-10"
                     >
                       <Trash2 size={16} strokeWidth={2.5} />
                     </button>
@@ -5956,15 +6231,20 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
                </div>
              ) : (
                <div className="space-y-2 py-4">
-                 <div className="text-3xl">📷</div>
-                 <div className="text-xs font-black text-slate-400 group-hover:text-primary transition-colors">Add Image or Video</div>
+                 <div className="text-3xl"><Upload size={28} className="mx-auto text-primary" /></div>
+                 <div className="text-xs font-black text-slate-400 group-hover:text-primary transition-colors">Add Attachment (Media or Files &lt; 700KB)</div>
                </div>
              )}
-             <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*,video/*" onChange={async (e) => {
+             <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="*/*" onChange={async (e) => {
                const f = e.target.files?.[0];
                if (f) {
+                 if (f.size > 750 * 1024) {
+                   addToast("File is too large! Please select a file smaller than 700KB.");
+                   e.target.value = '';
+                   return;
+                 }
                  const reader = new FileReader();
-                 reader.onload = (ev) => setMedia({ url: ev.target?.result as string, type: f.type });
+                 reader.onload = (ev) => setMedia({ url: ev.target?.result as string, type: f.type || 'application/octet-stream', name: f.name });
                  reader.readAsDataURL(f);
                }
              }} />
@@ -6242,7 +6522,24 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
          
          {post.mediaUrl && (
            <div className="mt-8 rounded-[24px] overflow-hidden border-4 border-slate-50 shadow-md">
-             <img src={post.mediaUrl} alt="Post media" className="w-full object-cover max-h-[500px]" />
+             {post.mediaType?.startsWith('video') ? (
+               <video src={post.mediaUrl} controls className="w-full max-h-[500px]" />
+             ) : post.mediaType?.startsWith('image') ? (
+               <img src={post.mediaUrl} alt="Post media" className="w-full object-cover max-h-[500px]" />
+             ) : (
+               <a href={post.mediaUrl} download={post.mediaName || 'Document'} target="_blank" rel="noreferrer" className="flex items-center p-6 bg-slate-50 hover:bg-slate-100 transition-colors w-full group">
+                 <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex flex-shrink-0 items-center justify-center mr-6 group-hover:scale-110 transition-transform">
+                   <FileText size={32} />
+                 </div>
+                 <div className="flex-1 min-w-0">
+                   <h5 className="font-black text-slate-800 text-lg truncate">{post.mediaName || 'Attached Document'}</h5>
+                   <p className="text-xs uppercase font-bold tracking-widest text-slate-400 mt-2">Download File</p>
+                 </div>
+                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-slate-400 group-hover:text-primary group-hover:shadow-md transition-all">
+                   <Download size={24} />
+                 </div>
+               </a>
+             )}
            </div>
          )}
 
