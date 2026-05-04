@@ -46,9 +46,10 @@ async function startServer() {
       }
 
       const postId = req.query.postId as string;
+      const protocol = req.get('x-forwarded-proto') || req.protocol;
       let ogTitle = "e-Vedhika Portal";
       let ogDescription = "E-Vedhika is a digital portal for rural development and administration.";
-      let ogImage = "https://e-vedhika.com/pwa-icon.svg";
+      let ogImage = "https://placehold.co/400x400/0d3b66/ffffff/png?text=E-Vedhika";
 
       if (postId) {
         try {
@@ -59,8 +60,15 @@ async function startServer() {
           if (response.ok) {
             const data = await response.json();
             if (data.fields) {
-              if (data.fields.title?.stringValue) ogTitle = data.fields.title.stringValue;
-              if (data.fields.content?.stringValue) ogDescription = data.fields.content.stringValue.substring(0, 150) + '...';
+              if (data.fields.title?.stringValue) {
+                ogTitle = data.fields.title.stringValue.replace(/🛑🚀/g, '🛑\n🚀').replace(/🛑 🚀/g, '🛑\n🚀');
+              }
+              
+              const contentField = data.fields.content?.stringValue || data.fields.message?.stringValue || data.fields.text?.stringValue || data.fields.desc?.stringValue || data.fields.msg?.stringValue;
+              if (contentField) {
+                ogDescription = contentField.substring(0, 150) + '...';
+              }
+
               if (data.fields.mediaUrl?.stringValue && !data.fields.mediaUrl.stringValue.startsWith('data:')) {
                 ogImage = data.fields.mediaUrl.stringValue;
               }
@@ -77,10 +85,11 @@ async function startServer() {
         <meta property="og:description" content="${ogDescription.replace(/"/g, '&quot;')}" />
         <meta property="og:image" content="${ogImage}" />
         <meta property="og:type" content="article" />
-        <meta property="og:url" content="${req.protocol}://${req.get('host')}${req.originalUrl}" />
+        <meta property="og:url" content="${protocol}://${req.get('host')}${req.originalUrl}" />
         <meta name="twitter:card" content="summary_large_image" />
       `;
 
+      template = template.replace('<title>E-Vedhika Portal</title>', `<title>${ogTitle.replace(/"/g, '&quot;')}</title>`);
       template = template.replace('</head>', `${ogTags}\n</head>`);
 
       res.status(200).set({ 'Content-Type': 'text/html' }).end(template);

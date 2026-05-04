@@ -616,6 +616,11 @@ export const playNotificationSound = () => {
   }
 };
 
+const formatPostTitle = (title: string | undefined | null) => {
+  if (!title) return '';
+  return title.replace(/🛑🚀/g, '🛑\n🚀').replace(/🛑 🚀/g, '🛑\n🚀');
+};
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -3011,7 +3016,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                       </div>
                                    </div>
                                    <div className={`p-5 rounded-2xl border ${activeSubTab === 'suggestions' ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
-                                      {item.title && <h4 className="text-sm font-black text-slate-800 mb-2 whitespace-pre-wrap break-words">{item.title}</h4>}
+                                      {item.title && <h4 className="text-sm font-black text-slate-800 mb-2 whitespace-pre-wrap">{formatPostTitle(item.title)}</h4>}
                                       {activeSubTab === 'reports' && reportsType === 'posts' ? (
                                         <div className="text-[12px] text-slate-700 font-medium leading-relaxed whitespace-pre-wrap [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline">
                                           <ReactMarkdown remarkPlugins={[remarkBreaks]}>{item.content || ""}</ReactMarkdown>
@@ -5995,7 +6000,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
         </div>
       </div>
       
-      <h4 className="post-title !mt-0 whitespace-pre-wrap break-words">{post.title || 'Platform Update'}</h4>
+      <h4 className="post-title !mt-0 whitespace-pre-wrap">{formatPostTitle(post.title) || 'Platform Update'}</h4>
       
       <div className={`post-body mb-4 whitespace-pre-wrap ${isExpanded ? '' : 'line-clamp-4'} [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline`}>
         <ReactMarkdown remarkPlugins={[remarkBreaks]}>{post.content || (post as any).message || (post as any).text || (post as any).desc || ''}</ReactMarkdown>
@@ -6549,7 +6554,7 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
            </div>
          </div>
          
-         <h1 className="text-3xl md:text-5xl font-black text-primary leading-tight tracking-tight whitespace-pre-wrap break-words">{post.title}</h1>
+         <h1 className="text-3xl md:text-5xl font-black text-primary leading-tight tracking-tight whitespace-pre-wrap">{formatPostTitle(post.title)}</h1>
          
          <div className="flex items-center gap-3 text-sm font-bold text-slate-600">
            <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white border-2 border-white shadow-sm ring-2 ring-slate-50 overflow-hidden">
