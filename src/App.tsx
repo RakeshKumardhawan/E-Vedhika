@@ -2381,7 +2381,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
   };
 
   const [reportsType, setReportsType] = useState<'issues' | 'posts'>('posts');
-  const [reportsFilter, setReportsFilter] = useState<'All' | 'Pending' | 'Approved' | 'Flagged' | 'Resolved'>('Pending');
+  const [reportsFilter, setReportsFilter] = useState<'All' | 'Pending' | 'Approved' | 'Flagged' | 'Resolved' | 'Deleted'>('Pending');
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [allProblems, setAllProblems] = useState<ProblemReport[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
@@ -6083,7 +6083,7 @@ function ChatSection({ messages, user, addToast, userProfile }: { messages: Chat
                   {m.role === 'user' ? 'You' : 'AI Assistant'}
                 </span>
                 <div className={`p-3 rounded-2xl text-sm font-medium shadow-sm ${m.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'bg-amber-50 border-amber-200 border rounded-tl-none text-slate-800 markdown-body'}`} style={m.role === 'user' ? { background: '#0d3b66' } : {}}>
-                  <Markdown>{m.text}</Markdown>
+                  <ReactMarkdown>{m.text}</ReactMarkdown>
                 </div>
               </div>
             </motion.div>
