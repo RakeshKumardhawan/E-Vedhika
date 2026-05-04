@@ -5133,11 +5133,13 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
           present++;
           if (isAttBefore901) before901++;
           if (isAttAfter900) after900++;
-          if (isD) dsr++;
-          else pending++;
-        } else if (isM) meeting++;
+        }
+
+        if (isM) meeting++;
         else if (isT) training++;
         else if (isL) leave++;
+        else if (isD) dsr++;
+        else pending++;
         
         // Aggregate Mandal Stats
         const currentM = mandalStats.get(mandalRaw) || { total: 0, onTime: 0, late: 0, pending: 0, meeting: 0, training: 0, leave: 0, dsrPending: 0 };
@@ -5283,7 +5285,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
     else if (activeFilter === 'L') filtered = filtered.filter(r => r.isLeave);
     else if (activeFilter === 'B9') filtered = filtered.filter(r => r.isAttBefore901);
     else if (activeFilter === 'A9') filtered = filtered.filter(r => r.isAttAfter900);
-    else if (activeFilter === 'NE') filtered = filtered.filter(r => r.isPresent && !r.isEntered);
+    else if (activeFilter === 'NE') filtered = filtered.filter(r => !r.isEntered && !r.isMeeting && !r.isTraining && !r.isLeave);
 
     setFilteredData(filtered);
   }, [searchTerm, activeFilter, data]);
