@@ -4971,7 +4971,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
   const [data, setData] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [rawJson, setRawJson] = useState<any[]>([]);
-  const [stats, setStats] = useState({ total: 0, present: 0, dsr: 0, meeting: 0, training: 0, leave: 0, before901: 0, after900: 0 });
+  const [stats, setStats] = useState({ total: 0, present: 0, dsr: 0, pending: 0, meeting: 0, training: 0, leave: 0, before901: 0, after900: 0 });
   const [mandalSummaries, setMandalSummaries] = useState<Record<string, any>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -5073,8 +5073,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
       const finalGpIdx = gpIdx !== -1 ? gpIdx : 5;
 
       const processed: any[] = [];
-      let present = 0, dsr = 0, meeting = 0, training = 0, leave = 0, before901 = 0, after900 = 0;
-      const mandalStats = new Map<string, { total: number, onTime: number, late: number, pending: number, meeting: number, training: number, leave: number }>();
+      let present = 0, dsr = 0, pending = 0, meeting = 0, training = 0, leave = 0, before901 = 0, after900 = 0;
+      const mandalStats = new Map<string, { total: number, onTime: number, late: number, pending: number, meeting: number, training: number, leave: number, dsrPending: number }>();
 
       allRows.slice(bestHeaderIdx + 1).forEach((r) => {
         const gpRaw = String(r[finalGpIdx] || "").trim();
@@ -5134,22 +5134,25 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
           if (isAttBefore901) before901++;
           if (isAttAfter900) after900++;
           if (isD) dsr++;
+          else pending++;
         } else if (isM) meeting++;
         else if (isT) training++;
         else if (isL) leave++;
         
-        // Removed global if (isD) dsr++; to avoid non-present counts
-
         // Aggregate Mandal Stats
-        const currentM = mandalStats.get(mandalRaw) || { total: 0, onTime: 0, late: 0, pending: 0, meeting: 0, training: 0, leave: 0 };
+        const currentM = mandalStats.get(mandalRaw) || { total: 0, onTime: 0, late: 0, pending: 0, meeting: 0, training: 0, leave: 0, dsrPending: 0 };
         currentM.total++;
         
         if (isM) currentM.meeting++;
         else if (isT) currentM.training++;
         else if (isL) currentM.leave++;
-        else if (isOnTime) currentM.onTime++;
-        else if (isLate) currentM.late++;
-        else if (!isD) currentM.pending++;
+        else if (isD) {
+          if (isOnTime) currentM.onTime++;
+          else currentM.late++;
+        } else {
+          currentM.pending++;
+          if (isP) currentM.dsrPending++;
+        }
         
         mandalStats.set(mandalRaw, currentM);
 
@@ -5179,7 +5182,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
 
       setData(processed);
       setFilteredData(processed);
-      setStats({ total: processed.length, present, dsr, meeting, training, leave, before901, after900 });
+      setStats({ total: processed.length, present, dsr, pending, meeting, training, leave, before901, after900 });
       // @ts-ignore
       setMandalSummaries(Object.fromEntries(mandalStats));
       addToast(`విజయవంతంగా ప్రాసెస్ చేయబడింది! ${processed.length} గ్రామ పంచాయతీలు దొరికాయి. 🚀`);
@@ -5280,6 +5283,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
     else if (activeFilter === 'L') filtered = filtered.filter(r => r.isLeave);
     else if (activeFilter === 'B9') filtered = filtered.filter(r => r.isAttBefore901);
     else if (activeFilter === 'A9') filtered = filtered.filter(r => r.isAttAfter900);
+    else if (activeFilter === 'NE') filtered = filtered.filter(r => r.isPresent && !r.isEntered);
 
     setFilteredData(filtered);
   }, [searchTerm, activeFilter, data]);
@@ -5309,7 +5313,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
             <button aria-label="Filter Present" onClick={() => setActiveFilter('P')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'P' ? 'ring-2 ring-emerald-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Present" val={stats.present} color="emerald" /></button>
             <button title="ఉదయం 9:00 కంటే ముందు విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('B9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'B9' ? 'ring-2 ring-indigo-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Attendance in time" val={stats.before901} color="indigo" /></button>
             <button title="ఉదయం 9:01 తర్వాత విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('A9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'A9' ? 'ring-2 ring-rose-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Late Attendance" val={stats.after900} color="rose" /></button>
-            <button aria-label="Filter DSR" onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR" val={stats.dsr} color="blue" /></button>
+            <button aria-label="Filter DSR" onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR Reported" val={stats.dsr} color="emerald" /></button>
+            <button aria-label="Filter No DSR" onClick={() => setActiveFilter('NE')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'NE' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR Not Entered" val={stats.pending} color="amber" /></button>
             <button aria-label="Filter Meeting" onClick={() => setActiveFilter('M')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'M' ? 'ring-2 ring-cyan-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Meeting" val={stats.meeting} color="cyan" /></button>
             <button aria-label="Filter Training" onClick={() => setActiveFilter('T')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'T' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Training" val={stats.training} color="amber" /></button>
             <button aria-label="Filter Leave" onClick={() => setActiveFilter('L')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'L' ? 'ring-2 ring-slate-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Leave" val={stats.leave} color="slate" /></button>
@@ -5490,6 +5495,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
                 }`}>
                   {activeFilter === 'P' ? 'Present' : 
                    activeFilter === 'D' ? 'DSR Reported' : 
+                   activeFilter === 'NE' ? 'DSR Not Entered' : 
                    activeFilter === 'M' ? 'In Meeting' : 
                    activeFilter === 'T' ? 'In Training' : 'On Leave'}
                   <button aria-label="Clear filter" onClick={() => setActiveFilter(null)} className="hover:opacity-70"><XCircle size={12} /></button>
@@ -5530,7 +5536,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
                                     ? 'bg-rose-100 text-rose-700 border border-rose-200' 
                                     : 'bg-amber-100 text-amber-700 border border-amber-200'
                               }`}>
-                                 {row.isMeeting ? 'Meeting' : row.isTraining ? 'Training' : row.isLeave ? 'Leave' : row.isOnTime ? 'DSR On Time' : row.isLate ? 'Late DSR Entry' : 'Not Entered'}
+                                  {row.isMeeting ? 'Meeting' : row.isTraining ? 'Training' : row.isLeave ? 'Leave' : row.isOnTime ? 'DSR On Time' : row.isLate ? 'Late DSR Entry' : row.isEntered ? 'DSR Entered' : 'Not Entered'}
                               </span>
                            </td>
                            <td className="p-2 sm:p-4 text-center text-[8px] sm:text-[10px] font-mono text-slate-500">{row.dsrTime || '-'}</td>
