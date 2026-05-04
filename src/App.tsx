@@ -548,6 +548,33 @@ function getValidTime(obj: any): number {
   return Date.now();
 }
 
+export const triggerNotification = (title: string, body: string) => {
+  playNotificationSound();
+  
+  if (!("Notification" in window)) return;
+  
+  if (Notification.permission === "granted") {
+    try {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then(reg => {
+          if (reg) {
+            reg.showNotification(title, {
+              body,
+              icon: '/pwa-192x192.png',
+              badge: '/pwa-192x192.png',
+              vibrate: [200, 100, 200]
+            });
+          } else {
+            new Notification(title, { body, icon: '/pwa-192x192.png' });
+          }
+        });
+      } else {
+        new Notification(title, { body, icon: '/pwa-192x192.png' });
+      }
+    } catch(e) {}
+  }
+};
+
 let globalAudioContext: AudioContext | null = null;
 
 export const playNotificationSound = () => {
@@ -608,6 +635,14 @@ export default function App() {
   const isAdmin = userRole === 'admin' || isDevEmail;
   const isEditor = userRole === 'admin' || userRole === 'editor' || isDevEmail;
   
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission !== "denied" && Notification.permission !== "granted") {
+      try {
+        Notification.requestPermission();
+      } catch(e) {}
+    }
+  }, []);
+
   useEffect(() => {
     // Suppress benign Vite WebSocket error logs that confuse the user
     const originalError = console.error;
@@ -893,9 +928,10 @@ export default function App() {
       if (!initialUpdatesLoaded.current) {
         initialUpdatesLoaded.current = true;
       } else {
-        const hasNew = snap.docChanges().some(change => change.type === 'added');
-        if (hasNew) {
-          playNotificationSound();
+        const addedChanges = snap.docChanges().filter(change => change.type === 'added');
+        if (addedChanges.length > 0) {
+          const newUpdate = addedChanges[0].doc.data() as any;
+          triggerNotification("New Flash Update!", newUpdate.title || newUpdate.msg || newUpdate.text || "Check out the latest update.");
         }
       }
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'updates'));
@@ -922,9 +958,10 @@ export default function App() {
       if (!initialPostsLoaded.current) {
         initialPostsLoaded.current = true;
       } else {
-        const hasNew = snap.docChanges().some(change => change.type === 'added');
-        if (hasNew) {
-          playNotificationSound();
+        const addedChanges = snap.docChanges().filter(change => change.type === 'added');
+        if (addedChanges.length > 0) {
+          const newPost = addedChanges[0].doc.data() as any;
+          triggerNotification(`New Post: ${newPost.title || 'Platform Update'}`, newPost.content || "A new post has been published on E-Vedhika.");
         }
       }
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'posts'));
@@ -1022,9 +1059,10 @@ export default function App() {
       if (!initialNotificationsLoaded.current) {
         initialNotificationsLoaded.current = true;
       } else {
-        const hasNew = snap.docChanges().some(change => change.type === 'added');
-        if (hasNew) {
-          playNotificationSound();
+        const addedChanges = snap.docChanges().filter(change => change.type === 'added');
+        if (addedChanges.length > 0) {
+          const newNotif = addedChanges[0].doc.data() as any;
+          triggerNotification(newNotif.title || "New Notification", newNotif.message || newNotif.msg || "You have a new notification");
         }
       }
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'notifications'));
@@ -1998,7 +2036,7 @@ export default function App() {
                                     </div>
                                   </div>
                                 </div>
-                                <p className="text-[13px] text-slate-700 font-medium leading-relaxed">{s.msg || s.suggestion}</p>
+                                <p className="text-[13px] text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{s.msg || s.suggestion}</p>
                               </motion.div>
                             ))
                           ) : (
@@ -2973,7 +3011,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                       </div>
                                    </div>
                                    <div className={`p-5 rounded-2xl border ${activeSubTab === 'suggestions' ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
-                                      <p className="text-[12px] text-slate-700 font-bold leading-relaxed italic">
+                                      <p className="text-[12px] text-slate-700 font-bold leading-relaxed italic whitespace-pre-wrap">
                                         "{item.msg || item.content || item.text || item.problem || item.suggestion}"
                                       </p>
                                    </div>
@@ -5952,7 +5990,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
       
       <h4 className="post-title !mt-0">{post.title || 'Platform Update'}</h4>
       
-      <div className={`post-body mb-4 ${isExpanded ? '' : 'line-clamp-4'} [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline`}>
+      <div className={`post-body mb-4 whitespace-pre-wrap ${isExpanded ? '' : 'line-clamp-4'} [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline`}>
         <ReactMarkdown remarkPlugins={[remarkBreaks]}>{post.content || (post as any).message || (post as any).text || (post as any).desc || ''}</ReactMarkdown>
       </div>
 
@@ -6355,7 +6393,7 @@ function ChatSection({ messages, user, addToast, userProfile }: { messages: Chat
                 <span className={`text-[10px] font-black uppercase mb-1 px-1 ${m.uid === user?.uid ? 'text-right text-primary/40' : 'text-slate-400'}`}>
                   {m.userName || 'Portal User'}
                 </span>
-                <div className={`p-3 rounded-2xl text-sm font-medium shadow-sm ${m.uid === user?.uid ? 'bg-primary text-white rounded-tr-none' : 'bg-white border rounded-tl-none'}`} style={m.uid === user?.uid ? { background: '#0d3b66' } : {}}>
+                <div className={`p-3 rounded-2xl text-sm font-medium shadow-sm whitespace-pre-wrap ${m.uid === user?.uid ? 'bg-primary text-white rounded-tr-none' : 'bg-white border rounded-tl-none'}`} style={m.uid === user?.uid ? { background: '#0d3b66' } : {}}>
                   {m.msg}
                 </div>
               </div>
@@ -6372,8 +6410,8 @@ function ChatSection({ messages, user, addToast, userProfile }: { messages: Chat
                 <span className={`text-[10px] font-black uppercase mb-1 px-1 ${m.role === 'user' ? 'text-right text-primary/40' : 'text-amber-500'}`}>
                   {m.role === 'user' ? 'You' : 'AI Assistant'}
                 </span>
-                <div className={`p-3 rounded-2xl text-sm font-medium shadow-sm ${m.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'bg-amber-50 border-amber-200 border rounded-tl-none text-slate-800 markdown-body'}`} style={m.role === 'user' ? { background: '#0d3b66' } : {}}>
-                  <ReactMarkdown>{m.text}</ReactMarkdown>
+                <div className={`p-3 rounded-2xl text-sm font-medium shadow-sm whitespace-pre-wrap ${m.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'bg-amber-50 border-amber-200 border rounded-tl-none text-slate-800 markdown-body'}`} style={m.role === 'user' ? { background: '#0d3b66' } : {}}>
+                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>{m.text}</ReactMarkdown>
                 </div>
               </div>
             </motion.div>
