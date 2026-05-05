@@ -13,6 +13,13 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
   
   // API routes can go here if needed in the future
+  app.post('/api/admin/restart', (req, res) => {
+    res.json({ success: true, message: 'Server is restarting...' });
+    setTimeout(() => {
+      console.log('Restarting server as requested via Admin Panel...');
+      process.exit(0);
+    }, 1000);
+  });
 
   // Intercept for Google site verification
   app.get('/google46d0fa093843f771.html', (req, res) => {
@@ -56,7 +63,7 @@ async function startServer() {
       const protocol = req.get('x-forwarded-proto') || req.protocol;
       let ogTitle = "E-Vedhika Portal";
       let ogDescription = "E-Vedhika is a digital portal for rural development and administration.";
-      let ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
+      let ogImage = `${protocol}://${req.get('host')}/pwa-512x512.png`;
 
       if (targetId && targetCollection) {
         try {
@@ -69,12 +76,12 @@ async function startServer() {
             if (data.fields) {
               // Title extraction
               const titleField = data.fields.title?.stringValue || data.fields.subject?.stringValue || data.fields.name?.stringValue || (postId ? 'Community Post' : targetCollection === 'problems' ? 'Problem Report' : 'Portal Update');
-              ogTitle = titleField.replace(/🛑🚀/g, '🛑\n🚀').replace(/🛑 🚀/g, '🛑\n🚀');
+              ogTitle = titleField.replace(/[\\r\\n]+/g, ' ').replace(/ +/g, ' ').trim();
               
               // Description extraction
               const contentField = data.fields.content?.stringValue || data.fields.message?.stringValue || data.fields.text?.stringValue || data.fields.desc?.stringValue || data.fields.msg?.stringValue || data.fields.description?.stringValue;
               if (contentField) {
-                const plainText = contentField.replace(/[#*`]/g, '').substring(0, 160).trim();
+                const plainText = contentField.replace(/[#*`]/g, '').replace(/[\\r\\n]+/g, ' ').replace(/ +/g, ' ').substring(0, 160).trim();
                 ogDescription = plainText + (contentField.length > 160 ? '...' : '');
               }
 
@@ -83,6 +90,8 @@ async function startServer() {
                 ogImage = data.fields.mediaUrl.stringValue;
               } else if (data.fields.imageUrl?.stringValue && !data.fields.imageUrl.stringValue.startsWith('data:')) {
                 ogImage = data.fields.imageUrl.stringValue;
+              } else {
+                ogImage = `${protocol}://${req.get('host')}/pwa-512x512.png`;
               }
             }
           }
@@ -98,6 +107,7 @@ async function startServer() {
       const ogTags = `
         <title>${sanitizedTitle}</title>
         <meta name="description" content="${sanitizedDesc}" />
+        <meta property="og:site_name" content="E-Vedhika" />
         <meta property="og:title" content="${sanitizedTitle}" />
         <meta property="og:description" content="${sanitizedDesc}" />
         <meta property="og:image" content="${ogImage}" />

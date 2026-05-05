@@ -2636,6 +2636,19 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
      addToast(`Bulk Approved ${selectedItems.length} items`);
   };
 
+  const handleRestartServer = async () => {
+    try {
+      const res = await fetch('/api/admin/restart', { method: 'POST' });
+      if (res.ok) {
+        addToast("Application server is restarting in the background. It will be back shortly.");
+      } else {
+        addToast("Failed to restart server.");
+      }
+    } catch(err) {
+      addToast("Failed to initiate restart sequence.");
+    }
+  };
+
   const handleBulkDelete = async () => {
     let col = activeSubTab === 'suggestions' ? 'suggestions' : (reportsType === 'posts' ? 'posts' : 'problems');
     const res = await Swal.fire({
@@ -2828,6 +2841,12 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                 <Lock size={16} />
                 Lock Session
               </button>
+              {isAdmin && (
+                <button aria-label="Restart Server" onClick={handleRestartServer} className="w-full flex items-center gap-3 p-2.5 lg:p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-red-400 hover:bg-red-400/10 transition-all">
+                  <RefreshCw size={16} />
+                  Restart Server
+                </button>
+              )}
             </div>
           </motion.aside>
         )}
