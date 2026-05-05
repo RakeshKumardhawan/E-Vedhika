@@ -1,7 +1,7 @@
 import React, {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 
-import { HashRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App.tsx';
 import { registerSW } from 'virtual:pwa-register';
@@ -43,9 +43,9 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 }
 
 createRoot(document.getElementById('root')!).render(
-  <HashRouter>
+  <BrowserRouter>
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
-  </HashRouter>
+  </BrowserRouter>
 );

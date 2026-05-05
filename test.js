@@ -1,35 +1,12 @@
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-var import_express = __toESM(require("express"), 1);
-var import_path = __toESM(require("path"), 1);
-var import_url = require("url");
-var import_vite = require("vite");
-var import_promises = __toESM(require("fs/promises"), 1);
-const import_meta = {};
-const __filename = (0, import_url.fileURLToPath)(import_meta.url);
-const __dirname = import_path.default.dirname(__filename);
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+import { createServer as createViteServer } from "vite";
+import fs from "fs/promises";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 async function startServer() {
-  const app = (0, import_express.default)();
+  const app = express();
   const PORT = Number(process.env.PORT) || 3e3;
   app.post("/api/admin/restart", (req, res) => {
     res.json({ success: true, message: "Server is restarting..." });
@@ -44,23 +21,23 @@ async function startServer() {
   const isProduction = false;
   let vite;
   if (!isProduction) {
-    vite = await (0, import_vite.createServer)({
+    vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "custom"
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = import_path.default.resolve(__dirname, ".dist");
-    app.use(import_express.default.static(distPath, { index: false }));
+    const distPath = path.resolve(__dirname, ".dist");
+    app.use(express.static(distPath, { index: false }));
   }
   app.get("*", async (req, res) => {
     try {
       let template = "";
       if (!isProduction) {
-        template = await import_promises.default.readFile(import_path.default.resolve(__dirname, "index.html"), "utf-8");
+        template = await fs.readFile(path.resolve(__dirname, "index.html"), "utf-8");
         template = await vite.transformIndexHtml(req.originalUrl, template);
       } else {
-        template = await import_promises.default.readFile(import_path.default.resolve(__dirname, ".dist", "index.html"), "utf-8");
+        template = await fs.readFile(path.resolve(__dirname, ".dist", "index.html"), "utf-8");
       }
       const postId = req.query.postId;
       const problemId = req.query.problemId;
@@ -74,23 +51,25 @@ async function startServer() {
       let ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
       if (targetId && targetCollection) {
         try {
-          const fbConfig = JSON.parse(await import_promises.default.readFile(import_path.default.resolve(__dirname, "firebase-applet-config.json"), "utf-8"));
+          const fbConfig = JSON.parse(await fs.readFile(path.resolve(__dirname, "firebase-applet-config.json"), "utf-8"));
           const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${fbConfig.projectId}/databases/(default)/documents/${targetCollection}/${targetId}`;
           const response = await fetch(firestoreUrl);
           if (response.ok) {
             const data = await response.json();
             if (data.fields) {
               const titleField = data.fields.title?.stringValue || data.fields.subject?.stringValue || data.fields.name?.stringValue || (postId ? "Community Post" : targetCollection === "problems" ? "Problem Report" : "Portal Update");
-              ogTitle = titleField.replace(/🛑🚀/g, "\u{1F6D1}\n\u{1F680}").replace(/🛑 🚀/g, "\u{1F6D1}\n\u{1F680}");
+              ogTitle = titleField.replace(/[\r\n]+/g, " ").replace(/ +/g, " ").trim();
               const contentField = data.fields.content?.stringValue || data.fields.message?.stringValue || data.fields.text?.stringValue || data.fields.desc?.stringValue || data.fields.msg?.stringValue || data.fields.description?.stringValue;
               if (contentField) {
-                const plainText = contentField.replace(/[#*`]/g, "").substring(0, 160).trim();
+                const plainText = contentField.replace(/[#*`]/g, "").replace(/[\r\n]+/g, " ").replace(/ +/g, " ").substring(0, 160).trim();
                 ogDescription = plainText + (contentField.length > 160 ? "..." : "");
               }
               if (data.fields.mediaUrl?.stringValue && !data.fields.mediaUrl.stringValue.startsWith("data:")) {
                 ogImage = data.fields.mediaUrl.stringValue;
               } else if (data.fields.imageUrl?.stringValue && !data.fields.imageUrl.stringValue.startsWith("data:")) {
                 ogImage = data.fields.imageUrl.stringValue;
+              } else {
+                ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
               }
             }
           }
@@ -103,6 +82,7 @@ async function startServer() {
       const ogTags = `
         <title>${sanitizedTitle}</title>
         <meta name="description" content="${sanitizedDesc}" />
+        <meta property="og:site_name" content="E-Vedhika" />
         <meta property="og:title" content="${sanitizedTitle}" />
         <meta property="og:description" content="${sanitizedDesc}" />
         <meta property="og:image" content="${ogImage}" />
@@ -113,8 +93,10 @@ async function startServer() {
         <meta name="twitter:description" content="${sanitizedDesc}" />
         <meta name="twitter:image" content="${ogImage}" />
       `;
-      template = template.replace(/<title>.*?<\/title>/i, "");
-      template = template.replace(/<meta name="description" content=".*?" \/?>/i, "");
+      template = template.replace(/<title>.*?<\/title>/gi, "");
+      template = template.replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/gi, "");
+      template = template.replace(/<meta\s+property="og:.*?"\s+content=".*?"\s*\/?>/gi, "");
+      template = template.replace(/<meta\s+name="twitter:.*?"\s+content=".*?"\s*\/?>/gi, "");
       template = template.replace("</head>", `${ogTags}
 </head>`);
       res.status(200).set({ "Content-Type": "text/html" }).end(template);

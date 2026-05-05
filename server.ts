@@ -63,7 +63,7 @@ async function startServer() {
       const protocol = req.get('x-forwarded-proto') || req.protocol;
       let ogTitle = "E-Vedhika Portal";
       let ogDescription = "E-Vedhika is a digital portal for rural development and administration.";
-      let ogImage = `${protocol}://${req.get('host')}/pwa-512x512.png`;
+      let ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
 
       if (targetId && targetCollection) {
         try {
@@ -76,12 +76,12 @@ async function startServer() {
             if (data.fields) {
               // Title extraction
               const titleField = data.fields.title?.stringValue || data.fields.subject?.stringValue || data.fields.name?.stringValue || (postId ? 'Community Post' : targetCollection === 'problems' ? 'Problem Report' : 'Portal Update');
-              ogTitle = titleField.replace(/[\\r\\n]+/g, ' ').replace(/ +/g, ' ').trim();
+              ogTitle = titleField.replace(/[\r\n]+/g, ' ').replace(/ +/g, ' ').trim();
               
               // Description extraction
               const contentField = data.fields.content?.stringValue || data.fields.message?.stringValue || data.fields.text?.stringValue || data.fields.desc?.stringValue || data.fields.msg?.stringValue || data.fields.description?.stringValue;
               if (contentField) {
-                const plainText = contentField.replace(/[#*`]/g, '').replace(/[\\r\\n]+/g, ' ').replace(/ +/g, ' ').substring(0, 160).trim();
+                const plainText = contentField.replace(/[#*`]/g, '').replace(/[\r\n]+/g, ' ').replace(/ +/g, ' ').substring(0, 160).trim();
                 ogDescription = plainText + (contentField.length > 160 ? '...' : '');
               }
 
@@ -91,7 +91,7 @@ async function startServer() {
               } else if (data.fields.imageUrl?.stringValue && !data.fields.imageUrl.stringValue.startsWith('data:')) {
                 ogImage = data.fields.imageUrl.stringValue;
               } else {
-                ogImage = `${protocol}://${req.get('host')}/pwa-512x512.png`;
+                ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
               }
             }
           }
@@ -120,8 +120,10 @@ async function startServer() {
       `;
 
       // Use regex to replace title and description tags if they exist
-      template = template.replace(/<title>.*?<\/title>/i, '');
-      template = template.replace(/<meta name="description" content=".*?" \/?>/i, '');
+      template = template.replace(/<title>.*?<\/title>/gi, '');
+      template = template.replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/gi, '');
+      template = template.replace(/<meta\s+property="og:.*?"\s+content=".*?"\s*\/?>/gi, '');
+      template = template.replace(/<meta\s+name="twitter:.*?"\s+content=".*?"\s*\/?>/gi, '');
       
       // Inject tags before </head>
       template = template.replace('</head>', `${ogTags}\n</head>`);
