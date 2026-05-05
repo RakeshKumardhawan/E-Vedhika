@@ -46,50 +46,74 @@ async function startServer() {
       }
 
       const postId = req.query.postId as string;
-      const protocol = req.get('x-forwarded-proto') || req.protocol;
-      let ogTitle = "e-Vedhika Portal";
-      let ogDescription = "E-Vedhika is a digital portal for rural development and administration.";
-      let ogImage = "https://placehold.co/400x400/0d3b66/ffffff/png?text=E-Vedhika";
+      const problemId = req.query.problemId as string;
+      const suggestionId = req.query.suggestionId as string;
+      const requestId = req.query.requestId as string;
 
-      if (postId) {
+      const targetId = postId || problemId || suggestionId || requestId;
+      const targetCollection = postId ? 'posts' : problemId ? 'problems' : suggestionId ? 'suggestions' : requestId ? 'requests' : null;
+
+      const protocol = req.get('x-forwarded-proto') || req.protocol;
+      let ogTitle = "E-Vedhika Portal";
+      let ogDescription = "E-Vedhika is a digital portal for rural development and administration.";
+      let ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
+
+      if (targetId && targetCollection) {
         try {
           const fbConfig = JSON.parse(await fs.readFile(path.resolve(__dirname, 'firebase-applet-config.json'), 'utf-8'));
-          const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${fbConfig.projectId}/databases/(default)/documents/posts/${postId}`;
+          const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${fbConfig.projectId}/databases/(default)/documents/${targetCollection}/${targetId}`;
           
           const response = await fetch(firestoreUrl);
           if (response.ok) {
             const data = await response.json();
             if (data.fields) {
-              if (data.fields.title?.stringValue) {
-                ogTitle = data.fields.title.stringValue.replace(/🛑🚀/g, '🛑\n🚀').replace(/🛑 🚀/g, '🛑\n🚀');
-              }
+              // Title extraction
+              const titleField = data.fields.title?.stringValue || data.fields.subject?.stringValue || data.fields.name?.stringValue || (postId ? 'Community Post' : targetCollection === 'problems' ? 'Problem Report' : 'Portal Update');
+              ogTitle = titleField.replace(/🛑🚀/g, '🛑\n🚀').replace(/🛑 🚀/g, '🛑\n🚀');
               
-              const contentField = data.fields.content?.stringValue || data.fields.message?.stringValue || data.fields.text?.stringValue || data.fields.desc?.stringValue || data.fields.msg?.stringValue;
+              // Description extraction
+              const contentField = data.fields.content?.stringValue || data.fields.message?.stringValue || data.fields.text?.stringValue || data.fields.desc?.stringValue || data.fields.msg?.stringValue || data.fields.description?.stringValue;
               if (contentField) {
-                ogDescription = contentField.substring(0, 150) + '...';
+                const plainText = contentField.replace(/[#*`]/g, '').substring(0, 160).trim();
+                ogDescription = plainText + (contentField.length > 160 ? '...' : '');
               }
 
+              // Image extraction
               if (data.fields.mediaUrl?.stringValue && !data.fields.mediaUrl.stringValue.startsWith('data:')) {
                 ogImage = data.fields.mediaUrl.stringValue;
+              } else if (data.fields.imageUrl?.stringValue && !data.fields.imageUrl.stringValue.startsWith('data:')) {
+                ogImage = data.fields.imageUrl.stringValue;
               }
             }
           }
         } catch (e) {
-          console.error("Error fetching post data for Open Graph tags:", e);
+          console.error("Error fetching data for Open Graph tags:", e);
         }
       }
 
-      // Inject tags before </head>
+      // Prepare tags
+      const sanitizedTitle = ogTitle.replace(/"/g, '&quot;');
+      const sanitizedDesc = ogDescription.replace(/"/g, '&quot;');
+      
       const ogTags = `
-        <meta property="og:title" content="${ogTitle.replace(/"/g, '&quot;')}" />
-        <meta property="og:description" content="${ogDescription.replace(/"/g, '&quot;')}" />
+        <title>${sanitizedTitle}</title>
+        <meta name="description" content="${sanitizedDesc}" />
+        <meta property="og:title" content="${sanitizedTitle}" />
+        <meta property="og:description" content="${sanitizedDesc}" />
         <meta property="og:image" content="${ogImage}" />
         <meta property="og:type" content="article" />
         <meta property="og:url" content="${protocol}://${req.get('host')}${req.originalUrl}" />
         <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="${sanitizedTitle}" />
+        <meta name="twitter:description" content="${sanitizedDesc}" />
+        <meta name="twitter:image" content="${ogImage}" />
       `;
 
-      template = template.replace('<title>E-Vedhika Portal</title>', `<title>${ogTitle.replace(/"/g, '&quot;')}</title>`);
+      // Use regex to replace title and description tags if they exist
+      template = template.replace(/<title>.*?<\/title>/i, '');
+      template = template.replace(/<meta name="description" content=".*?" \/?>/i, '');
+      
+      // Inject tags before </head>
       template = template.replace('</head>', `${ogTags}\n</head>`);
 
       res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
