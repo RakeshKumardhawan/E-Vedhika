@@ -43,7 +43,7 @@ import {
 } from 'firebase/auth';
 import { 
   collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, getDocs,
-  increment, arrayUnion, query, orderBy, limit, setDoc, getDoc, where,
+  increment, arrayUnion, arrayRemove, query, orderBy, limit, setDoc, getDoc, where,
   getDocFromServer
 } from 'firebase/firestore';
 import { auth, db } from "../firebase";
@@ -561,9 +561,8 @@ export const triggerNotification = (title: string, body: string) => {
             reg.showNotification(title, {
               body,
               icon: '/pwa-192x192.png',
-              badge: '/pwa-192x192.png',
-              vibrate: [200, 100, 200]
-            });
+              badge: '/pwa-192x192.png'
+            } as any);
           } else {
             new Notification(title, { body, icon: '/pwa-192x192.png' });
           }
@@ -3020,6 +3019,17 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                       {activeSubTab === 'reports' && reportsType === 'posts' ? (
                                         <div className="text-[12px] text-slate-700 font-medium leading-relaxed whitespace-pre-wrap [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline">
                                           <ReactMarkdown remarkPlugins={[remarkBreaks]}>{item.content || ""}</ReactMarkdown>
+                                          <div className="mt-6 pt-4 border-t border-slate-200">
+                                            <details className="group">
+                                              <summary className="cursor-pointer text-sm font-black text-primary flex items-center gap-2 select-none mb-2">
+                                                <MessageCircle size={16} /> 
+                                                <span>Manage Comments ({item.commentCount || 0})</span>
+                                              </summary>
+                                              <div className="pt-4 bg-white/50 rounded-xl p-4">
+                                                <PostComments post={item} addToast={addToast} userProfile={null} isAdmin={isAdmin} />
+                                              </div>
+                                            </details>
+                                          </div>
                                         </div>
                                       ) : (
                                         <p className="text-[12px] text-slate-700 font-bold leading-relaxed italic whitespace-pre-wrap">
@@ -5853,6 +5863,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
   
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
 
@@ -5860,11 +5871,16 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
     if (showComments) {
       const q = query(collection(db, 'posts', post.id, 'comments'), orderBy('time', 'desc'));
       const unsub = onSnapshot(q, (snap) => {
-        setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const fetchedComments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setComments(fetchedComments);
+        setCommentsLoaded(true);
+        if (post.commentCount !== fetchedComments.length) {
+            updateDoc(doc(db, 'posts', post.id), { commentCount: fetchedComments.length }).catch(() => {});
+        }
       }, (err) => handleFirestoreError(err, OperationType.LIST, `posts/${post.id}/comments`));
       return () => unsub();
     }
-  }, [showComments, post.id]);
+  }, [showComments, post.id, post.commentCount]);
 
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
@@ -5876,7 +5892,10 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
         text: newComment,
         time: Date.now(),
         uid: auth.currentUser!.uid,
-        userName: auth.currentUser!.email?.split('@')[0] || "User",
+        userName: isAdmin ? "Admin" : (auth.currentUser!.displayName || auth.currentUser!.email?.split('@')[0] || "User"),
+        isAdminComment: isAdmin,
+        likes: [],
+        edited: false
       });
       setNewComment("");
       
@@ -5884,8 +5903,8 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
         commentCount: increment(1)
       });
     } catch (e: any) {
-      handleFirestoreError(e, OperationType.WRITE, `posts/${post.id}/comments`);
-      addToast("Error adding comment");
+      console.error(e);
+      addToast("Error adding comment: " + (e.message || String(e)));
     } finally {
       setSubmittingComment(false);
     }
@@ -6065,7 +6084,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
            
            <button aria-label="Toggle Comments" onClick={() => setShowComments(!showComments)} className="flex items-center gap-2 group text-slate-400 hover:text-primary" title="Comments">
               <MessageCircle size={20} className="group-hover:scale-110 transition-transform" />
-              <span className="text-sm font-black">{post.commentCount || 0}</span>
+              <span className="text-sm font-black">{commentsLoaded ? comments.length : (post.commentCount || 0)}</span>
            </button>
          </div>
 
@@ -6117,10 +6136,44 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
             {comments.map(c => (
               <div key={c.id} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                  <div className="flex justify-between items-center mb-1">
-                   <span className="text-xs font-bold text-primary">{c.userName || 'User'}</span>
-                   <span className="text-[10px] text-slate-400">{new Date(getValidTime(c)).toLocaleDateString()}</span>
+                   <div className="flex items-center gap-1.5">
+                     <span className="text-xs font-bold text-primary">{c.userName || 'User'}</span>
+                     {(c.isAdminComment || c.uid === 'KGT2roF9bPTNhWIceHgWsJEnEnH3') && (
+                       <span className="bg-blue-600 text-white text-[7px] px-1 py-0.5 rounded-sm font-black uppercase tracking-widest flex items-center gap-0.5 shadow-sm">
+                         <ShieldCheck size={7} /> Admin
+                       </span>
+                     )}
+                   </div>
+                   <div className="flex items-center gap-1">
+                     <span className="text-[10px] text-slate-400">{new Date(getValidTime(c)).toLocaleDateString()}</span>
+                     {(auth.currentUser?.uid === c.uid || isAdmin) && (
+                       <button onClick={async () => {
+                         try {
+                           await deleteDoc(doc(db, 'posts', post.id, 'comments', c.id));
+                           await updateDoc(doc(db, 'posts', post.id), {
+                             commentCount: increment(-1)
+                           });
+                         } catch(err) { console.error(err); }
+                       }} className="text-slate-400 hover:text-red-500">
+                         <Trash2 size={12} />
+                       </button>
+                     )}
+                   </div>
                  </div>
                  <p className="text-sm text-slate-600">{c.text}</p>
+                 <div className="flex items-center gap-2 mt-2">
+                   <button onClick={() => {
+                        const likes = c.likes || [];
+                        const uid = auth.currentUser!.uid;
+                        if (likes.includes(uid)) {
+                          updateDoc(doc(db, 'posts', post.id, 'comments', c.id), { likes: arrayRemove(uid) });
+                        } else {
+                          updateDoc(doc(db, 'posts', post.id, 'comments', c.id), { likes: arrayUnion(uid) });
+                        }
+                   }} className={`text-xs flex items-center gap-1 ${c.likes?.includes(auth.currentUser?.uid) ? 'text-red-500' : 'text-slate-400'}`}>
+                      <Heart size={12} fill={c.likes?.includes(auth.currentUser?.uid) ? "currentColor" : "none"} /> {c.likes?.length || 0}
+                   </button>
+                 </div>
               </div>
             ))}
           </div>
@@ -6488,26 +6541,26 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadPost() {
-      try {
-        const docRef = doc(db, 'posts', postId);
-        const snapshot = await getDoc(docRef);
-        if (snapshot.exists()) {
-          setPost({ id: snapshot.id, ...snapshot.data() } as Post);
-          
+    let isInitial = true;
+    const docRef = doc(db, 'posts', postId);
+    const unsub = onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setPost({ id: snapshot.id, ...snapshot.data() } as Post);
+        if (isInitial) {
+          isInitial = false;
           // Increment views
           updateDoc(docRef, { views: increment(1) }).catch(e => console.error(e));
-        } else {
-          addToast("Post not found");
+          setLoading(false);
         }
-      } catch (err: any) {
-        handleFirestoreError(err, OperationType.GET, `posts/${postId}`);
-        addToast("Error loading post");
-      } finally {
+      } else {
+        if (isInitial) addToast("Post not found");
         setLoading(false);
       }
-    }
-    loadPost();
+    }, (err) => {
+        handleFirestoreError(err, OperationType.GET, `posts/${postId}`);
+        if(isInitial) { addToast("Error loading post"); setLoading(false); }
+    });
+    return () => unsub();
   }, [postId]);
 
   if (loading) {
@@ -6624,28 +6677,30 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
        </div>
 
        <div className="pt-10 border-t mt-12 border-slate-100">
-         <h3 className="text-2xl font-black text-primary mb-6 flex items-center gap-3">
-           <MessageCircle size={24} className="text-accent" style={{ color: '#fbbf24' }}/> 
-           Community Comments <span className="bg-slate-100 text-slate-500 text-sm py-1 px-3 rounded-full">{post.commentCount || 0}</span>
-         </h3>
-         <PostComments post={post} addToast={addToast} userProfile={userProfile} />
+         <PostComments post={post} addToast={addToast} userProfile={userProfile} isAdmin={isAdmin} />
        </div>
     </motion.div>
   );
 }
 
-function PostComments({ post, addToast, userProfile }: { post: Post, addToast: (s:string) => void, userProfile: UserProfile | null }) {
+function PostComments({ post, addToast, userProfile, isAdmin }: { post: Post, addToast: (s:string) => void, userProfile: UserProfile | null, isAdmin: boolean }) {
   const [comments, setComments] = useState<any[]>([]);
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'posts', post.id, 'comments'), orderBy('time', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
-      setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const fetchedComments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setComments(fetchedComments);
+      setCommentsLoaded(true);
+      if (post.commentCount !== fetchedComments.length) {
+          updateDoc(doc(db, 'posts', post.id), { commentCount: fetchedComments.length }).catch(() => {});
+      }
     }, (err) => handleFirestoreError(err, OperationType.LIST, `posts/${post.id}/comments`));
     return () => unsub();
-  }, [post.id]);
+  }, [post.id, post.commentCount]);
 
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
@@ -6657,7 +6712,10 @@ function PostComments({ post, addToast, userProfile }: { post: Post, addToast: (
         text: newComment,
         time: Date.now(),
         uid: auth.currentUser!.uid,
-        userName: auth.currentUser!.email?.split('@')[0] || "User",
+        userName: isAdmin ? "Admin" : (auth.currentUser!.displayName || auth.currentUser!.email?.split('@')[0] || "User"),
+        isAdminComment: isAdmin,
+        likes: [],
+        edited: false
       });
       setNewComment("");
       
@@ -6665,8 +6723,8 @@ function PostComments({ post, addToast, userProfile }: { post: Post, addToast: (
         commentCount: increment(1)
       });
     } catch (e: any) {
-      handleFirestoreError(e, OperationType.WRITE, `posts/${post.id}/comments`);
-      addToast("Error adding comment");
+      console.error(e);
+      addToast("Error: " + (e.message || String(e)));
     } finally {
       setSubmittingComment(false);
     }
@@ -6674,6 +6732,10 @@ function PostComments({ post, addToast, userProfile }: { post: Post, addToast: (
 
   return (
     <div className="space-y-8">
+      <h3 className="text-2xl font-black text-primary mb-6 flex items-center gap-3">
+        <MessageCircle size={24} className="text-accent" style={{ color: '#fbbf24' }}/> 
+        Community Comments <span className="bg-slate-100 text-slate-500 text-sm py-1 px-3 rounded-full">{commentsLoaded ? comments.length : (post.commentCount || 0)}</span>
+      </h3>
       <div className="bg-slate-50 p-6 rounded-[24px] border border-slate-200">
         <label className="block text-sm font-black text-primary mb-3">Add your perspective</label>
         {auth.currentUser && !auth.currentUser.isAnonymous ? (
@@ -6715,12 +6777,46 @@ function PostComments({ post, addToast, userProfile }: { post: Post, addToast: (
              </div>
              <div className="flex-1">
                <div className="flex flex-row justify-between items-center sm:items-baseline mb-2">
-                 <span className="text-[15px] font-black text-primary">{c.userName || 'User'}</span>
-                 <span className="text-xs text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded-md">
-                   {new Date(getValidTime(c)).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                 </span>
+                 <div className="flex items-center gap-2">
+                   <span className="text-[15px] font-black text-primary">{c.userName && !c.userName.includes('@') ? c.userName : 'User'}</span>
+                   {(c.isAdminComment || c.uid === 'KGT2roF9bPTNhWIceHgWsJEnEnH3') && (
+                     <span className="bg-blue-600 text-white text-[8px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-widest flex items-center gap-0.5 shadow-sm">
+                       <ShieldCheck size={8} /> Official
+                     </span>
+                   )}
+                 </div>
+                 <div className="flex items-center gap-1">
+                   <span className="text-xs text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded-md">
+                     {new Date(getValidTime(c)).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                   </span>
+                   {(auth.currentUser?.uid === c.uid || isAdmin) && (
+                     <button onClick={async () => {
+                       try {
+                         await deleteDoc(doc(db, 'posts', post.id, 'comments', c.id));
+                         await updateDoc(doc(db, 'posts', post.id), {
+                           commentCount: increment(-1)
+                         });
+                       } catch(err) { console.error(err); }
+                     }} className="text-slate-400 hover:text-red-500">
+                       <Trash2 size={12} />
+                     </button>
+                   )}
+                 </div>
                </div>
                <p className="text-slate-700 leading-relaxed">{c.text}</p>
+               <div className="flex items-center gap-2 mt-2">
+                 <button onClick={() => {
+                      const likes = c.likes || [];
+                      const uid = auth.currentUser!.uid;
+                      if (likes.includes(uid)) {
+                        updateDoc(doc(db, 'posts', post.id, 'comments', c.id), { likes: arrayRemove(uid) });
+                      } else {
+                        updateDoc(doc(db, 'posts', post.id, 'comments', c.id), { likes: arrayUnion(uid) });
+                      }
+                 }} className={`text-xs flex items-center gap-1 ${c.likes?.includes(auth.currentUser?.uid) ? 'text-red-500' : 'text-slate-400'}`}>
+                    <Heart size={12} fill={c.likes?.includes(auth.currentUser?.uid) ? "currentColor" : "none"} /> {c.likes?.length || 0}
+                 </button>
+               </div>
              </div>
           </div>
         ))}
