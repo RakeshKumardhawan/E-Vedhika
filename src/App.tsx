@@ -244,19 +244,36 @@ const TELANGANA_DATA: Record<string, string[]> = {
   "Adilabad": ["Adilabad","Bazarhathnoor","Bela","Bheempur","Bhoraj","Boath","Gadiguda","Gudihathnur","Ichoda","Inderavelly","Jainad","Mavala","Narnoor","Neradigonda","Sirikonda","Sathnala","Sonala","Talamadugu","Tamsi","Utnur"],
   "Bhadradri Kothagudem": ["Allapalli","Annapureddypalli","Aswapuram","Aswaraopeta","Bhadrachalam","Burgampadu","Chandrugonda","Cherla","Chunchupalli","Dammapeta","Dummugudem","Gundala","Julurpad","Karakagudem","Laxmidevipalli","Manuguru","Mulakalapalle","Palawancha","Pinapaka","Sujathanagar","Tekulapalle","Yellandu"],
   "Hanumakonda": ["Atmakur","Bheemadevarpalle","Damera","Dharmasagar","Elkathurthi","Hasanparthy","Inavolue","Kamalapur","Nadikuda","Parkal","Shayampet","Velair"],
+  "Hyderabad": ["Amberpet", "Asifnagar", "Bahadurpura", "Bandra", "Charminar", "Golconda", "Himayatnagar", "Khairatabad", "Marredpally", "Musheerabad", "Nampally", "Saidabad", "Secunderabad", "Shaikpet", "Tirumalagiri", "Ameerpet"],
   "Jagtial": ["Bheemaram","Bheerpur","Buggaram","Dharmapuri","Endapalli","Gollapalle","Ibrahimpatnam","Jagitial Rural","Jagtial","Kathlapur","Kodimial","Korutla","Mallapur","Mallial","Medipalle","Metpalle","Pegadapalle","Raikal","Sarangapur","Velgatoor"],
   "Jangaon": ["Bachannapeta","Chilpur","Devaruppula","Ghanpur(Stn)","Jangaon","Kodakandla","Lingala Ghanpur","Narmetta","Palakurthi","Raghunatha Palle","Tharigoppula","Zaffergadh"],
+  "Jayashankar Bhupalpally": ["Bhupalpally", "Chityal", "Ghanpur (Mulug)", "Kataram", "Mahadevpur", "Malharrao", "Mogullapally", "Mutharam (Mahadevpur)", "Palimela", "Regonda", "Tekumatla"],
+  "Jogulamba Gadwal": ["Alampur", "Dharur", "Gadwal", "Ghattu", "Ieeja", "Itikyal", "Maldakal", "Manopad", "Rajoli", "Undavelly", "Waddepalle", "Kaloor Timmanadoddi"],
+  "Kamareddy": ["Banswada", "Bhiknoor", "Birkur", "Domakonda", "Farooqnagar", "Gandhari", "Jukkal", "Kamareddy", "Lingampet", "Machareddy", "Madnoor", "Nizamsagar", "Pitlam", "Sadashivanagar", "Yellareddy", "Nasrullabad", "Tadwai", "Bhimgal", "Ramareddy", "Rajampet", "Bibipet", "Pedda Kodapgal", "Dongli", "Gudam", "Palvancha"],
   "Karimnagar": ["Chigurumamidi","Choppadandi","Ellandhakunta","Gangadhara","Ganneruvaram","Huzurabad","Jammikunta","Karimnagar","Kothapally","Manakondur","Ramadugu","Shankarapatnam","Thimmapur","V Saidapur","Veenavanka"],
   "Khammam": ["Bonakal","Chinthakani","Enkuru","Kalluru","Kamepalle","Khammam Rural","Konijerla","Kusumanchi","Madhira","Mudigonda","Nelakondapalle","Penuballi","Raghunadhapalem","Sathupalle","Singareni","Thallada","Thirumalayapalem","Vemsoor","Wyra","Yerrupalem"],
+  "Komaram Bheem Asifabad": ["Asifabad", "Bejjur", "Chintalamanepally", "Dahegaon", "Jainoor", "Kagaznagar", "Kerameri", "Kouthala", "Penchikalpet", "Rebbena", "Sirpur (T)", "Sirpur (U)", "Tiryani", "Wankidi"],
+  "Mahabubabad": ["Bayyaram", "Dornakal", "Gangaram", "Garla", "Gudur", "Kothaguda", "Kuravi", "Mahabubabad", "Maripeda", "Narsimhulapet", "Peddavangara", "Thorrur", "Kessamudram", "Nellikudur", "Danthalapalle", "Seerole"],
   "Mahabubnagar": ["Addakal","Balanagar","Bhoothpur","Chinna Chinta Kunta","Devarkadara","Gandeed","Hanwada","Jadcherla","Koilkonda","Koukuntla","Mahbubnagar","Midjil","Mohammadabad","Moosapet","Nawabpet","Rajapur"],
   "Mancherial": ["Bellampalle","Bheemaram","Bheemini","Chennur","Dandepalle","Hajipur","Jaipur","Jannaram","Kannepally","Kasipet","Kotapalle","Luxettipet","Mandamarri","Nennal","Tandur","Vemanpalle"],
   "Medak": ["Alladurg","Chegunta","Chilpiched","Havelighanpur","Kowdipalle","Kulcharam","Manoharabad","Masaipet","Medak","Narsapur","Narsingi","Nizampet","Papannapet","Ramayampet","Regode","Shankarampet (A)","Shankarampet (R)","Shivampet","Tekmal","Tupran","Yeldurthy"],
-  "Nalgonda": ["Adavidevulapally","Anumula","Chandam Pet","Chandur","Chintha Palle","Chityala","Dameracherla","Devarakonda","Gattuppal","Gudipally","Gundla Palle","Gurrampode","Kangal","Kattangoor","Kethepalle","Kondamallepally","Madugulapally","Marri Guda","Miryalaguda","Munugode","Nakrekal","Nalgonda","Nampalle","Narketpalle","Neredugomma","Nidamanur","Pedda Adiserlapalle","Peddavura","Saligouraram","Thipparthi","Thirumalagiri sagar","Thripuraram","Vemulapalle"],
+  "Medchal-Malkajgiri": ["Alwal", "Balanagar", "Dundigal Gandimaisamma", "Ghatkesar", "Kapra", "Keesara", "Kukatpally", "Malkajgiri", "Medchal", "Medipally", "Qutubullapur", "Shamirpet", "Uppal", "Bolarum", "Chengicherla"],
+  "Mulugu": ["Eturnagaram", "Govindaraopet", "Mangapet", "Mulugu", "SS Tadvai", "Vazeed", "Venkatapuram", "Kannaigudem", "Tadvai"],
   "Nagarkurnool": ["Achampet", "Amrabad", "Balmoor", "Bijinapalle", "Charakonda", "Kalwakurthy", "Kodair", "Kollapur", "Lingal", "Nagarkurnool", "Padara", "Peddakothapalle", "Pentlavelli", "Tadoor", "Telkapalle", "Thimmajipet", "Uppununthala", "Urkonda", "Vangoor"],
+  "Nalgonda": ["Adavidevulapally","Anumula","Chandam Pet","Chandur","Chintha Palle","Chityala","Dameracherla","Devarakonda","Gattuppal","Gudipally","Gundla Palle","Gurrampode","Kangal","Kattangoor","Kethepalle","Kondamallepally","Madugulapally","Marri Guda","Miryalaguda","Munugode","Nakrekal","Nalgonda","Nampalle","Narketpalle","Neredugomma","Nidamanur","Pedda Adiserlapalle","Peddavura","Saligouraram","Thipparthi","Thirumalagiri sagar","Thripuraram","Vemulapalle"],
+  "Narayanpet": ["Damaragidda", "Dhanwada", "Kosgi", "Krishna", "Maddur", "Maganoor", "Makthal", "Marikal", "Narayanpet", "Utkoor", "Narva"],
+  "Nirmal": ["Basar", "Bhainsa", "Dilawarpur", "Kaddampeddur", "Khanapur", "Kuntala", "Lokeshwaram", "Mamda", "Mudhole", "Nirmal", "Nirmal Rural", "Pemdhal", "Sarangapur", "Soan", "Tanur", "Dasturabad", "Pembarthi"],
   "Nizamabad": ["Aloor","Armur","Balkonda","Bheemgal","Bodhan","Chandur","Dhar Palle","Dich Palle","Donkeshwar","Indalwai","Jakranpalle","Kammar Palle","Kotgiri","Makloor","Mendora","Mortad","Mosara","Mugpal","Mupkal","Nandipet","Navipet","Nizamabad","Pothangal","Ranjal","Rudrur","Saloora","Sirkonda","Varni","Velpur","Yeda Palle","Yergatla"],
+  "Peddapalli": ["Anthergoam", "Dharmaram", "Eligaid", "Julapalli", "Kamanpur", "Manthani", "Mutharam (Manthani)", "Odela", "Palakurthy", "Peddapalli", "Ramagiri", "Ramagundam", "Srirampur", "Sulthanabad"],
+  "Rajanna Sircilla": ["Boinpalle", "Chandurthi", "Ellanthakunta", "Gambhiraopet", "Konaraopeta", "Mustabad", "Sircilla", "Vemulawada", "Vemulawada Rural", "Yellareddy Peth", "Thangallapalli"],
+  "Rangareddy": ["Abdullapurmet", "Amangal", "Balapur", "Chevella", "Farooqnagar", "Gandipet", "Hayathnagar", "Ibrahimpatnam", "Jillelaguda", "Kadthal", "Kondurg", "Kothur", "Madgul", "Maheshwaram", "Manchal", "Moinabad", "Nandigama", "Rajendranagar", "Saroornagar", "Serilingampally", "Shabad", "Shamshabad", "Shankarpalle", "Talakondapalle", "Yacharam"],
   "Sangareddy": ["Ameenpur","Andole","Chowtakur","Gummadidala","Hathnoora","Jharasangam","Jinnaram","Kalher","Kandi","Kangti","Kohir","Kondapur","Manoor","Mogadampally","Munpalle","Nagalgidda","Narayankhed","Nizampet","Nyalkal","Patancheru","Pulkal","Raikode","Sadasivpet","Sangareddy","Sirgapur","Vatpally","Zahirabad"],
   "Siddipet": ["AkbarpetNA Bhoompally","Akkannapeta","Bejjanki","Cheriyal","Chinna Kodur","Dhoolmitta","Doultabad","Dubbak","Gajwel","Husnabad","Jagdevpur","Koheda","Komuravelli","Kondapak","Kukunoorpally","Maddur","Markook","Mirdoddi","Mulug","Nanganur","Narayanaraopet","Raipole","Siddipet","Siddipet Rural","Thoguta","Wargal"],
-  "Warangal": ["Chennaraopet","Duggondi","Geesugonda","Khanapur","Nallabelly","Narsampet","Nekkonda","Parvathagiri","Raiparthy","Sangem","Wardhannapet"]
+  "Suryapet": ["Atmakur (S)", "Chilkur", "Chinthapalem", "Garidepally", "Huzurnagar", "Jajireddygudem", "Kodad", "Maddirala", "Mattampally", "Mellachervu", "Mothey", "Munagala", "Nadigudem", "Neredcherla", "Nuthankal", "Palakeedu", "Penpahad", "Suryapet", "Thirumalagiri", "Tungaturthi"],
+  "Vikarabad": ["Basheerabad", "Bommraspet", "Dharur", "Doma", "Kodangal", "Kotepally", "Kulkacherla", "Marpalle", "Mominpet", "Nawabpet", "Pargi", "Peddemul", "Pudur", "Tandur", "Vikarabad", "Yelal"],
+  "Wanaparthy": ["Amarchinta", "Atmakur", "Chinnambavi", "Ghanpur", "Gopalpeta", "Khila Ghanpur", "Kothakota", "Madanapur", "Pangal", "Pebbair", "Peddamandadi", "Revally", "Srirangapur", "Veepangandla", "Wanaparthy"],
+  "Warangal": ["Chennaraopet","Duggondi","Geesugonda","Khanapur","Nallabelly","Narsampet","Nekkonda","Parvathagiri","Raiparthy","Sangem","Wardhannapet"],
+  "Yadadri Bhuvanagiri": ["Addagudur", "Alair", "Atmakur (M)", "Bibinagar", "Bhudan Pochampally", "Bhuvanagiri", "Bommalaramaram", "Choutuppal", "Gundala", "Motakondur", "Mothkur", "Narayanapur", "Rajapet", "Ramannapet", "Turkapally", "Valigonda", "Yadagirigutta"]
 };
 
 interface Suggestion {
@@ -632,9 +649,6 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRole, setUserRole] = useState<'admin' | 'editor' | 'user'>('user');
   const hasGreetedRef = useRef(false);
-  const initialUpdatesLoaded = useRef(false);
-  const initialPostsLoaded = useRef(false);
-  const initialNotificationsLoaded = useRef(false);
   
   const isDevEmail = user?.email?.toLowerCase() === 'rakeshkumardhawan123@gmail.com';
   const isAdmin = userRole === 'admin' || isDevEmail;
@@ -925,13 +939,14 @@ export default function App() {
 
   // Public Listeners
   useEffect(() => {
+    let initialUpdatesLoadedLocal = false;
     const unsubUpdates = onSnapshot(collection(db, 'updates'), (snap) => {
       const uArr: Update[] = [];
       snap.forEach(d => uArr.push({ id: d.id, ...(d.data() as any) } as Update));
       setUpdates(uArr);
       
-      if (!initialUpdatesLoaded.current) {
-        initialUpdatesLoaded.current = true;
+      if (!initialUpdatesLoadedLocal) {
+        initialUpdatesLoadedLocal = true;
       } else {
         const addedChanges = snap.docChanges().filter(change => change.type === 'added');
         if (addedChanges.length > 0) {
@@ -947,6 +962,7 @@ export default function App() {
       setSuggestions(sArr.sort((a, b) => (b.time || 0) - (a.time || 0)));
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'suggestions'));
 
+    let initialPostsLoadedLocal = false;
     const unsubPosts = onSnapshot(query(collection(db, 'posts')), (snap) => {
       const pArr: Post[] = [];
       snap.forEach((d) => {
@@ -960,8 +976,8 @@ export default function App() {
         return (b.time || 0) - (a.time || 0);
       }));
 
-      if (!initialPostsLoaded.current) {
-        initialPostsLoaded.current = true;
+      if (!initialPostsLoadedLocal) {
+        initialPostsLoadedLocal = true;
       } else {
         const addedChanges = snap.docChanges().filter(change => change.type === 'added');
         if (addedChanges.length > 0) {
@@ -1055,14 +1071,15 @@ export default function App() {
       handleFirestoreError(err, OperationType.LIST, 'requests');
     });
 
+    let initialNotificationsLoadedLocal = false;
     const unsub1 = onSnapshot(query(collection(db, 'notifications'), where('uid', 'in', [user.uid, 'all'])), (snap) => {
       const nArr: Notification[] = [];
       snap.forEach(d => nArr.push({ id: d.id, ...(d.data() as any) } as Notification));
       setNotifications(nArr.sort((a, b) => b.time - a.time).slice(0, 50));
       setUnreadCount(nArr.filter(n => n.uid === 'all' ? !(n as any).readBy?.includes(user?.uid) : !n.read).length);
       
-      if (!initialNotificationsLoaded.current) {
-        initialNotificationsLoaded.current = true;
+      if (!initialNotificationsLoadedLocal) {
+        initialNotificationsLoadedLocal = true;
       } else {
         const addedChanges = snap.docChanges().filter(change => change.type === 'added');
         if (addedChanges.length > 0) {
