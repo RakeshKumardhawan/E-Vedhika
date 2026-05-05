@@ -2572,6 +2572,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
   const isEditor = userRole === 'admin' || userRole === 'editor' || isDevEmail;
   const [activeSubTab, setActiveSubTab] = useState('dash');
   const [usersFilter, setUsersFilter] = useState<'All' | 'Deleted'>('All');
+  const [userSearchTerm, setUserSearchTerm] = useState('');
   const [trashTab, setTrashTab] = useState<'posts' | 'problems' | 'suggestions' | 'users' | 'updates'>('posts');
   const [userViewMode, setUserViewMode] = useState<'access' | 'directory'>('access');
   const [showPin, setShowPin] = useState(false);
@@ -3210,38 +3211,59 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                     </h3>
                     <p className="text-sm font-bold text-slate-500 mt-1">Manage user roles, visibility and suspensions.</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <button aria-label="All Users" onClick={() => setUsersFilter('All')} className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${usersFilter === 'All' ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-105' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>All Users</button>
-                    <button aria-label="Deleted Users" onClick={() => setUsersFilter('Deleted')} className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${usersFilter === 'Deleted' ? 'bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20 scale-105' : 'bg-rose-50 border-rose-100 text-rose-500 hover:bg-rose-100 hover:border-rose-200'}`}>Deleted (Trash)</button>
-                    
-                    {usersFilter === 'Deleted' && (
-                        <button aria-label="Empty User Trash"
-                          onClick={async () => {
-                             const res = await Swal.fire({
-                                title: 'Empty Trash?',
-                                text: 'This will permanently delete all users in the trash. This action cannot be undone.',
-                                icon: 'warning',
-                                showCancelButton: true,
-                                confirmButtonColor: '#ef4444',
-                                confirmButtonText: 'Yes, Empty Trash'
-                             });
-                             if (res.isConfirmed) {
-                                const deletedUsers = users.filter(u => u.isDeleted || u.role === 'deleted');
-                                try {
-                                   await Promise.all(deletedUsers.map(u => deleteDoc(doc(db, 'users', u.id))));
-                                   addToast(`Permanently deleted ${deletedUsers.length} users`);
-                                } catch(e: any) { addToast("Error: " + e.message); }
-                             }
-                          }}
-                          className="px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border bg-red-50 border-red-100 text-red-600 hover:bg-red-600 hover:text-white flex items-center gap-2 shadow-sm"
-                        >
-                           <Trash2 size={14} /> Empty Trash
-                        </button>
-                     )}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input 
+                        type="text" 
+                        placeholder="Search by name, email, role..." 
+                        value={userSearchTerm}
+                        onChange={(e) => setUserSearchTerm(e.target.value)}
+                        className="pl-9 pr-4 py-2.5 rounded-2xl text-xs border border-slate-200 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 w-full sm:w-64"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button aria-label="All Users" onClick={() => setUsersFilter('All')} className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${usersFilter === 'All' ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-105' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>All Users</button>
+                      <button aria-label="Deleted Users" onClick={() => setUsersFilter('Deleted')} className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${usersFilter === 'Deleted' ? 'bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20 scale-105' : 'bg-rose-50 border-rose-100 text-rose-500 hover:bg-rose-100 hover:border-rose-200'}`}>Deleted (Trash)</button>
+                      
+                      {usersFilter === 'Deleted' && (
+                          <button aria-label="Empty User Trash"
+                            onClick={async () => {
+                               const res = await Swal.fire({
+                                  title: 'Empty Trash?',
+                                  text: 'This will permanently delete all users in the trash. This action cannot be undone.',
+                                  icon: 'warning',
+                                  showCancelButton: true,
+                                  confirmButtonColor: '#ef4444',
+                                  confirmButtonText: 'Yes, Empty Trash'
+                               });
+                               if (res.isConfirmed) {
+                                  const deletedUsers = users.filter(u => u.isDeleted || u.role === 'deleted');
+                                  try {
+                                     await Promise.all(deletedUsers.map(u => deleteDoc(doc(db, 'users', u.id))));
+                                     addToast(`Permanently deleted ${deletedUsers.length} users`);
+                                  } catch(e: any) { addToast("Error: " + e.message); }
+                               }
+                            }}
+                            className="px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border bg-red-50 border-red-100 text-red-600 hover:bg-red-600 hover:text-white flex items-center gap-2 shadow-sm"
+                          >
+                             <Trash2 size={14} /> Empty Trash
+                          </button>
+                       )}
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                   {users.filter(u => usersFilter === 'Deleted' ? (u.isDeleted || u.role === 'deleted') : (!u.isDeleted && u.role !== 'deleted')).sort((a, b) => (b.time || 0) - (a.time || 0)).map(u => (
+                   {users.filter(u => {
+                      const isMatchFilter = usersFilter === 'Deleted' ? (u.isDeleted || u.role === 'deleted') : (!u.isDeleted && u.role !== 'deleted');
+                      if (!isMatchFilter) return false;
+                      if (!userSearchTerm) return true;
+                      const term = userSearchTerm.toLowerCase();
+                      return (u.username || '').toLowerCase().includes(term) || 
+                             (u.email || '').toLowerCase().includes(term) || 
+                             (u.role || '').toLowerCase().includes(term) ||
+                             (u.id || '').toLowerCase().includes(term);
+                   }).sort((a, b) => (b.time || 0) - (a.time || 0)).map(u => (
                      <motion.div 
                        layout
                        key={u.id}
