@@ -3503,7 +3503,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                                  onClick={async () => {
                                                     try {
                                                        if (trashTab === 'users') {
-                                                          await updateDoc(doc(db, 'users', item.id), { isDeleted: false, role: item.role === 'deleted' ? 'user' : item.role });
+                                                          await updateDoc(doc(db, 'users', item.id), { isDeleted: false, role: (item.role && item.role !== 'deleted') ? item.role : 'user' });
                                                        } else if (trashTab === 'updates') {
                                                           await updateDoc(doc(db, 'updates', item.id), { status: 'visible' });
                                                        } else {
