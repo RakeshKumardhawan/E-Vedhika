@@ -4033,7 +4033,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
   );
 }
 
-function StatCard({ label, val, color }: { label: string, val: number, color: string }) {
+function StatCard({ label, val, color, subText }: { label: string, val: number, color: string, subText?: string }) {
   const themes: any = { 
     indigo: { bg: '#eef2ff', border: '#e0e7ff', text: '#3730a3', icon: Clock },
     rose: { bg: '#fff1f2', border: '#ffe4e6', text: '#9f1239', icon: AlertTriangle },
@@ -4052,17 +4052,27 @@ function StatCard({ label, val, color }: { label: string, val: number, color: st
   return (
     <motion.div 
       whileHover={{ scale: 1.02, translateY: -4 }}
-      className="p-5 rounded-[24px] border border-transparent shadow-sm transition-all hover:shadow-lg group cursor-default" 
+      className="p-4 rounded-[24px] border border-transparent shadow-sm transition-all hover:shadow-lg group cursor-default h-full flex flex-col justify-between" 
       style={{ background: theme.bg, borderColor: theme.border }}
     >
-      <div className="flex justify-between items-start mb-3">
-        <div className="text-[10px] font-black uppercase tracking-widest opacity-60" style={{ color: theme.text }}>{label}</div>
-        <div className="p-2 rounded-xl bg-white/50 shadow-inner group-hover:bg-white transition-colors">
-          <Icon size={16} style={{ color: theme.text }} strokeWidth={2.5} />
+      <div>
+        <div className="flex justify-between items-start mb-2">
+          <div className="text-[10px] font-black uppercase tracking-widest opacity-60" style={{ color: theme.text }}>{label}</div>
+          <div className="p-1.5 rounded-lg bg-white/50 shadow-inner group-hover:bg-white transition-colors">
+            <Icon size={14} style={{ color: theme.text }} strokeWidth={2.5} />
+          </div>
         </div>
+        <div className="text-3xl font-black tracking-tight" style={{ color: theme.text }}>{val}</div>
       </div>
-      <div className="text-3xl font-black tracking-tight" style={{ color: theme.text }}>{val}</div>
-      <div className="h-1 w-8 rounded-full mt-3 bg-current opacity-20" style={{ color: theme.text }}></div>
+      
+      {subText ? (
+        <div className="mt-2 pt-2 border-t border-current/10 flex items-center gap-1.5 overflow-hidden">
+          <Clock size={10} style={{ color: theme.text }} className="shrink-0" />
+          <span className="text-[9px] font-black uppercase text-current whitespace-nowrap opacity-60" style={{ color: theme.text }}>{subText}</span>
+        </div>
+      ) : (
+        <div className="h-1 w-8 rounded-full mt-3 bg-current opacity-20" style={{ color: theme.text }}></div>
+      )}
     </motion.div>
   );
 }
@@ -5230,6 +5240,16 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
+
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const onUpload = (e: any) => {
     const file = e.target.files[0];
@@ -5457,6 +5477,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
       setStats({ total: processed.length, present, dsr, pending, meeting, training, leave, before901, after900 });
       // @ts-ignore
       setMandalSummaries(Object.fromEntries(mandalStats));
+      setLastUpdateTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       setUploadProgress(100);
       setTimeout(() => {
         setIsProcessing(false);
@@ -5614,15 +5635,15 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
       {data.length > 0 && user && !user.isAnonymous && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
-            <button aria-label="Filter Total" onClick={() => setActiveFilter(null)} className="text-left w-full"><StatCard label="Total" val={stats.total} color="blue" /></button>
-            <button aria-label="Filter Present" onClick={() => setActiveFilter('P')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'P' ? 'ring-2 ring-emerald-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Present" val={stats.present} color="emerald" /></button>
-            <button title="ఉదయం 9:00 కంటే ముందు విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('B9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'B9' ? 'ring-2 ring-indigo-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="On Time" val={stats.before901} color="indigo" /></button>
-            <button title="ఉదయం 9:01 తర్వాత విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('A9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'A9' ? 'ring-2 ring-rose-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Late Att" val={stats.after900} color="rose" /></button>
-            <button aria-label="Filter DSR" onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR Rep" val={stats.dsr} color="emerald" /></button>
-            <button aria-label="Filter No DSR" onClick={() => setActiveFilter('NE')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'NE' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="No DSR" val={stats.pending} color="amber" /></button>
-            <button aria-label="Filter Meeting" onClick={() => setActiveFilter('M')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'M' ? 'ring-2 ring-cyan-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Meeting" val={stats.meeting} color="cyan" /></button>
-            <button aria-label="Filter Training" onClick={() => setActiveFilter('T')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'T' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Training" val={stats.training} color="amber" /></button>
-            <button aria-label="Filter Leave" onClick={() => setActiveFilter('L')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'L' ? 'ring-2 ring-slate-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="Leave" val={stats.leave} color="slate" /></button>
+            <button aria-label="Filter Total" onClick={() => setActiveFilter(null)} className="text-left w-full"><StatCard label="TOTAL" val={stats.total} color="blue" /></button>
+            <button aria-label="Filter Present" onClick={() => setActiveFilter('P')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'P' ? 'ring-2 ring-emerald-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="PRESENT" val={stats.present} color="emerald" /></button>
+            <button title="ఉదయం 9:00 కంటే ముందు విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('B9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'B9' ? 'ring-2 ring-indigo-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="ON TIME" val={stats.before901} color="indigo" /></button>
+            <button title="ఉదయం 9:01 తర్వాత విధులకు హాజరైన వారి (Present) సంఖ్య." onClick={() => setActiveFilter('A9')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'A9' ? 'ring-2 ring-rose-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="LATE ATT" val={stats.after900} color="rose" /></button>
+            <button aria-label="Filter DSR" onClick={() => setActiveFilter('D')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'D' ? 'ring-2 ring-blue-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="DSR REP" val={stats.dsr} color="emerald" /></button>
+            <button aria-label="Filter No DSR" onClick={() => setActiveFilter('NE')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'NE' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="NO DSR" val={stats.pending} color="amber" subText={`LIVE: ${currentTime}`} /></button>
+            <button aria-label="Filter Meeting" onClick={() => setActiveFilter('M')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'M' ? 'ring-2 ring-cyan-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="MEETING" val={stats.meeting} color="cyan" /></button>
+            <button aria-label="Filter Training" onClick={() => setActiveFilter('T')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'T' ? 'ring-2 ring-amber-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="TRAINING" val={stats.training} color="amber" /></button>
+            <button aria-label="Filter Leave" onClick={() => setActiveFilter('L')} className={`text-left w-full transition-transform active:scale-95 ${activeFilter === 'L' ? 'ring-2 ring-slate-500 ring-offset-2 rounded-2xl' : ''}`}><StatCard label="LEAVE" val={stats.leave} color="slate" /></button>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 py-2">
