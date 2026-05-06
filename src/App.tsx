@@ -2704,7 +2704,7 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!username || !name || !surname || !mobile || !district || !mandal || !designation) {
+    if (!username || !name || !surname || !mobile) {
       addToast("Please fill all required fields (*)");
       return;
     }
@@ -2846,8 +2846,8 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
                </select>
              </div>
              <div>
-               <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">District *</label>
-               <select value={district} onChange={e => { setDistrict(e.target.value); setMandal(''); }} required className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs">
+               <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">District</label>
+               <select value={district} onChange={e => { setDistrict(e.target.value); setMandal(''); }} className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs">
                   <option value="">Select District</option>
                   {Object.keys(districtsData).sort().map(d => <option key={d}>{d}</option>)}
                </select>
@@ -2856,8 +2856,8 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
 
               <div className="grid grid-cols-2 gap-3">
                  <div>
-                   <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Mandal *</label>
-                   <select value={mandal} onChange={e => setMandal(e.target.value)} required className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" disabled={!district}>
+                   <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Mandal</label>
+                   <select value={mandal} onChange={e => setMandal(e.target.value)} className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" disabled={!district}>
                       <option value="">Select Mandal</option>
                       {mandals.map((m, idx) => <option key={`${m}_${idx}`} value={m}>{m}</option>)}
                    </select>
@@ -2869,8 +2869,8 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
           </div>
 
           <div>
-            <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Designation *</label>
-            <input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Type Designation (e.g. e-Panchayat, MPO)" required className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" />
+            <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Designation</label>
+            <input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Type Designation (e.g. e-Panchayat, MPO)" className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" />
           </div>
 
           <div>
@@ -7748,7 +7748,7 @@ function AuthModal({ onClose, addToast, handleGoogleLogin, districtsData }: { on
         // dynamic greeting handled via profile listener
         onClose();
       } else {
-        if (!username || !email || !password || !name || !surname || !mobile || !district || !mandal || !designation) {
+        if (!username || !email || !password || !name || !surname || !mobile) {
           addToast("Please fill all required fields (*)");
           setLoading(false);
           return;
@@ -7891,8 +7891,8 @@ function AuthModal({ onClose, addToast, handleGoogleLogin, districtsData }: { on
                     </select>
                   </div>
                   <div>
-                    <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">District *</label>
-                    <select value={district} onChange={e => { setDistrict(e.target.value); setMandal(''); }} required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors">
+                    <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">District</label>
+                    <select value={district} onChange={e => { setDistrict(e.target.value); setMandal(''); }} className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors">
                        <option value="">Select District</option>
                        {Object.keys(districtsData).sort().map(d => <option key={d}>{d}</option>)}
                     </select>
@@ -7901,8 +7901,8 @@ function AuthModal({ onClose, addToast, handleGoogleLogin, districtsData }: { on
 
                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                     <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Mandal *</label>
-                     <select value={mandal} onChange={e => setMandal(e.target.value)} required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" disabled={!district}>
+                     <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Mandal</label>
+                     <select value={mandal} onChange={e => setMandal(e.target.value)} className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" disabled={!district}>
                         <option value="">Select Mandal</option>
                         {mandals.map((m, idx) => <option key={`${m}_${idx}`} value={m}>{m}</option>)}
                      </select>
@@ -7914,8 +7914,8 @@ function AuthModal({ onClose, addToast, handleGoogleLogin, districtsData }: { on
                 </div>
 
                 <div>
-                  <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Designation *</label>
-                  <input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Type Designation" required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
+                  <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Designation</label>
+                  <input value={designation} onChange={e => setDesignation(e.target.value)} placeholder="Type Designation" className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
                 </div>
               </>
             )}
