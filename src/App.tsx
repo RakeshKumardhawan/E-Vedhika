@@ -368,6 +368,7 @@ interface Update {
   time: number;
   status?: string;
   type?: string;
+  visibility?: string;
 }
 
 interface Notification {
@@ -1525,6 +1526,7 @@ export default function App() {
                  currentAdminPin={currentAdminPin}
                  setCurrentAdminPin={setCurrentAdminPin}
                  users={allUsers}
+                 user={user}
                  onExit={() => navigate('/')}
                  districtsData={districtsData}
               />
@@ -3138,7 +3140,7 @@ function MyActivity({ user, userProfile, problems, suggestions, posts }: any) {
   );
 }
 
-function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLocked, adminLocked, notifications, requests, updates, userRole, onExit, onNewPost, onEditPost, isDevEmail, currentAdminPin, setCurrentAdminPin, districtsData }: any) {
+function AdminPanel({ addToast, posts, problems, suggestions, users, user, setAdminLocked, adminLocked, notifications, requests, updates, userRole, onExit, onNewPost, onEditPost, isDevEmail, currentAdminPin, setCurrentAdminPin, districtsData }: any) {
   const isAdmin = userRole === 'admin' || isDevEmail;
   const isEditor = userRole === 'admin' || userRole === 'editor' || isDevEmail;
   const [activeSubTab, setActiveSubTab] = useState('dash');
@@ -5050,25 +5052,17 @@ function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => v
                 )}
              </AnimatePresence>
 
-             {(!user || user.isAnonymous) ? (
-                <div className="bg-slate-50 border border-slate-200 p-8 rounded-3xl flex flex-col items-center justify-center text-center mt-6">
-                   <Lock className="w-16 h-16 text-slate-400 mb-4" />
-                   <h4 className="font-black text-2xl text-slate-800 mb-2">Full Access Required</h4>
-                   <p className="text-slate-500 max-w-md">Please log in to access the Digital Training content and workflows.</p>
-                </div>
-             ) : (
-                <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                   {[1, 2, 3].map(step => (
-                     <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                       <div style={{ width: '40px', height: '40px', background: 'var(--primary)', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800' }}>{step}</div>
-                       <div style={{ flex: 1, background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                         <span style={{ fontWeight: 700 }}>Workflow Step {step}</span>
-                         <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>Detailed tutorial content for step {step} will appear here.</p>
-                       </div>
-                     </div>
-                   ))}
-                </div>
-             )}
+             <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                {[1, 2, 3].map(step => (
+                  <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div style={{ width: '40px', height: '40px', background: 'var(--primary)', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800' }}>{step}</div>
+                    <div style={{ flex: 1, background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                      <span style={{ fontWeight: 700 }}>Workflow Step {step}</span>
+                      <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>Detailed tutorial content for step {step} will appear here.</p>
+                    </div>
+                  </div>
+                ))}
+             </div>
           </motion.div>
         )}
         {activeTool === 'pract' && (
@@ -5157,50 +5151,42 @@ function FormsHub({ addToast, user }: { addToast: (s:string) => void, user: Fire
         )}
       </AnimatePresence>
 
-      {(!user || user.isAnonymous) ? (
-         <div className="bg-slate-50 border border-slate-200 p-8 rounded-3xl flex flex-col items-center justify-center text-center mt-6">
-            <Lock className="w-16 h-16 text-slate-400 mb-4" />
-            <h4 className="font-black text-2xl text-slate-800 mb-2">Full Access Required</h4>
-            <p className="text-slate-500 max-w-md">Please log in to view the uploaded forms, instructions, and download the documents.</p>
-         </div>
-      ) : (
-        <div className="grid gap-4">
-          {forms.length === 0 ? (
-            <div className="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-              <p className="text-slate-400 font-bold">No forms uploaded yet.</p>
-            </div>
-          ) : (
-            forms.map(f => (
-              <div key={f.id} className="p-4 bg-white border border-slate-200 rounded-2xl hover:shadow-md transition-shadow group">
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center font-black">
-                       📄
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-800 leading-tight">{f.name}</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">By {f.userName}</p>
-                    </div>
+      <div className="grid gap-4">
+        {forms.length === 0 ? (
+          <div className="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+            <p className="text-slate-400 font-bold">No forms uploaded yet.</p>
+          </div>
+        ) : (
+          forms.map(f => (
+            <div key={f.id} className="p-4 bg-white border border-slate-200 rounded-2xl hover:shadow-md transition-shadow group">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center font-black">
+                     📄
                   </div>
-                  <button aria-label="Download form" onClick={() => addToast("Starting download...")} className="p-2 bg-slate-50 hover:bg-primary hover:text-white text-slate-600 rounded-xl transition-all">
-                    <Download size={18} />
-                  </button>
+                  <div>
+                    <h4 className="font-bold text-slate-800 leading-tight">{f.name}</h4>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">By {f.userName}</p>
+                  </div>
                 </div>
-                <div className="space-y-2 pt-3 border-t border-slate-100">
-                  <div>
-                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Purpose</span>
-                    <p className="text-xs text-slate-600 font-medium">{f.purpose}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Usage Guide</span>
-                    <p className="text-xs text-slate-600 font-medium">{f.usage}</p>
-                  </div>
+                <button aria-label="Download form" onClick={() => addToast("Starting download...")} className="p-2 bg-slate-50 hover:bg-primary hover:text-white text-slate-600 rounded-xl transition-all">
+                  <Download size={18} />
+                </button>
+              </div>
+              <div className="space-y-2 pt-3 border-t border-slate-100">
+                <div>
+                  <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Purpose</span>
+                  <p className="text-xs text-slate-600 font-medium">{f.purpose}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Usage Guide</span>
+                  <p className="text-xs text-slate-600 font-medium">{f.usage}</p>
                 </div>
               </div>
-            ))
-          )}
-        </div>
-      )}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -6463,15 +6449,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
         </label>
       </div>
 
-      {data.length > 0 && (!user || user.isAnonymous) && (
-         <div className="bg-slate-50 border border-slate-200 p-8 rounded-3xl flex flex-col items-center justify-center text-center">
-            <Lock className="w-16 h-16 text-slate-400 mb-4" />
-            <h4 className="font-black text-2xl text-slate-800 mb-2">Full Access Required</h4>
-            <p className="text-slate-500 max-w-md">The DSR file has been uploaded and processed successfully. Please log in to view the detailed analysis, stats, and download the reports.</p>
-         </div>
-      )}
-
-      {data.length > 0 && user && !user.isAnonymous && (
+      {data.length > 0 && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
             <button aria-label="Filter Total" onClick={() => setActiveFilter(null)} className="text-left w-full"><StatCard label="TOTAL" val={stats.total} color="blue" /></button>
@@ -7415,15 +7393,6 @@ function KnowledgeHubSection() {
 
 
 function PRActHub({ user }: { user: any }) {
-    if (!user || user.isAnonymous) {
-        return (
-           <div className="bg-slate-50 border border-slate-200 p-8 rounded-3xl flex flex-col items-center justify-center text-center mt-6">
-              <Lock className="w-16 h-16 text-slate-400 mb-4" />
-              <h4 className="font-black text-2xl text-slate-800 mb-2">Full Access Required</h4>
-              <p className="text-slate-500 max-w-md">Please log in to access the PR Act Hub documents and contents.</p>
-           </div>
-        );
-    }
     return <KnowledgeHubSection />;
 }
 

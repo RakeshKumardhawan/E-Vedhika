@@ -62,7 +62,7 @@ async function startServer() {
 
       const protocol = req.get('x-forwarded-proto') || req.protocol;
       let ogTitle = "E-Vedhika Portal";
-      let ogDescription = "E-Vedhika is a digital portal for rural development and administration.";
+      let ogDescription = "E-Vedhika { all problems one solution }";
       let ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
 
       if (targetId && targetCollection) {

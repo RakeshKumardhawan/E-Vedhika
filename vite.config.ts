@@ -17,7 +17,7 @@ export default defineConfig(({mode}) => {
         manifest: {
           name: 'E-Vedhika Portal',
           short_name: 'E-Vedhika',
-          description: 'A comprehensive community portal for reporting problems and getting updates on schemes, elections and daily reports.',
+          description: 'E-Vedhika { all problems one solution }',
           theme_color: '#2563eb',
           icons: [
             {
