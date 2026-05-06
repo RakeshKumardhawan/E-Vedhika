@@ -73,6 +73,12 @@ service cloud.firestore {
       allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
     }
 
+    match /gos_formats/{docId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (isSignedIn() && existing().uploadedBy == request.auth.uid);
+    }
+
     match /forms/{formId} {
       allow read: if true;
       allow create: if isSignedIn();
@@ -88,6 +94,11 @@ service cloud.firestore {
     match /usernames/{username} {
       allow read: if true;
       allow write: if isSignedIn();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /security_logs/{logId} {

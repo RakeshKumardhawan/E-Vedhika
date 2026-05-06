@@ -388,6 +388,18 @@ input, textarea, select {
 .comment-item { font-size: 13px; margin-bottom: 8px; padding: 10px; background: #f8fafc; border-radius: 10px; border-left: 4px solid var(--accent); }
 
 /* Focus Mode Adjustments */
-div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) {
-  margin-bottom: -14px;
+  div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > main:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) {
+    margin-bottom: -14px;
+  }
+
+/* Dark Theme Adjustments */
+body.dark-theme {
+  filter: invert(1) hue-rotate(180deg);
+  background-color: #0b0f19;
+}
+body.dark-theme img,
+body.dark-theme video,
+body.dark-theme iframe,
+body.dark-theme .no-invert {
+  filter: invert(1) hue-rotate(180deg);
 }

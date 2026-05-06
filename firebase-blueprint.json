@@ -72,6 +72,25 @@
         "link": { "type": "string" }
       }
     },
+    "GosFormat": {
+      "title": "GOs and Formats",
+      "description": "Government orders, formats and application PDFs shared by admin.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "whoUses": { "type": "string" },
+        "whatIsIt": { "type": "string" },
+        "url": { "type": "string" },
+        "storagePath": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileNameDisplay": { "type": "string" },
+        "size": { "type": "integer" },
+        "time": { "type": "integer" },
+        "uploadedBy": { "type": "string" }
+      }
+    },
     "UsernameRecord": {
       "title": "Username Record",
       "description": "Mapping from username to uid.",
@@ -82,6 +101,10 @@
     }
   },
   "firestore": {
+    "/gos_formats/{docId}": {
+      "schema": "GosFormat",
+      "description": "GOs and Application documents."
+    },
     "/usernames/{username}": {
       "schema": "UsernameRecord",
       "description": "Unique username reservations."

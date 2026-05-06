@@ -12,16 +12,57 @@ import {
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
   Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, MessageSquare,
   Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock, Shield, Pin,
-  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, ArrowRight, ArrowUpRight, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw
+  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, ArrowRight, ArrowUpRight, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw, MapPin, Plus
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
+// @ts-ignore
+import { useRegisterSW } from 'virtual:pwa-register/react';
+import { GosAndFormatsPublic, GosAndFormatsAdmin } from './GosAndFormats';
 // Lazy loaded modules
 let XLSX: any = null;
 let jsPDF: any = null;
 let autoTable: any = null;
+
+// PWA Update Prompt Component
+function PwaUpdatePrompt({ needRefresh, setNeedRefresh, updateServiceWorker }: { needRefresh: boolean, setNeedRefresh: (v: boolean) => void, updateServiceWorker: (reloadPage?: boolean) => Promise<void> }) {
+  if (!needRefresh) return null;
+  
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-6 md:p-8 rounded-[32px] shadow-2xl max-w-lg w-full border border-slate-100 relative overflow-hidden">
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
+            <Zap size={28} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800">New Update Available!</h3>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">కొత్త వెర్షన్ అందుబాటులో ఉంది</p>
+          </div>
+        </div>
+        
+        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-6 text-sm">
+           <h4 className="font-bold text-slate-700 mb-2">What's New / కొత్త ఫీచర్లు:</h4>
+           <ul className="space-y-2 text-slate-600">
+             <li className="flex gap-2 items-start"><kbd className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-indigo-500 mt-0.5">NEW</kbd> <span><strong>Dark Mode & Theme Settings:</strong> Added new Dark Mode customization for better night-time usage. (రాత్రి పూట కళ్ళకు ఇబ్బంది లేకుండా డార్క్ మోడ్).</span></li>
+             <li className="flex gap-2 items-start"><kbd className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-indigo-500 mt-0.5">NEW</kbd> <span><strong>Notifications Toggle:</strong> Turn Push/Email notifications on or off in Profile. (నోటిఫికేషన్స్ కంట్రోల్ సెట్టింగ్స్).</span></li>
+             <li className="flex gap-2 items-start"><kbd className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-emerald-500 mt-0.5">IMP</kbd> <span><strong>Offline Enhancements (PWA):</strong> Improved offline local caching for checking data without internet. (ఇంటర్నెట్ లేకపోయినా లోకల్ డేటా చూసుకునే సదుపాయం).</span></li>
+             <li className="flex gap-2 items-start"><kbd className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-emerald-500 mt-0.5">IMP</kbd> <span><strong>GOs & Formats Section:</strong> Public uploads enabled with admin tracking, category tags, and display names! (అప్లికేషన్లు మరియు GOస్ పబ్లిక్ అప్లోడ్స్ సపోర్ట్).</span></li>
+           </ul>
+        </div>
+        
+        <div className="flex gap-3">
+          <button onClick={() => setNeedRefresh(false)} className="flex-1 py-3 px-4 rounded-xl font-bold uppercase tracking-widest text-xs bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Later</button>
+          <button onClick={() => updateServiceWorker(true)} className="flex-[2] py-3 px-4 rounded-xl font-bold uppercase tracking-widest text-xs bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg transition-all shadow-indigo-600/20">Update Now / ఇప్పుడే అప్డేట్ చేయండి</button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 
 const loadHeavyModules = async () => {
   if (!XLSX) XLSX = await import('xlsx');
@@ -46,7 +87,8 @@ import {
   increment, arrayUnion, arrayRemove, query, orderBy, limit, setDoc, getDoc, where,
   getDocFromServer
 } from 'firebase/firestore';
-import { auth, db } from "../firebase";
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { auth, db, storage } from "../firebase";
 import { GoogleGenAI } from "@google/genai";
 
 async function testConnection() {
@@ -204,6 +246,7 @@ interface Post {
   comments: Comment[];
   commentCount?: number;
   likedBy?: string[];
+  viewedBy?: string[];
   userName?: string;
   userPhoto?: string;
   time: number;
@@ -237,10 +280,12 @@ interface UserProfile {
   office?: string;
   role?: string;
   hidden?: boolean;
+  theme?: 'light' | 'dark';
+  notifications?: boolean;
   time: number;
 }
 
-const TELANGANA_DATA: Record<string, string[]> = {
+const DEFAULT_DISTRICTS_DATA: Record<string, string[]> = {
   "Adilabad": ["Adilabad","Bazarhathnoor","Bela","Bheempur","Bhoraj","Boath","Gadiguda","Gudihathnur","Ichoda","Inderavelly","Jainad","Mavala","Narnoor","Neradigonda","Sirikonda","Sathnala","Sonala","Talamadugu","Tamsi","Utnur"],
   "Bhadradri Kothagudem": ["Allapalli","Annapureddypalli","Aswapuram","Aswaraopeta","Bhadrachalam","Burgampadu","Chandrugonda","Cherla","Chunchupalli","Dammapeta","Dummugudem","Gundala","Julurpad","Karakagudem","Laxmidevipalli","Manuguru","Mulakalapalle","Palawancha","Pinapaka","Sujathanagar","Tekulapalle","Yellandu"],
   "Hanumakonda": ["Atmakur","Bheemadevarpalle","Damera","Dharmasagar","Elkathurthi","Hasanparthy","Inavolue","Kamalapur","Nadikuda","Parkal","Shayampet","Velair"],
@@ -638,6 +683,140 @@ const formatPostTitle = (title: string | undefined | null) => {
   return title.replace(/🛑🚀/g, '🛑\n🚀').replace(/🛑 🚀/g, '🛑\n🚀');
 };
 
+export const SYSTEM_UPDATES = [
+  {
+    id: 'update-v1.4.0',
+    isSystemElement: true,
+    text: (
+      <div className="text-left space-y-4">
+        <div className="flex items-center gap-3">
+          <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.4.0</kbd>
+          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">మే 06, 2026: డాక్యుమెంట్స్ & స్మార్ట్ అప్డేట్స్</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+          <div className="flex gap-4 items-start">
+            <kbd className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-[10px] font-black uppercase mt-0.5 whitespace-nowrap">NEW UI</kbd>
+            <span className="text-sm text-slate-600 leading-relaxed"><strong>Applications, Formats & GOs:</strong> యూజర్స్ అందరు తమకు కావాల్సిన గవర్నమెంట్ అప్లికేషన్లు, ఫార్మాట్‌లు మరియు GOస్‌ను అప్లోడ్ (పబ్లిక్ అప్లోడ్) చేసుకుని ఇతరులకు షేర్ చేసుకునే మరియు సులభంగా వెతుక్కునే సదుపాయం.</span>
+          </div>
+          <div className="flex gap-4 items-start">
+            <kbd className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-[10px] font-black uppercase mt-0.5 whitespace-nowrap">NEW PWA</kbd>
+            <span className="text-sm text-slate-600 leading-relaxed"><strong>ఆటో-అప్డేట్ ఫీచర్ (Auto-Update Notifier):</strong> యాప్ లో ఎప్పటికప్పుడు కొత్త ఫీచర్స్ వచ్చిన వెంటనే స్క్రీన్ మీద పాపప్ ద్వారా తెలిసేలా స్మార్ట్ అలర్ట్ సిస్టమ్ జోడించాం.</span>
+          </div>
+        </div>
+      </div>
+    ),
+    time: new Date('2026-05-06T10:00:00Z').getTime(), // Today
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.3.0',
+    isSystemElement: true,
+    text: (
+      <div className="text-left space-y-4">
+        <div className="flex items-center gap-3">
+          <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.3.0</kbd>
+          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">మే 01, 2026: పర్సనలైజేషన్ & మొబైల్ కనెక్టివిటీ</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+          <div className="flex gap-4 items-start">
+            <kbd className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded text-[10px] font-black uppercase mt-0.5 whitespace-nowrap">PROFILE</kbd>
+            <span className="text-sm text-slate-600 leading-relaxed"><strong>మై యాక్టివిటీ & రిపోర్ట్స్ (My Activity):</strong> యూజర్స్ తమ సొంత ప్రొఫైల్, వాళ్ళు పెట్టిన పోస్ట్‌లు మరియు పనుల గురించి రిపోర్ట్స్ చూసుకునే సెక్షన్ రడీ చేసాం.</span>
+          </div>
+          <div className="flex gap-4 items-start">
+            <kbd className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded text-[10px] font-black uppercase mt-0.5 whitespace-nowrap">OFFLINE</kbd>
+            <span className="text-sm text-slate-600 leading-relaxed"><strong>PWA యాప్ & ఆఫ్‌లైన్ సపోర్ట్:</strong> మొబైల్ లో ఒక యాప్ లా ఇన్స్టాల్ చేసుకునే అవకాశం మరియు ఇంటర్నెట్ లేనప్పుడు కూడా చూసిన డేటా చదువుకోగలిగే ఆఫ్‌లైన్ సపోర్ట్.</span>
+          </div>
+        </div>
+      </div>
+    ),
+    time: new Date('2026-05-01T10:00:00Z').getTime(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.2.0',
+    isSystemElement: true,
+    text: (
+      <div className="text-left space-y-4">
+        <div className="flex items-center gap-3">
+          <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.2.0</kbd>
+          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">ఏప్రిల్ 20, 2026: కమ్యూనికేషన్ & యూనియన్ కార్నర్</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+          <div className="flex gap-4 items-start">
+            <kbd className="bg-purple-50 text-purple-600 px-2 py-1 rounded text-[10px] font-black uppercase mt-0.5 whitespace-nowrap">CHAT</kbd>
+            <span className="text-sm text-slate-600 leading-relaxed"><strong>లైవ్ చాట్ (Live Chat):</strong> యూజర్ల మధ్యన రియల్ టైం డిస్కషన్స్ మరియు ముఖ్యమైన విషయాల పంచుకోవడానికి పబ్లిక్ లైవ్ చాట్ గ్రూప్స్ ప్రారంభం.</span>
+          </div>
+          <div className="flex gap-4 items-start">
+            <kbd className="bg-orange-50 text-orange-600 px-2 py-1 rounded text-[10px] font-black uppercase mt-0.5 whitespace-nowrap">UNION</kbd>
+            <span className="text-sm text-slate-600 leading-relaxed"><strong>యూనియన్ కార్నర్ (Union Corner):</strong> వివిధ ఎంప్లాయ్ యూనియన్స్ మరియు సంఘాల సమాచారం త్వరగా అందరికీ చేరేలా ఒక స్పెషల్ వాయిస్ బోర్డ్.</span>
+          </div>
+        </div>
+      </div>
+    ),
+    time: new Date('2026-04-20T10:00:00Z').getTime(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.1.0',
+    isSystemElement: true,
+    text: (
+      <div className="text-left space-y-4">
+        <div className="flex items-center gap-3">
+          <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.1.0</kbd>
+          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">ఏప్రిల్ 15, 2026: పబ్లిక్ ఎంగేజ్మెంట్</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+          <div className="flex gap-4 items-start">
+            <kbd className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-[10px] font-black uppercase mt-0.5 whitespace-nowrap">FEEDBACK</kbd>
+            <span className="text-sm text-slate-600 leading-relaxed"><strong>సజెషన్స్ & ఫీడ్బ్యాక్ (Public Suggestions):</strong> ఎవరైనా సరే ఏమైనా కొత్త సజెషన్స్ ఇవ్వడానికి, లేదా కంప్లైంట్ ఇవ్వడానికి లైవ్ పబ్లిక్ సెక్షన్ మరియు ఓటింగ్ సిస్టమ్ జోడింపు.</span>
+          </div>
+        </div>
+      </div>
+    ),
+    time: new Date('2026-04-15T10:00:00Z').getTime(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'foundation',
+    isSystemElement: true,
+    text: (
+      <div className="text-left space-y-4">
+        <div className="flex items-center gap-3">
+          <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.0.0</kbd>
+          <p className="font-bold text-slate-700 text-lg">**ప్రారంభం:** ఏప్రిల్ 11, 2026, మధ్యాహ్నం 2:00 గంటలకు.</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <p className="text-slate-600 text-sm leading-relaxed">పంచాయతీ ఆపరేటర్ల మరియు ఉద్యోగుల డిజిటల్ అవసరాలకోసం మా కు వచ్చిన అమూల్యమైన ఆలోచనలతో ఎలక్ట్రానిక్ వేదికకు నాంది. గూగుల్ **Gemini** మరియు **Chat GPT** కృత్రిమ మేధస్సుల సహాయంతో ఈ పోర్టల్‌ తొలి విడుదల మరియు పబ్లిక్ ఆర్టికల్స్ సిస్టం ప్రారంభించాము.</p>
+        </div>
+      </div>
+    ),
+    time: new Date('2026-04-11T14:00:00Z').getTime(),
+    type: 'changelog',
+    status: 'Approved'
+  }
+];
+
+export const handleShare = async (title: string, text: string, url: string, onSuccess?: () => void) => {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      if (onSuccess) onSuccess();
+    } catch (error: any) {
+      if (error && error.name !== 'AbortError') {
+        navigator.clipboard.writeText(url);
+        if (onSuccess) onSuccess();
+      }
+    }
+  } else {
+    navigator.clipboard.writeText(url);
+    if (onSuccess) onSuccess();
+  }
+};
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -649,6 +828,19 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userRole, setUserRole] = useState<'admin' | 'editor' | 'user'>('user');
   const hasGreetedRef = useRef(false);
+
+  // PWA Update Prompt logic
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegistered(r) {
+      console.log('SW Registered: ' + r)
+    },
+    onRegisterError(error) {
+      console.log('SW registration error', error)
+    },
+  });
   
   const isDevEmail = user?.email?.toLowerCase() === 'rakeshkumardhawan123@gmail.com';
   const isAdmin = userRole === 'admin' || isDevEmail;
@@ -661,6 +853,14 @@ export default function App() {
       } catch(e) {}
     }
   }, []);
+
+  useEffect(() => {
+    if (userProfile?.theme === 'dark') {
+      document.body.classList.add('dark-theme');
+    } else {
+      document.body.classList.remove('dark-theme');
+    }
+  }, [userProfile?.theme]);
 
   useEffect(() => {
     // Suppress benign Vite WebSocket error logs that confuse the user
@@ -735,7 +935,8 @@ export default function App() {
   }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentTab, setCurrentTab] = useState('home');
+  const tabFromUrl = searchParams.get('tab');
+  const [currentTab, setCurrentTab] = useState(tabFromUrl || 'home');
   const [activeInternalUrl, setActiveInternalUrl] = useState<string | null>(null);
   const [currentFilter, setCurrentFilter] = useState('All');
   const [posts, setPosts] = useState<Post[]>([]);
@@ -803,6 +1004,16 @@ export default function App() {
   const suggestionsScrollRef = useRef<HTMLDivElement>(null);
 
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [districtsData, setDistrictsData] = useState<Record<string, string[]>>(DEFAULT_DISTRICTS_DATA);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'locations'), (snap) => {
+      if (snap.exists() && snap.data().data) {
+         setDistrictsData(snap.data().data);
+      }
+    });
+    return () => unsub();
+  }, []);
   
   useEffect(() => {
     if (currentTab === 'suggestions' && !sessionStorage.getItem('sawSuggestionAlert')) {
@@ -1003,8 +1214,8 @@ export default function App() {
         const p = { id: snap.id, ...snap.data() } as UserProfile;
         setUserProfile(p);
         
-        // Force setup if required fields are missing
-        if (!p.name || !p.surname || !p.username || !p.mobile || !p.district || !p.mandal || !p.designation) {
+        // Force profile setup only if basic details are missing to avoid annoying existing users
+        if (!p.name && !p.username) {
            setShowForcedProfileSetup(true);
         } else {
            setShowForcedProfileSetup(false);
@@ -1315,6 +1526,7 @@ export default function App() {
                  setCurrentAdminPin={setCurrentAdminPin}
                  users={allUsers}
                  onExit={() => navigate('/')}
+                 districtsData={districtsData}
               />
             </div>
          )}
@@ -1333,6 +1545,7 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-[#f8fafc] to-slate-100 text-slate-800 flex flex-col font-sans selection:bg-accent/20 selection:text-primary antialiased">
+      <PwaUpdatePrompt needRefresh={needRefresh} setNeedRefresh={setNeedRefresh} updateServiceWorker={updateServiceWorker} />
       <AnimatePresence>
         {toasts.map(t => (
           <motion.div
@@ -1479,6 +1692,18 @@ export default function App() {
                         <User size={18} />
                       </div>
                       Edit Profile
+                    </button>
+                    <button aria-label="Share App"
+                      onClick={() => {
+                        handleShare('E-Vedhika PRO', 'Join me on E-Vedhika PRO for all updates!', window.location.origin, () => addToast("Link copied!"));
+                        setShowProfileDropdown(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors rounded-xl group text-left"
+                    >
+                      <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-100 transition-colors">
+                        <Share2 size={18} />
+                      </div>
+                      Share E-Vedhika
                     </button>
                     <div className="h-px bg-slate-100 my-1 mx-2" />
                     <button aria-label="Logout"
@@ -1659,6 +1884,21 @@ export default function App() {
             <MenuButton label="Union Corner" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
             <MenuButton label="What's New! 🚀" emoji="✨" active={currentTab === 'changelog'} onClick={() => {setCurrentTab('changelog'); setSidebarOpen(false);}} />
             <MenuButton label="💡 Public suggestions & Feedback" emoji="💡" active={currentTab === 'suggestions'} onClick={() => {setCurrentTab('suggestions'); setSidebarOpen(false);}} />
+            <MenuButton label="📑 Applications, Formats & GOs" emoji="📑" active={currentTab === 'gos_formats'} onClick={() => {setCurrentTab('gos_formats'); setSidebarOpen(false);}} />
+            <MenuButton label="🚨 Emergency Contacts" emoji="🚨" active={currentTab === 'emergency'} onClick={() => {setCurrentTab('emergency'); setSidebarOpen(false);}} />
+            <MenuButton label="👤 My Activity & Reports" emoji="📋" active={currentTab === 'my_activity'} onClick={() => {
+               if(!user) {
+                  requireLoginAlert();
+               } else {
+                  setCurrentTab('my_activity'); 
+                  setSidebarOpen(false);
+               }
+            }} />
+            <MenuButton label="🔗 Share App" emoji="🔗" active={false} onClick={() => {
+               handleShare('E-Vedhika PRO', 'Join me on E-Vedhika PRO for all updates!', window.location.origin, () => addToast("Link copied!"));
+               setSidebarOpen(false);
+            }} />
+
             
             {showInstallButton && (
               <div className="mt-8 px-4">
@@ -1699,6 +1939,7 @@ export default function App() {
                isAdmin={isAdmin}
                addToast={addToast}
                userProfile={userProfile}
+               allUsers={allUsers}
             />
           ) : (
             <AnimatePresence mode="wait">
@@ -1761,18 +2002,29 @@ export default function App() {
 
                   <div className="space-y-10">
                     <AnimatePresence mode="popLayout">
-                      {filteredPosts.map((post, index) => (
-                        <motion.div key={post.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
-                          <PostCard 
-                            post={post} 
-                            isExpanded={expandedPosts.has(post.id)} 
-                            toggleExpansion={() => togglePostExpansion(post.id)} 
-                            addToast={addToast} 
-                            isAdmin={isEditor} 
-                            onEdit={(p) => { setEditingPost(p); setShowPostForm(true); }} 
-                          />
-                        </motion.div>
-                      ))}
+                      {filteredPosts.flatMap((post, index) => {
+                        const items = [
+                          <motion.div key={post.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
+                            <PostCard 
+                              post={post} 
+                              isExpanded={expandedPosts.has(post.id)} 
+                              toggleExpansion={() => togglePostExpansion(post.id)} 
+                              addToast={addToast} 
+                              isAdmin={isEditor} 
+                              onEdit={(p) => { setEditingPost(p); setShowPostForm(true); }} 
+                              allUsers={allUsers}
+                            />
+                          </motion.div>
+                        ];
+                        if ((index + 1) % 5 === 0) {
+                          items.push(
+                            <motion.div key={`ad-${post.id}`} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
+                              <AdBanner slotId={`ad-feed-${index}`} />
+                            </motion.div>
+                          );
+                        }
+                        return items;
+                      })}
                     </AnimatePresence>
                   </div>
                   
@@ -1911,6 +2163,25 @@ export default function App() {
               </motion.div>
             )}
 
+            {currentTab === 'union' && (
+              <motion.div key="union" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="h-full flex flex-col items-center justify-center p-6 text-center">
+                <div className="bg-white p-12 lg:p-20 rounded-[40px] border border-slate-100 shadow-sm w-full max-w-3xl flex flex-col items-center gap-6 relative overflow-hidden">
+                  <div className="absolute top-0 inset-x-0 h-2 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_20px,#f59e0b_20px,#f59e0b_40px)]"></div>
+                  <div className="text-7xl lg:text-8xl animate-bounce">🚧</div>
+                  <h2 className="text-3xl lg:text-4xl font-black text-slate-800 uppercase tracking-widest">Under Construction</h2>
+                  <p className="text-slate-500 max-w-lg mx-auto text-base lg:text-lg leading-relaxed font-medium">
+                    ప్రస్తుతానికి ఇది అండర్ కన్‌స్ట్రక్షన్‌లో ఉంది.
+                  </p>
+                  <button 
+                    onClick={() => setCurrentTab('home')}
+                    className="mt-4 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20 active:scale-95"
+                  >
+                    Go Back Home
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
             {currentTab === 'changelog' && (
               <motion.div 
                 key="changelog" 
@@ -1933,25 +2204,8 @@ export default function App() {
                    <div className="absolute left-7 lg:left-10 top-0 bottom-0 w-px bg-slate-200 z-0" />
 
                    {[
-                     {
-                       id: 'foundation',
-                       text: (
-                         <div className="text-left space-y-4">
-                           <p className="font-bold text-slate-700">**ప్రారంభం:** ఏప్రిల్ 11వ తేదీ, మధ్యాహ్నం 2:00 గంటలకు.</p>
-                           <p className="text-slate-600 text-sm">పంచాయతీ ఆపరేటర్ల నుంచి అందిన అమూల్యమైన సూచనలు మాకు స్ఫూర్తినిచ్చాయి. గూగుల్ **Gemini** మరియు **Chat GPT** సహాయంతో ఈ వేదికను అభివృద్ధి చేశాము.</p>
-                         </div>
-                       ),
-                       time: 1712851200000,
-                       type: 'changelog'
-                     },
-                     ...updates.filter(u => u.type === 'changelog' && u.status?.toLowerCase() !== 'deleted'),
-                     ...posts.map(p => ({
-                        id: p.id,
-                        text: `New Post created by Admin: ${p.title || (p.content ? p.content.substring(0, 50) + "..." : "Updates added")}`,
-                        time: p.time,
-                        type: 'changelog',
-                        isAutoPost: true
-                     }))
+                     ...SYSTEM_UPDATES,
+                     ...updates.filter(u => u.type === 'changelog' && u.status?.toLowerCase() !== 'deleted' && u.visibility !== 'internal'),
                    ].sort((a: any, b: any) => (b.time || 0) - (a.time || 0)).map((u: any, i) => (
                       <motion.div 
                         initial={{ opacity: 0, x: -20 }} 
@@ -1965,22 +2219,101 @@ export default function App() {
                            {u.isAutoPost ? <PlusCircle size={16} className="text-indigo-500" /> : <Zap size={16} className="text-blue-500" />}
                          </div>
                          <div className="flex-1 pt-2 lg:pt-3">
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
-                               <h3 className="text-sm sm:text-base font-black text-slate-800">
-                                 {u.id === 'foundation' ? 'Foundation Launch' : (u.isAutoPost ? 'Community Notice' : 'System Update')}
-                               </h3>
-                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-md w-max">
-                                 {new Date(getValidTime(u)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                               </span>
-                            </div>
-                            <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                               <div className="text-[14px] font-medium text-slate-600 leading-relaxed whitespace-pre-wrap">
-                                 {typeof u.text === 'string' ? u.text : u.text}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-2">
+                               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                                 <h3 className="text-sm sm:text-base font-black text-slate-800">
+                                   {u.id === 'foundation' ? 'Foundation Launch' : (u.isAutoPost ? 'Community Notice' : 'System Update')}
+                                 </h3>
+                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-md w-max">
+                                   {new Date(getValidTime(u)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                 </span>
                                </div>
+                               <button 
+                                 onClick={() => {
+                                   const textToShare = u.title ? `${u.version ? u.version + ' ' : ''}${u.title}\n\n${u.text}` : u.text;
+                                   handleShare('E-Vedhika PRO Update', typeof textToShare === 'string' ? textToShare : 'Check out this update on E-Vedhika PRO', window.location.origin, () => addToast("Link copied!"));
+                                 }}
+                                 className="hidden sm:flex items-center justify-center gap-2 text-slate-400 hover:text-blue-500 transition-colors p-2 rounded-lg hover:bg-slate-50 shrink-0"
+                                 title="Share Update"
+                               >
+                                 <Share2 size={16} />
+                               </button>
+                            </div>
+                            <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-shadow w-full overflow-hidden">
+                               {u.isSystemElement || (!u.version && !u.title && !u.badge && typeof u.text !== 'string') ? (
+                                  <div className="text-[14px] font-medium text-slate-600 leading-relaxed whitespace-pre-wrap">
+                                    {u.text}
+                                  </div>
+                               ) : (u.version || u.title || u.badge) ? (
+                                  <div className="text-left space-y-4">
+                                    {(u.version || u.title) && (
+                                      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                        {u.version && <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">{u.version}</kbd>}
+                                        {u.title && <p className="font-bold text-slate-800 text-base sm:text-lg flex items-center gap-2">{u.title}</p>}
+                                      </div>
+                                    )}
+                                    <div className="bg-slate-50 sm:bg-white p-4 sm:p-5 rounded-2xl sm:border border-slate-100 sm:shadow-sm space-y-4 w-full">
+                                      <div className="flex gap-3 sm:gap-4 items-start w-full">
+                                        {u.badge && <kbd className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded text-[10px] font-black uppercase mt-0.5 whitespace-nowrap">{u.badge}</kbd>}
+                                        <span className="text-sm text-slate-600 leading-relaxed break-words whitespace-pre-wrap flex-1">{u.text}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                               ) : (
+                                  <div className="text-[14px] font-medium text-slate-600 leading-relaxed whitespace-pre-wrap">
+                                    {u.text}
+                                  </div>
+                               )}
                             </div>
                          </div>
                       </motion.div>
                    ))}
+                </div>
+              </motion.div>
+            )}
+
+            {currentTab === 'gos_formats' && (
+              <motion.div key="gos_formats" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <GosAndFormatsPublic user={user} addToast={addToast} isAdmin={isAdmin} />
+              </motion.div>
+            )}
+
+            {currentTab === 'emergency' && (
+              <motion.div key="emergency" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <div className="bg-white p-4 sm:p-8 rounded-3xl shadow-sm border border-slate-200 min-h-[60vh]">
+                  <div className="border-b border-slate-100 pb-4 mb-6">
+                    <h2 className="text-xl sm:text-2xl font-black text-rose-600 flex flex-row items-center flex-wrap gap-2">
+                       <span>🚨 Emergency & Helpline Contacts</span>
+                    </h2>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">అత్యవసర ఫోన్ నంబర్లు</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[
+                       { name: 'Police (పోలీస్)', number: '100', icon: '🚓', color: 'blue' },
+                       { name: 'Ambulance (అంబులెన్స్)', number: '108', icon: '🚑', color: 'rose' },
+                       { name: 'Fire (అగ్నిమాపక దళం)', number: '101', icon: '🚒', color: 'red' },
+                       { name: 'Women Helpline (మహిళల హెల్ప్‌లైన్)', number: '1091', icon: '🛡️', color: 'purple' },
+                       { name: 'Child Helpline (ఛైల్డ్ హెల్ప్‌లైన్)', number: '1098', icon: '👶', color: 'amber' },
+                       { name: 'Cyber Crime (సైబర్ క్రైమ్)', number: '1930', icon: '💻', color: 'indigo' },
+                       { name: 'Anti-Corruption (అవినీతి నిరోధక)', number: '14400', icon: '⚖️', color: 'slate' },
+                       { name: 'Farmers Helpline (రైతుల హెల్ప్‌లైన్)', number: '155251', icon: '🌾', color: 'green' },
+                       { name: 'Disha Helpline (దిశ)', number: '181', icon: '👩', color: 'pink' }
+                    ].map((contact, i) => (
+                      <div key={i} className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-rose-200 hover:shadow-md transition-all">
+                         <div className="flex items-center gap-4">
+                            <div className="text-3xl lg:text-4xl group-hover:scale-110 transition-transform">{contact.icon}</div>
+                            <div>
+                               <div className="text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-tight">{contact.name}</div>
+                               <div className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter mt-1">{contact.number}</div>
+                            </div>
+                         </div>
+                         <a href={`tel:${contact.number}`} className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-green-500 hover:bg-green-500 hover:text-white transition-colors border border-green-100">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                         </a>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -2227,6 +2560,18 @@ export default function App() {
               </motion.div>
             )}
 
+            {currentTab === 'my_activity' && (
+              <motion.div key="my_activity" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <MyActivity 
+                  user={user} 
+                  userProfile={userProfile} 
+                  problems={problemsGlobal} 
+                  suggestions={approvedSuggestions} 
+                  posts={posts} 
+                />
+              </motion.div>
+            )}
+
             {currentTab === 'problems' && (
               <motion.div key="problems" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <div className="flex justify-between items-center mb-4">
@@ -2293,6 +2638,7 @@ export default function App() {
                         onClose={() => setShowAuthModal(false)} 
                         addToast={addToast} 
                         handleGoogleLogin={handleGoogleLogin} 
+                        districtsData={districtsData}
                       />
                     )}
 
@@ -2324,6 +2670,7 @@ export default function App() {
                         addToast={addToast}
                         isForced={showForcedProfileSetup}
                         onComplete={() => setShowForcedProfileSetup(false)}
+                        districtsData={districtsData}
                       />
                     )}
       </main>
@@ -2332,7 +2679,7 @@ export default function App() {
 );
 }
 
-function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, isForced, onComplete }: { onClose: () => void, onExitForced?: () => void, user: any, userProfile: UserProfile | null, addToast: (s:string) => void, isForced?: boolean, onComplete?: () => void }) {
+function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, isForced, onComplete, districtsData }: { onClose: () => void, onExitForced?: () => void, user: any, userProfile: UserProfile | null, addToast: (s:string) => void, isForced?: boolean, onComplete?: () => void, districtsData: Record<string, string[]> }) {
   const [surname, setSurname] = useState(userProfile?.surname || '');
   const [name, setName] = useState(userProfile?.name || '');
   const [username, setUsername] = useState(userProfile?.username || user?.displayName || '');
@@ -2346,9 +2693,11 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
   const [photoURL, setPhotoURL] = useState(userProfile?.photoURL || user?.photoURL || '');
   const [designation, setDesignation] = useState(userProfile?.designation || '');
   const [office, setOffice] = useState(userProfile?.office || '');
+  const [theme, setTheme] = useState<'light'|'dark'>(userProfile?.theme || 'light');
+  const [notifications, setNotifications] = useState(userProfile?.notifications ?? true);
   const [saving, setSaving] = useState(false);
 
-  const mandals = district ? TELANGANA_DATA[district] || [] : [];
+  const mandals = district ? districtsData[district] || [] : [];
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2392,6 +2741,8 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
         mobile,
         email,
         photoURL,
+        theme,
+        notifications,
         time: userProfile?.time || Date.now()
       }, { merge: true });
 
@@ -2496,7 +2847,7 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
                <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">District *</label>
                <select value={district} onChange={e => { setDistrict(e.target.value); setMandal(''); }} required className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs">
                   <option value="">Select District</option>
-                  {Object.keys(TELANGANA_DATA).sort().map(d => <option key={d}>{d}</option>)}
+                  {Object.keys(districtsData).sort().map(d => <option key={d}>{d}</option>)}
                </select>
              </div>
           </div>
@@ -2523,6 +2874,21 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
           <div>
             <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Office Address</label>
             <input value={office} onChange={e => setOffice(e.target.value)} placeholder="Office location / Building" className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-100">
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                 <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-[10px] font-black uppercase text-slate-600">Dark Theme</span>
+                    <input type="checkbox" checked={theme === 'dark'} onChange={(e) => setTheme(e.target.checked ? 'dark' : 'light')} className="w-4 h-4 accent-primary" />
+                 </label>
+             </div>
+             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                 <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-[10px] font-black uppercase text-slate-600">Notifications</span>
+                    <input type="checkbox" checked={notifications} onChange={(e) => setNotifications(e.target.checked)} className="w-4 h-4 accent-primary" />
+                 </label>
+             </div>
           </div>
 
           <div className="flex flex-wrap gap-3 mt-4">
@@ -2585,7 +2951,194 @@ function ClockWidget() {
   );
 }
 
-function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLocked, adminLocked, notifications, requests, updates, userRole, onExit, onNewPost, onEditPost, isDevEmail, currentAdminPin, setCurrentAdminPin }: any) {
+function LocationManager({ districtsData, addToast }: { districtsData: Record<string, string[]>, addToast: (s: string) => void }) {
+  const [expandedDistrict, setExpandedDistrict] = useState<string | null>(null);
+  const [newDistrict, setNewDistrict] = useState('');
+  const [newMandalMap, setNewMandalMap] = useState<Record<string, string>>({});
+
+  const writeData = async (data: Record<string, string[]>) => {
+    try {
+      await setDoc(doc(db, 'settings', 'locations'), { data, updatedAt: Date.now() }, { merge: true });
+      addToast("Locations successfully updated.");
+    } catch (e: any) {
+      addToast("Error updating locations");
+      console.error(e);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+         <div>
+            <h4 className="text-2xl font-black text-primary mb-1">Location Management</h4>
+            <p className="text-xs text-slate-400 font-medium tracking-tight">Add or remove districts and mandals available in the system dropdowns.</p>
+         </div>
+      </div>
+      
+      <div className="flex flex-col md:flex-row gap-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+         <div className="flex-1">
+            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 mb-2">Add New District</h5>
+            <input value={newDistrict} onChange={e => setNewDistrict(e.target.value)} placeholder="e.g. Medchal-Malkajgiri" className="w-full bg-white border-none p-4 rounded-2xl outline-none font-bold text-sm shadow-sm" />
+         </div>
+         <div className="flex items-end">
+            <button aria-label="Add District" onClick={() => {
+              if(!newDistrict) return;
+              if (districtsData[newDistrict.trim()]) { addToast("District already exists"); return; }
+              const updated = { ...districtsData, [newDistrict.trim()]: [] };
+              writeData(updated);
+              setNewDistrict('');
+            }} className="h-[52px] px-6 bg-[#0f2e4a] text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-blue-600 transition-colors shadow-lg active:scale-95 flex items-center justify-center">
+              Add District
+            </button>
+         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+         {Object.keys(districtsData).sort().map(d => (
+            <div key={d} className="bg-white rounded-[24px] border border-slate-100 shadow-sm overflow-hidden flex flex-col group">
+               <div className="p-5 flex items-center justify-between bg-slate-50/50 group-hover:bg-slate-50 transition-colors">
+                  <h3 className="font-black text-[#0f2e4a] flex items-center gap-2">
+                     <MapPin size={16} className="text-blue-500" />
+                     {d}
+                  </h3>
+                  <div className="flex gap-2">
+                     <button aria-label="Toggle Expand" onClick={() => setExpandedDistrict(expandedDistrict === d ? null : d)} className="p-2 text-slate-400 hover:text-[#0f2e4a] hover:bg-slate-200/50 rounded-xl transition-colors">
+                       <ChevronRight size={18} className={`transition-transform ${expandedDistrict === d ? 'rotate-90' : ''}`} />
+                     </button>
+                     <button aria-label="Delete District" onClick={() => {
+                        if (window.confirm(`Are you sure you want to delete ${d} and all its mandals?`)) {
+                           const updated = { ...districtsData };
+                           delete updated[d];
+                           writeData(updated);
+                        }
+                     }} className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                        <Trash2 size={16} />
+                     </button>
+                  </div>
+               </div>
+               
+               {expandedDistrict === d && (
+                 <div className="p-5 border-t border-slate-100 bg-white">
+                    <div className="flex gap-2 mb-4">
+                       <input 
+                         value={newMandalMap[d] || ''} 
+                         onChange={e => setNewMandalMap({ ...newMandalMap, [d]: e.target.value })} 
+                         placeholder="New Mandal Name" 
+                         className="flex-1 bg-slate-50 border border-slate-200 outline-none p-3 rounded-xl font-bold text-xs" 
+                         onKeyDown={e => {
+                           if (e.key === 'Enter') {
+                             const m = newMandalMap[d]?.trim();
+                             if(m) {
+                               const updated = { ...districtsData, [d]: [...(districtsData[d]||[]).filter(x => x!==m), m].sort() };
+                               writeData(updated);
+                               setNewMandalMap({...newMandalMap, [d]: ''});
+                             }
+                           }
+                         }}
+                       />
+                       <button aria-label="Add Mandal" onClick={() => {
+                          const m = newMandalMap[d]?.trim();
+                          if(m) {
+                            const updated = { ...districtsData, [d]: [...(districtsData[d]||[]).filter(x => x!==m), m].sort() };
+                            writeData(updated);
+                            setNewMandalMap({...newMandalMap, [d]: ''});
+                          }
+                       }} className="p-3 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl font-bold transition-colors">
+                         <Plus size={16} />
+                       </button>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                       {districtsData[d].map((m: string) => (
+                         <div key={m} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-600">{m}</span>
+                            <button aria-label="Delete Mandal" onClick={() => {
+                               const updated = { ...districtsData, [d]: districtsData[d].filter((x: string) => x !== m) };
+                               writeData(updated);
+                            }} className="text-slate-300 hover:text-red-500 transition-colors bg-white hover:bg-red-50 p-0.5 rounded-full">
+                               <X size={12} />
+                            </button>
+                         </div>
+                       ))}
+                       {districtsData[d].length === 0 && (
+                          <div className="w-full p-4 text-center text-xs font-bold text-slate-300 border-2 border-dashed border-slate-100 rounded-xl">No mandals added yet.</div>
+                       )}
+                    </div>
+                 </div>
+               )}
+            </div>
+         ))}
+      </div>
+    </div>
+  );
+}
+
+function MyActivity({ user, userProfile, problems, suggestions, posts }: any) {
+  const [activeTab, setActiveTab] = useState<'problems'|'suggestions'>('problems');
+
+  const myProblems = problems.filter((p: any) => p.userId === user?.uid || p.authorId === user?.uid);
+  const mySuggestions = suggestions.filter((s: any) => s.authorId === user?.uid || s.userId === user?.uid || s.uid === user?.uid);
+
+  return (
+    <div className="bg-white p-4 sm:p-8 rounded-3xl shadow-sm border border-slate-200 min-h-[60vh]">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 pb-6 border-b border-slate-100 gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-primary flex items-center gap-2 mb-2">
+            <span className="text-3xl">📋</span> My Activity & Reports
+          </h2>
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest pl-1">Track the status of your submitted issues and feedback</p>
+        </div>
+      </div>
+
+      <div className="flex gap-4 mb-6 border-b border-slate-100 pb-2 overflow-x-auto custom-scrollbar">
+        <button aria-label="My Problems" onClick={() => setActiveTab('problems')} className={`py-2 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'problems' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+          My Problems ({myProblems.length})
+        </button>
+        <button aria-label="My Suggestions" onClick={() => setActiveTab('suggestions')} className={`py-2 px-4 font-black text-sm uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'suggestions' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+          My Suggestions ({mySuggestions.length})
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        {activeTab === 'problems' && (
+           myProblems.length > 0 ? myProblems.map((p: any) => (
+             <div key={p.id} className="p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-slate-300 transition-all">
+                <div className="flex-1">
+                   <div className="flex items-center justify-between">
+                     <span className="text-xs font-black uppercase text-slate-400 tracking-widest">{p.category}</span>
+                     <span className={`px-3 text-[10px] font-black uppercase tracking-widest py-1 rounded-full ${p.status === 'resolved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {p.status || 'Pending'}
+                     </span>
+                   </div>
+                   <h3 className="font-bold text-slate-800 mt-2">{p.title || p.desc?.substring(0, 50)}</h3>
+                   <p className="text-xs text-slate-500 mt-1 line-clamp-2">{p.desc}</p>
+                   <p className="text-[10px] font-bold text-slate-400 mt-2">Submitted on: {new Date(p.createdAt || Date.now()).toLocaleDateString()}</p>
+                </div>
+             </div>
+           )) : <div className="py-10 text-center font-bold text-slate-400">No problems reported yet.</div>
+        )}
+
+        {activeTab === 'suggestions' && (
+           mySuggestions.length > 0 ? mySuggestions.map((s: any) => (
+             <div key={s.id} className="p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-slate-300 transition-all">
+                <div className="flex-1">
+                   <div className="flex items-center justify-between">
+                     <span className={`px-3 text-[10px] font-black uppercase tracking-widest py-1 rounded-full ${(s.status === 'approved' || s.status === 'resolved') ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {s.status === 'approved' || s.status === 'resolved' ? 'Published' : (s.status || 'Under Review')}
+                     </span>
+                   </div>
+                   <p className="text-sm text-slate-700 mt-2">{s.text || s.msg || s.suggestion}</p>
+                   <p className="text-[10px] font-bold text-slate-400 mt-2">Submitted on: {new Date(s.time || s.createdAt || Date.now()).toLocaleDateString()}</p>
+                </div>
+             </div>
+           )) : <div className="py-10 text-center font-bold text-slate-400">No suggestions submitted yet.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLocked, adminLocked, notifications, requests, updates, userRole, onExit, onNewPost, onEditPost, isDevEmail, currentAdminPin, setCurrentAdminPin, districtsData }: any) {
   const isAdmin = userRole === 'admin' || isDevEmail;
   const isEditor = userRole === 'admin' || userRole === 'editor' || isDevEmail;
   const [activeSubTab, setActiveSubTab] = useState('dash');
@@ -2829,12 +3382,14 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                 { id: 'dash', label: 'Analytics Dashboard', icon: <Activity size={18}/> },
                 { id: 'reports', label: 'Posts & Issues', icon: <AlertOctagon size={18}/> },
                 { id: 'suggestions', label: 'Suggestions & Feedback', icon: <PlusCircle size={18}/> },
+                { id: 'gos_formats', label: 'Applications, Formats & GOs', icon: <FileText size={18}/> },
                 { id: 'users', label: 'User Access & Directory', icon: <Users size={18}/> },
                 { id: 'trash', label: 'Recycle Bin', icon: <Trash2 size={18}/> },
                 { id: 'updates', label: 'Flash News', icon: <Zap size={18}/> },
                 { id: 'changelog', label: "What's New", icon: <Info size={18}/> },
                 { id: 'logs', label: 'Security Logs', icon: <ShieldAlert size={18}/> },
-                { id: 'settings', label: 'System Config', icon: <Settings size={18}/> }
+                { id: 'settings', label: 'System Config', icon: <Settings size={18}/> },
+                { id: 'locations', label: 'Manage Locations', icon: <MapPin size={18}/> }
               ].filter(t => isAdmin || ['dash', 'reports', 'suggestions', 'trash', 'updates'].includes(t.id)).map(tab => (
                 <button aria-label={tab.label}
                   key={tab.id}
@@ -2894,10 +3449,12 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               <h1 className="text-xl lg:text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
                 {activeSubTab === 'dash' && '📊 Dashboard Hub'}
                 {activeSubTab === 'reports' && '🚩 Posts & Issues'}
+                {activeSubTab === 'gos_formats' && '📑 Applications, Formats & GOs Management'}
                 {activeSubTab === 'users' && '👥 User Access & Directory'}
                 {activeSubTab === 'trash' && '🗑️ Recycle Bin System'}
                 {activeSubTab === 'logs' && '🛡️ Security Audits'}
                 {activeSubTab === 'settings' && '⚙️ System Settings'}
+                {activeSubTab === 'locations' && '🗺️ Location Management'}
                 {activeSubTab === 'suggestions' && '💡 Suggestions & Feedback'}
                 {activeSubTab === 'updates' && '⚡ Flash News'}
                 {activeSubTab === 'changelog' && "🚀 What's New Management"}
@@ -2951,6 +3508,42 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               ))}
             </motion.div>
 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl transition-all">
+                <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest pl-2 mb-4">Users per District</h4>
+                <div className="h-64 min-h-[256px]">
+                   <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                      <BarChart data={Object.entries(users.filter(u => !u.isDeleted).reduce((acc: any, curr: any) => { const d = curr.district || 'Unknown'; acc[d] = (acc[d] || 0) + 1; return acc; }, {})).map(([name, value]) => ({ name, value }))}>
+                         <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                         <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                         <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                         <Bar dataKey="value" fill="#0891b2" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                   </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl transition-all">
+                <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest pl-2 mb-4">Post Status Overview</h4>
+                <div className="h-64 min-h-[256px]">
+                   <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                      <PieChart>
+                         <Pie 
+                            data={Object.entries(posts.filter(p => !p.isDeleted).reduce((acc: any, curr: any) => { const s = curr.status || 'pending'; acc[s] = (acc[s] || 0) + 1; return acc; }, {})).map(([name, value]) => ({ name: name.charAt(0).toUpperCase()+name.slice(1), value }))} 
+                            dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}
+                         >
+                            {
+                              Object.entries(posts.filter(p => !p.isDeleted).reduce((acc: any, curr: any) => { const s = curr.status || 'pending'; acc[s] = (acc[s] || 0) + 1; return acc; }, {})).map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={['#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#6366f1'][index % 5]} />
+                              ))
+                            }
+                         </Pie>
+                         <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                      </PieChart>
+                   </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
 
           </div>
         )}
@@ -2973,6 +3566,30 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
 
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                 <div className="flex flex-wrap items-center gap-3">
+                   <button aria-label="Export Reports" onClick={async () => {
+                       addToast("Generating Export Data...");
+                       if (!XLSX) await loadHeavyModules();
+                       const isPosts = activeSubTab === 'reports' ? reportsType === 'posts' : false;
+                       const ds = activeSubTab === 'suggestions' ? suggestions : (isPosts ? posts : problems);
+                       const exportData = ds.map((item: any) => ({
+                           Title: item.title || item.type || '',
+                           Description: item.desc || item.text || '',
+                           Category: item.category || '',
+                           Status: item.status || 'pending',
+                           District: item.district || '',
+                           Mandal: item.mandal || '',
+                           Panchayat: item.panchayat || '',
+                           Author: item.authorName || '',
+                           Date: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : ''
+                       }));
+                       const ws = XLSX.utils.json_to_sheet(exportData);
+                       const wb = XLSX.utils.book_new();
+                       XLSX.utils.book_append_sheet(wb, ws, "Reports");
+                       XLSX.writeFile(wb, "reports_export.xlsx");
+                       addToast("Export complete.");
+                   }} className="px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border bg-green-50 border-green-100 text-green-700 hover:bg-green-600 hover:text-white flex items-center gap-2 shadow-sm">
+                     <Download size={14} /> Export XLS
+                   </button>
                    {['All', 'Approved', 'Pending', 'Resolved', 'Deleted'].map(f => (
                       <button aria-label={f}
                          key={f}
@@ -3064,7 +3681,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                                                 <span>Manage Comments ({item.commentCount || 0})</span>
                                               </summary>
                                               <div className="pt-4 bg-white/50 rounded-xl p-4">
-                                                <PostComments post={item} addToast={addToast} userProfile={null} isAdmin={isAdmin} />
+                                                <PostComments post={item} addToast={addToast} userProfile={null} isAdmin={isAdmin} allUsers={users} />
                                               </div>
                                             </details>
                                           </div>
@@ -3219,6 +3836,11 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                </div>
             </div>
         )}
+        {activeSubTab === 'gos_formats' && (
+           <div className="space-y-12 pb-20">
+              <GosAndFormatsAdmin user={user} addToast={addToast} isAdmin={isAdmin} />
+           </div>
+        )}
         {activeSubTab === 'users' && (
            <div className="space-y-12 pb-20">
               <div className="pt-8 text-left">
@@ -3241,6 +3863,30 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                       />
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
+                      <button aria-label="Export Data" onClick={async () => {
+                          addToast("Generating Export Data...");
+                          if (!XLSX) await loadHeavyModules();
+                          const exportData = users.map((u: any) => ({
+                              Name: u.name || '',
+                              Email: u.email || '',
+                              Surname: u.surname || '',
+                              Phone: u.mobile || '',
+                              District: u.district || '',
+                              Mandal: u.mandal || '',
+                              Village: u.panchayat || '',
+                              Designation: u.designation || '',
+                              Role: u.role || 'user',
+                              Status: u.isDeleted ? 'Deleted' : 'Active',
+                              Joined: u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ''
+                          }));
+                          const ws = XLSX.utils.json_to_sheet(exportData);
+                          const wb = XLSX.utils.book_new();
+                          XLSX.utils.book_append_sheet(wb, ws, "Users");
+                          XLSX.writeFile(wb, "users_export.xlsx");
+                          addToast("Export complete.");
+                      }} className="px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border bg-green-50 border-green-100 text-green-700 hover:bg-green-600 hover:text-white flex items-center gap-2 shadow-sm">
+                        <Download size={14} /> Export XLS
+                      </button>
                       <button aria-label="All Users" onClick={() => setUsersFilter('All')} className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${usersFilter === 'All' ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-105' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>All Users</button>
                       <button aria-label="Deleted Users" onClick={() => setUsersFilter('Deleted')} className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${usersFilter === 'Deleted' ? 'bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/20 scale-105' : 'bg-rose-50 border-rose-100 text-rose-500 hover:bg-rose-100 hover:border-rose-200'}`}>Deleted (Trash)</button>
                       
@@ -3773,21 +4419,45 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
                   onClick={() => {
                     Swal.fire({
                       title: 'Post New Update',
-                      input: 'textarea',
-                      inputLabel: 'Update Content',
-                      inputPlaceholder: 'Enter the update text...',
-                      showCancelButton: true,
-                      confirmButtonText: 'Post Update',
-                      confirmButtonColor: '#2563eb',
-                      inputValidator: (value) => {
-                        if (!value) return 'You need to write something!';
+                      html: `
+                        <div class="text-left mb-2 text-sm font-semibold text-slate-700">Version (Optional)</div>
+                        <input id="update-version" class="swal2-input mt-0 mb-4" placeholder="e.g. v1.4.1">
+                        <div class="text-left mb-2 text-sm font-semibold text-slate-700">Title / Category (Optional)</div>
+                        <input id="update-title" class="swal2-input mt-0 mb-4" placeholder="e.g. Applications & GOs">
+                        <div class="text-left mb-2 text-sm font-semibold text-slate-700">Badge/Tag (Optional)</div>
+                        <input id="update-badge" class="swal2-input mt-0 mb-4" placeholder="e.g. NEW UI or ADMIN">
+                        <div class="text-left mb-2 text-sm font-semibold text-slate-700">Content</div>
+                      <textarea id="update-text" class="swal2-textarea mt-0 mb-4" placeholder="Enter the update text..."></textarea>
+                      <div class="text-left mb-2 text-sm font-semibold text-slate-700">Visibility</div>
+                      <select id="update-visibility" class="swal2-select w-full mt-0">
+                        <option value="public">Public (Visible to everyone)</option>
+                        <option value="internal">Admin Panel Only (Hidden from public)</option>
+                      </select>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Post Update',
+                    confirmButtonColor: '#2563eb',
+                    preConfirm: () => {
+                      const version = (document.getElementById('update-version') as HTMLInputElement).value;
+                      const title = (document.getElementById('update-title') as HTMLInputElement).value;
+                      const badge = (document.getElementById('update-badge') as HTMLInputElement).value;
+                      const text = (document.getElementById('update-text') as HTMLTextAreaElement).value;
+                      const visibility = (document.getElementById('update-visibility') as HTMLSelectElement).value;
+                      if (!text) {
+                        Swal.showValidationMessage('Content cannot be empty!');
                         return null;
                       }
-                    }).then((result) => {
-                      if (result.isConfirmed && result.value) {
-                        addDoc(collection(db, 'updates'), {
-                          text: result.value,
-                          time: Date.now(),
+                      return { text, visibility, version, title, badge };
+                    }
+                  }).then((result) => {
+                    if (result.isConfirmed && result.value) {
+                      addDoc(collection(db, 'updates'), {
+                        text: result.value.text,
+                        visibility: result.value.visibility,
+                        version: result.value.version || null,
+                        title: result.value.title || null,
+                        badge: result.value.badge || null,
+                        time: Date.now(),
                           status: 'Approved',
                           type: 'changelog'
                         }).then(() => addToast("Update added successfully!"))
@@ -3802,70 +4472,131 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               </div>
 
               <div className="grid grid-cols-1 gap-6">
-                {[...updates].filter(u => (u.type === 'changelog' || u.status === 'Approved') && u.status?.toLowerCase() !== 'deleted').sort((a:any, b:any) => (b.time || 0) - (a.time || 0)).map((upd: any) => (
-                  <div key={upd.id} className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition-shadow group">
+                {[...SYSTEM_UPDATES, ...updates].filter(u => (u.type === 'changelog' || u.status === 'Approved') && u.status?.toLowerCase() !== 'deleted').sort((a:any, b:any) => (b.time || 0) - (a.time || 0)).map((upd: any) => (
+                  <div key={upd.id} className={`p-6 bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition-shadow group ${upd.isSystemElement ? 'opacity-80' : ''}`}>
                     <div className="flex justify-between items-start gap-6">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-3">
-                          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                          <span className={`${upd.isSystemElement ? 'bg-indigo-500' : (upd.visibility === 'internal' ? 'bg-amber-500' : 'bg-blue-500')} w-2 h-2 rounded-full animate-pulse`} />
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                             {new Date(getValidTime(upd)).toLocaleString()}
                           </span>
+                          {upd.isSystemElement && (
+                             <span className="px-2 py-0.5 ml-2 bg-slate-100 text-slate-500 rounded text-[9px] font-bold uppercase">System Event</span>
+                          )}
+                          {!upd.isSystemElement && upd.visibility === 'internal' && (
+                             <span className="px-2 py-0.5 ml-2 bg-amber-100 text-amber-700 rounded text-[9px] font-bold uppercase">Internal Only</span>
+                          )}
+                          {!upd.isSystemElement && (!upd.visibility || upd.visibility === 'public') && (
+                             <span className="px-2 py-0.5 ml-2 bg-emerald-100 text-emerald-700 rounded text-[9px] font-bold uppercase">Public</span>
+                          )}
                         </div>
-                        <p className="text-sm font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">{upd.text}</p>
+                        {upd.isSystemElement ? (
+                          <div className="scale-90 transform origin-top-left">
+                            {upd.text}
+                          </div>
+                        ) : (upd.version || upd.title || upd.badge) ? (
+                          <div className="text-left space-y-3 mt-2">
+                            {(upd.version || upd.title) && (
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                {upd.version && <kbd className="bg-slate-800 text-white px-2 py-0.5 rounded text-[11px] font-black uppercase tracking-widest">{upd.version}</kbd>}
+                                {upd.title && <p className="font-bold text-slate-800 text-sm sm:text-base flex items-center gap-2">{upd.title}</p>}
+                              </div>
+                            )}
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                              <div className="flex gap-3 items-start">
+                                {upd.badge && <kbd className={`px-2 py-1 rounded text-[9px] font-black uppercase mt-0.5 whitespace-nowrap ${upd.visibility === 'internal' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{upd.badge}</kbd>}
+                                <span className="text-sm font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">{upd.text}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">{upd.text}</p>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button aria-label="Edit Update"
-                          onClick={() => {
-                            Swal.fire({
-                              title: 'Edit Update',
-                              input: 'textarea',
-                              inputLabel: 'Update Content',
-                              inputValue: upd.text,
-                              showCancelButton: true,
-                              confirmButtonText: 'Save Changes',
-                              confirmButtonColor: '#2563eb',
-                              inputValidator: (value) => {
-                                if (!value) return 'Content cannot be empty!';
-                                return null;
-                              }
-                            }).then((result) => {
-                              if (result.isConfirmed && result.value !== upd.text) {
-                                updateDoc(doc(db, 'updates', upd.id), { text: result.value })
-                                  .then(() => addToast("Update modified successfully!"))
-                                  .catch(err => handleFirestoreError(err, OperationType.UPDATE, `updates/${upd.id}`));
-                              }
-                            });
-                          }}
-                          className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <Edit3 size={18} />
-                        </button>
-                        <button aria-label="Delete Update"
-                          onClick={() => {
-                            Swal.fire({
-                              title: 'Delete Update?',
-                              text: "This will remove the entry from What's New timeline.",
-                              icon: 'warning',
-                              showCancelButton: true,
-                              confirmButtonColor: '#ef4444',
-                              confirmButtonText: 'Yes, Delete it!'
-                            }).then(async (result) => {
-                              if (result.isConfirmed) {
-                                try {
-                                  await updateDoc(doc(db, 'updates', upd.id), { status: 'Deleted', deletedAt: Date.now() });
-                                  addToast("Update moved to trash.");
-                                } catch (err) {
-                                  handleFirestoreError(err, OperationType.UPDATE, `updates/${upd.id}`);
+                      {!upd.isSystemElement && (
+                        <div className="flex items-center gap-2">
+                          <button aria-label="Edit Update"
+                            onClick={() => {
+                              Swal.fire({
+                                title: 'Edit Update',
+                                html: `
+                                  <div class="text-left mb-2 text-sm font-semibold text-slate-700">Version (Optional)</div>
+                                  <input id="edit-update-version" class="swal2-input mt-0 mb-4" value="${upd.version || ''}" placeholder="e.g. v1.4.1">
+                                  <div class="text-left mb-2 text-sm font-semibold text-slate-700">Title / Category (Optional)</div>
+                                  <input id="edit-update-title" class="swal2-input mt-0 mb-4" value="${upd.title || ''}" placeholder="e.g. Applications & GOs">
+                                  <div class="text-left mb-2 text-sm font-semibold text-slate-700">Badge/Tag (Optional)</div>
+                                  <input id="edit-update-badge" class="swal2-input mt-0 mb-4" value="${upd.badge || ''}" placeholder="e.g. NEW UI or ADMIN">
+                                  <div class="text-left mb-2 text-sm font-semibold text-slate-700">Content</div>
+                                  <textarea id="edit-update-text" class="swal2-textarea mt-0 mb-4">${upd.text}</textarea>
+                                  <div class="text-left mb-2 text-sm font-semibold text-slate-700">Visibility</div>
+                                  <select id="edit-update-visibility" class="swal2-select w-full mt-0">
+                                    <option value="public" ${(!upd.visibility || upd.visibility === 'public') ? 'selected' : ''}>Public (Visible to everyone)</option>
+                                    <option value="internal" ${(upd.visibility === 'internal') ? 'selected' : ''}>Admin Panel Only (Hidden from public)</option>
+                                  </select>
+                                `,
+                                showCancelButton: true,
+                                confirmButtonText: 'Save Changes',
+                                confirmButtonColor: '#2563eb',
+                                preConfirm: () => {
+                                  const text = (document.getElementById('edit-update-text') as HTMLTextAreaElement).value;
+                                  const visibility = (document.getElementById('edit-update-visibility') as HTMLSelectElement).value;
+                                  const version = (document.getElementById('edit-update-version') as HTMLInputElement).value;
+                                  const title = (document.getElementById('edit-update-title') as HTMLInputElement).value;
+                                  const badge = (document.getElementById('edit-update-badge') as HTMLInputElement).value;
+                                  if (!text) {
+                                    Swal.showValidationMessage('Content cannot be empty!');
+                                    return null;
+                                  }
+                                  return { text, visibility, version, title, badge };
                                 }
-                              }
-                            });
-                          }}
-                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
+                              }).then((result) => {
+                                if (result.isConfirmed) {
+                                  const newVals = result.value;
+                                  if (newVals.text !== upd.text || newVals.visibility !== upd.visibility || newVals.version !== upd.version || newVals.title !== upd.title || newVals.badge !== upd.badge) {
+                                    updateDoc(doc(db, 'updates', upd.id), { 
+                                      text: newVals.text, 
+                                      visibility: newVals.visibility,
+                                      version: newVals.version || null,
+                                      title: newVals.title || null,
+                                      badge: newVals.badge || null,
+                                    })
+                                    .then(() => addToast("Update modified successfully!"))
+                                    .catch(err => handleFirestoreError(err, OperationType.UPDATE, `updates/${upd.id}`));
+                                  }
+                                }
+                              });
+                            }}
+                            className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit3 size={18} />
+                          </button>
+                          <button aria-label="Delete Update"
+                            onClick={() => {
+                              Swal.fire({
+                                title: 'Delete Update?',
+                                text: "This will remove the entry from What's New timeline.",
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#ef4444',
+                                confirmButtonText: 'Yes, Delete it!'
+                              }).then(async (result) => {
+                                if (result.isConfirmed) {
+                                  try {
+                                    await updateDoc(doc(db, 'updates', upd.id), { status: 'Deleted', deletedAt: Date.now() });
+                                    addToast("Update moved to trash.");
+                                  } catch (err) {
+                                    handleFirestoreError(err, OperationType.UPDATE, `updates/${upd.id}`);
+                                  }
+                                }
+                              });
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -4087,6 +4818,10 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, setAdminLoc
               </div>
            </div>
         )}
+
+        {activeSubTab === 'locations' && (
+           <LocationManager districtsData={districtsData} addToast={addToast} />
+        )}
       </main>
     </div>
   );
@@ -4204,6 +4939,37 @@ function SmartAssistant({ title, placeholder, systemInstruction, icon: Icon }: {
   );
 }
 
+function UsersListModal({ title, uids, allUsers, onClose }: { title: string, uids: string[], allUsers: UserProfile[], onClose: () => void }) {
+  const usersList = uids.map(uid => allUsers.find(u => u.id === uid) || { id: uid, username: 'Unknown User', name: '', surname: '', designation: '' });
+
+  return (
+    <div className="fixed inset-0 z-[4000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-sm max-h-[80vh] overflow-y-auto bg-white rounded-3xl shadow-2xl custom-scrollbar p-6 relative">
+         <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 p-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all">
+            <X size={16} />
+         </button>
+         <h3 className="font-black text-primary text-xl mb-4 uppercase tracking-widest">{title} <span className="text-slate-400 text-sm">({uids.length})</span></h3>
+         <div className="space-y-3">
+            {usersList.length === 0 && <p className="text-slate-400 text-xs font-bold text-center py-4 uppercase">No users found</p>}
+            {usersList.map((u, i) => (
+              <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                 <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center uppercase overflow-hidden text-xs">
+                       {(u as any).photoURL ? <img src={(u as any).photoURL} alt="" /> : (u.username?.[0] || 'U')}
+                    </div>
+                    <div>
+                       <h4 className="text-xs font-black text-slate-800 leading-tight">{(u.name && u.surname) ? `${u.name} ${u.surname}` : u.username}</h4>
+                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{u.designation || 'User'}</p>
+                    </div>
+                 </div>
+              </div>
+            ))}
+         </div>
+      </div>
+    </div>
+  );
+}
+
 function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => void, user: FirebaseUser | null }) {
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [showTrainingBot, setShowTrainingBot] = useState(false);
@@ -4217,14 +4983,28 @@ function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => v
 
   return (
     <div className="section-card card-blue relative">
-      <motion.h2 
-        initial={{ x: -10, opacity: 0 }} 
-        animate={{ x: 0, opacity: 1 }}
-        style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px' }}
-      >
-        <LayoutDashboard size={24} style={{ color: '#0891b2' }} /> Mana Panchayath
-      </motion.h2>
-      <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>Advanced tools for PR & RD Officers.</p>
+      <div className="flex justify-between items-start mb-1">
+        <div>
+          <motion.h2 
+            initial={{ x: -10, opacity: 0 }} 
+            animate={{ x: 0, opacity: 1 }}
+            style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <LayoutDashboard size={24} style={{ color: '#0891b2' }} /> Mana Panchayath
+          </motion.h2>
+          <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>Advanced tools for PR & RD Officers.</p>
+        </div>
+        <button 
+          onClick={() => {
+            const url = `${window.location.origin}/?tab=workspace`;
+            handleShare('Mana Panchayath - E-Vedhika PRO', 'Access advanced tools for PR & RD Officers on Mana Panchayath - E-Vedhika PRO!', url, () => addToast("Link copied!"));
+          }}
+          className="flex items-center gap-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors text-xs font-bold uppercase tracking-wider h-fit mt-1"
+          title="Share Mana Panchayath"
+        >
+          <Share2 size={16} /> <span className="hidden sm:inline">Share</span>
+        </button>
+      </div>
 
       <div className="mana-grid">
         {tools.map(t => (
@@ -5937,7 +6717,28 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
   );
 }
 
-function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit }: { post: Post, isExpanded: boolean, toggleExpansion: () => void, addToast: (s:string) => void, isAdmin: boolean, onEdit: (p: Post) => void }) {
+function AdBanner({ slotId }: { slotId?: string }) {
+  // Placeholder for future ad integration (e.g., Google AdSense, custom sponsors, Meta Ads)
+  return (
+    <div className="w-full bg-white border border-slate-100 rounded-[32px] p-6 lg:p-10 flex flex-col items-center justify-center text-center relative overflow-hidden group shadow-sm hover:shadow-md transition-shadow">
+      <div className="absolute top-0 right-0 bg-slate-100 text-slate-400 text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-bl-xl font-bold">Advertisement</div>
+      <div className="w-full max-w-lg mx-auto flex flex-col items-center">
+        <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 text-slate-300">
+          <Megaphone size={28} />
+        </div>
+        <h4 className="text-base font-black text-slate-800 tracking-tight mb-2">Space for future ads</h4>
+        <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+          This section is reserved for future sponsor integrations or advertisements to support the platform.
+        </p>
+        <button className="px-6 py-3 bg-slate-50 text-slate-600 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-slate-100 hover:text-slate-900 transition-all">
+          Learn about advertising
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit, allUsers }: { post: Post, isExpanded: boolean, toggleExpansion: () => void, addToast: (s:string) => void, isAdmin: boolean, onEdit: (p: Post) => void, allUsers: UserProfile[] }) {
   const isOwner = Boolean((auth.currentUser && post.uid && auth.currentUser.uid === post.uid) || isAdmin);
   const postTime = getValidTime(post);
   
@@ -5946,6 +6747,9 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
   const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [showLikesModal, setShowLikesModal] = useState(false);
+  const [showViewsModal, setShowViewsModal] = useState(false);
+  const [showCommentLikesModal, setShowCommentLikesModal] = useState<{ id: string, uids: string[] } | null>(null);
 
   useEffect(() => {
     if (showComments) {
@@ -6134,32 +6938,35 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
 
       <div className="flex flex-wrap gap-4 justify-between items-center pt-6 border-t border-slate-100 mt-6">
          <div className="flex items-center gap-6">
-            <button aria-label="Like Post"
-             onClick={async () => {
-               const userId = auth.currentUser?.uid;
-               if (requireLoginAlert()) return;
-               const likedBy = post.likedBy || [];
-               if (likedBy.includes(userId)) {
-                 await updateDoc(doc(db, 'posts', post.id), {
-                   likes: increment(-1),
-                   likedBy: likedBy.filter(id => id !== userId)
-                 });
-               } else {
-                 await updateDoc(doc(db, 'posts', post.id), {
-                   likes: increment(1),
-                   likedBy: arrayUnion(userId)
-                 });
-               }
-             }} 
-             className="flex items-center gap-2 group"
-           >
-             <Heart size={20} className={`transition-transform group-hover:scale-125 ${post.likedBy?.includes(auth.currentUser?.uid || "") ? 'fill-red-500 text-red-500' : 'text-slate-400 group-hover:text-red-500'}`} />
-             <span className="text-sm font-black text-slate-500 group-hover:text-primary">{post.likes || 0}</span>
-           </button>
+            <div className="flex items-center gap-2">
+             <button aria-label="Like Post"
+               onClick={async (e) => {
+                 e.stopPropagation();
+                 const userId = auth.currentUser?.uid;
+                 if (requireLoginAlert()) return;
+                 const likedBy = post.likedBy || [];
+                 if (likedBy.includes(userId)) {
+                   await updateDoc(doc(db, 'posts', post.id), {
+                     likes: increment(-1),
+                     likedBy: likedBy.filter(id => id !== userId)
+                   });
+                 } else {
+                   await updateDoc(doc(db, 'posts', post.id), {
+                     likes: increment(1),
+                     likedBy: arrayUnion(userId)
+                   });
+                 }
+               }} 
+               className="flex items-center gap-2 group"
+             >
+               <Heart size={20} className={`transition-transform group-hover:scale-125 ${post.likedBy?.includes(auth.currentUser?.uid || "") ? 'fill-red-500 text-red-500' : 'text-slate-400 group-hover:text-red-500'}`} />
+             </button>
+             <button onClick={(e) => { e.stopPropagation(); setShowLikesModal(true); }} className="text-sm font-black text-slate-500 hover:text-primary transition-colors cursor-pointer">{post.likes || 0}</button>
+           </div>
 
            <div className="flex items-center gap-2" title="Views">
               <Eye size={20} className="text-slate-400" />
-              <span className="text-sm font-bold text-slate-400">{post.views || 0}</span>
+              <button onClick={(e) => { e.stopPropagation(); setShowViewsModal(true); }} className="text-sm font-bold text-slate-400 hover:text-primary transition-colors cursor-pointer">{post.views || 0}</button>
            </div>
            
            <button aria-label="Toggle Comments" onClick={() => setShowComments(!showComments)} className="flex items-center gap-2 group text-slate-400 hover:text-primary" title="Comments">
@@ -6173,8 +6980,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
              aria-label="Share Post"
              onClick={() => {
                const url = `${window.location.origin}${window.location.pathname}?postId=${post.id}`;
-               navigator.clipboard.writeText(url);
-               addToast("Link copied!");
+               handleShare(post.title || 'Shared Post', 'Check out this post on E-Vedhika PRO', url, () => addToast("Link copied!"));
              }}
              className="flex items-center gap-2 group text-slate-400 hover:text-primary hover:bg-slate-50 p-2 rounded-lg transition-all"
              title="Share Link"
@@ -6245,13 +7051,17 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
                    <button onClick={() => {
                         const likes = c.likes || [];
                         const uid = auth.currentUser!.uid;
+                        if (!uid) { addToast("Please login first"); return; }
                         if (likes.includes(uid)) {
                           updateDoc(doc(db, 'posts', post.id, 'comments', c.id), { likes: arrayRemove(uid) });
                         } else {
                           updateDoc(doc(db, 'posts', post.id, 'comments', c.id), { likes: arrayUnion(uid) });
                         }
-                   }} className={`text-xs flex items-center gap-1 ${c.likes?.includes(auth.currentUser?.uid) ? 'text-red-500' : 'text-slate-400'}`}>
-                      <Heart size={12} fill={c.likes?.includes(auth.currentUser?.uid) ? "currentColor" : "none"} /> {c.likes?.length || 0}
+                   }} className={`text-xs flex items-center gap-1 ${c.likes?.includes(auth.currentUser?.uid) ? 'text-red-500 hover:text-slate-400' : 'text-slate-400 hover:text-red-500'} group transition-colors p-1 -ml-1 rounded-md`}>
+                      <Heart size={12} fill={c.likes?.includes(auth.currentUser?.uid) ? "currentColor" : "none"} className="group-hover:scale-125 transition-transform" />
+                   </button>
+                   <button onClick={() => setShowCommentLikesModal({ id: c.id, uids: c.likes || [] })} className="text-xs font-black text-slate-400 hover:text-primary transition-colors">
+                      {c.likes?.length || 0}
                    </button>
                  </div>
               </div>
@@ -6259,6 +7069,9 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
           </div>
         </div>
       )}
+      {showLikesModal && <UsersListModal title="Liked By" uids={post.likedBy || []} allUsers={allUsers} onClose={() => setShowLikesModal(false)} />}
+      {showViewsModal && <UsersListModal title="Viewed By" uids={post.viewedBy || []} allUsers={allUsers} onClose={() => setShowViewsModal(false)} />}
+      {showCommentLikesModal && <UsersListModal title="Comment Liked By" uids={showCommentLikesModal.uids} allUsers={allUsers} onClose={() => setShowCommentLikesModal(null)} />}
     </div>
   );
 }
@@ -6616,9 +7429,11 @@ function PRActHub({ user }: { user: any }) {
 
 // --- POST DETAIL MODULE ---
 
-function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId: string, onBack: () => void, isAdmin: boolean, addToast: (s:string) => void, userProfile: UserProfile | null }) {
+function PostDetail({ postId, onBack, isAdmin, addToast, userProfile, allUsers }: { postId: string, onBack: () => void, isAdmin: boolean, addToast: (s:string) => void, userProfile: UserProfile | null, allUsers: UserProfile[] }) {
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showLikesModal, setShowLikesModal] = useState(false);
+  const [showViewsModal, setShowViewsModal] = useState(false);
 
   useEffect(() => {
     let isInitial = true;
@@ -6629,7 +7444,11 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
         if (isInitial) {
           isInitial = false;
           // Increment views
-          updateDoc(docRef, { views: increment(1) }).catch(e => console.error(e));
+          const updateData: any = { views: increment(1) };
+          if (auth.currentUser?.uid) {
+             updateData.viewedBy = arrayUnion(auth.currentUser.uid);
+          }
+          updateDoc(docRef, updateData).catch(e => console.error(e));
           setLoading(false);
         }
       } else {
@@ -6732,21 +7551,36 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
          
          <div className="flex justify-between items-center sm:mt-12 mt-8 pt-8 border-t-2 border-dashed border-slate-100">
             <div className="flex gap-6">
-               <div className="flex items-center gap-2 text-primary bg-primary/5 px-4 py-2 rounded-xl">
-                  <Heart size={20} className={post.likedBy?.includes(auth.currentUser?.uid || '') ? "fill-primary text-primary" : "text-primary"} />
-                  <span className="font-black text-base">{post.likes || 0}</span> <span className="text-xs uppercase tracking-wider hidden sm:inline">Likes</span>
-               </div>
-               <div className="flex items-center gap-2 text-slate-500 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+               <button onClick={async (e) => {
+                 const userId = auth.currentUser?.uid;
+                 if (!userId) { addToast("Please login first"); return; }
+                 const likedBy = post.likedBy || [];
+                 if (likedBy.includes(userId)) {
+                   await updateDoc(doc(db, 'posts', post.id), {
+                     likes: increment(-1),
+                     likedBy: likedBy.filter(id => id !== userId)
+                   });
+                 } else {
+                   await updateDoc(doc(db, 'posts', post.id), {
+                     likes: increment(1),
+                     likedBy: arrayUnion(userId)
+                   });
+                 }
+               }} className="flex items-center gap-2 text-primary bg-primary/5 hover:bg-primary/10 px-4 py-2 rounded-xl transition-colors cursor-pointer group">
+                  <Heart size={20} className={post.likedBy?.includes(auth.currentUser?.uid || '') ? "fill-primary text-primary" : "text-primary group-hover:scale-110 transition-transform"} />
+                  <span onClick={(e) => { e.stopPropagation(); setShowLikesModal(true); }} className="font-black text-base hover:underline">{post.likes || 0}</span> <span className="text-xs uppercase tracking-wider hidden sm:inline">Likes</span>
+               </button>
+               <button onClick={() => setShowViewsModal(true)} className="flex items-center gap-2 text-slate-500 bg-slate-50 hover:bg-slate-100 px-4 py-2 rounded-xl border border-slate-100 transition-colors">
                   <Eye size={20} />
-                  <span className="font-black text-base">{post.views || 0}</span> <span className="text-xs uppercase tracking-wider hidden sm:inline">Views</span>
-               </div>
+                  <span className="font-black text-base hover:underline">{post.views || 0}</span> <span className="text-xs uppercase tracking-wider hidden sm:inline">Views</span>
+               </button>
             </div>
             
             <button 
                aria-label="Share Post"
                onClick={() => {
-                 navigator.clipboard.writeText(`${window.location.origin}/?postId=${post.id}`);
-                 addToast("Link Copied!");
+                 const url = `${window.location.origin}/?postId=${post.id}`;
+                 handleShare(post.title || 'Shared Post', 'Check out this post on E-Vedhika PRO', url, () => addToast("Link Copied!"));
                }} 
                className="flex items-center gap-2 text-slate-500 hover:text-primary hover:bg-slate-50 px-4 py-2 rounded-xl transition-all"
             >
@@ -6757,17 +7591,20 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile }: { postId
        </div>
 
        <div className="pt-10 border-t mt-12 border-slate-100">
-         <PostComments post={post} addToast={addToast} userProfile={userProfile} isAdmin={isAdmin} />
+         <PostComments post={post} addToast={addToast} userProfile={userProfile} isAdmin={isAdmin} allUsers={allUsers} />
        </div>
+       {showLikesModal && <UsersListModal title="Liked By" uids={post.likedBy || []} allUsers={allUsers} onClose={() => setShowLikesModal(false)} />}
+       {showViewsModal && <UsersListModal title="Viewed By" uids={post.viewedBy || []} allUsers={allUsers} onClose={() => setShowViewsModal(false)} />}
     </motion.div>
   );
 }
 
-function PostComments({ post, addToast, userProfile, isAdmin }: { post: Post, addToast: (s:string) => void, userProfile: UserProfile | null, isAdmin: boolean }) {
+function PostComments({ post, addToast, userProfile, isAdmin, allUsers }: { post: Post, addToast: (s:string) => void, userProfile: UserProfile | null, isAdmin: boolean, allUsers: UserProfile[] }) {
   const [comments, setComments] = useState<any[]>([]);
   const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [showLikesModalFor, setShowLikesModalFor] = useState<{ id: string, uids: string[] } | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'posts', post.id, 'comments'), orderBy('time', 'desc'));
@@ -6888,24 +7725,29 @@ function PostComments({ post, addToast, userProfile, isAdmin }: { post: Post, ad
                  <button onClick={() => {
                       const likes = c.likes || [];
                       const uid = auth.currentUser!.uid;
+                      if (!uid) { addToast("Please login first"); return; }
                       if (likes.includes(uid)) {
                         updateDoc(doc(db, 'posts', post.id, 'comments', c.id), { likes: arrayRemove(uid) });
                       } else {
                         updateDoc(doc(db, 'posts', post.id, 'comments', c.id), { likes: arrayUnion(uid) });
                       }
-                 }} className={`text-xs flex items-center gap-1 ${c.likes?.includes(auth.currentUser?.uid) ? 'text-red-500' : 'text-slate-400'}`}>
-                    <Heart size={12} fill={c.likes?.includes(auth.currentUser?.uid) ? "currentColor" : "none"} /> {c.likes?.length || 0}
+                 }} className={`text-xs flex items-center gap-1 ${c.likes?.includes(auth.currentUser?.uid) ? 'text-red-500 hover:text-slate-400' : 'text-slate-400 hover:text-red-500'} group transition-colors p-1 -ml-1 rounded-md`}>
+                    <Heart size={12} fill={c.likes?.includes(auth.currentUser?.uid) ? "currentColor" : "none"} className="group-hover:scale-125 transition-transform" />
+                 </button>
+                 <button onClick={() => setShowLikesModalFor({ id: c.id, uids: c.likes || [] })} className="text-xs font-black text-slate-400 hover:text-primary transition-colors">
+                    {c.likes?.length || 0}
                  </button>
                </div>
              </div>
           </div>
         ))}
       </div>
+      {showLikesModalFor && <UsersListModal title="Comment Liked By" uids={showLikesModalFor.uids} allUsers={allUsers} onClose={() => setShowLikesModalFor(null)} />}
     </div>
   );
 }
 
-function AuthModal({ onClose, addToast, handleGoogleLogin }: { onClose: () => void, addToast: (s:string) => void, handleGoogleLogin: () => void }) {
+function AuthModal({ onClose, addToast, handleGoogleLogin, districtsData }: { onClose: () => void, addToast: (s:string) => void, handleGoogleLogin: () => void, districtsData: Record<string, string[]> }) {
   const [isSignup, setIsSignup] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -6924,7 +7766,7 @@ function AuthModal({ onClose, addToast, handleGoogleLogin }: { onClose: () => vo
   const [confirmPassword, setConfirmPassword] = useState('');
   const [designation, setDesignation] = useState('');
 
-  const mandals = district ? TELANGANA_DATA[district] || [] : [];
+  const mandals = district ? districtsData[district] || [] : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -7083,7 +7925,7 @@ function AuthModal({ onClose, addToast, handleGoogleLogin }: { onClose: () => vo
                     <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">District *</label>
                     <select value={district} onChange={e => { setDistrict(e.target.value); setMandal(''); }} required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors">
                        <option value="">Select District</option>
-                       {Object.keys(TELANGANA_DATA).sort().map(d => <option key={d}>{d}</option>)}
+                       {Object.keys(districtsData).sort().map(d => <option key={d}>{d}</option>)}
                     </select>
                   </div>
                 </div>
