@@ -936,6 +936,7 @@ export default function App() {
   }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [visitorCount, setVisitorCount] = useState<number>(0);
   const tabFromUrl = searchParams.get('tab');
   const [currentTab, setCurrentTab] = useState(tabFromUrl || 'home');
   const [activeInternalUrl, setActiveInternalUrl] = useState<string | null>(null);
@@ -1151,6 +1152,23 @@ export default function App() {
 
   // Public Listeners
   useEffect(() => {
+    // Visitor Count logic
+    const unsubVisits = onSnapshot(doc(db, 'settings', 'site_stats'), (snap) => {
+      if (snap.exists()) {
+        setVisitorCount(snap.data().visitCount || 0);
+      }
+    });
+
+    if (!sessionStorage.getItem('site_visited')) {
+      sessionStorage.setItem('site_visited', 'true');
+      const statsRef = doc(db, 'settings', 'site_stats');
+      updateDoc(statsRef, { visitCount: increment(1) }).catch(async (e) => {
+        if (e.code === 'not-found') {
+          await setDoc(statsRef, { visitCount: 1 });
+        }
+      });
+    }
+
     let initialUpdatesLoadedLocal = false;
     const unsubUpdates = onSnapshot(collection(db, 'updates'), (snap) => {
       const uArr: Update[] = [];
@@ -1200,6 +1218,7 @@ export default function App() {
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'posts'));
 
     return () => {
+      unsubVisits();
       unsubUpdates();
       unsubSuggestions();
       unsubPosts();
@@ -1653,7 +1672,12 @@ export default function App() {
 
         <div className="flex-1"></div>
 
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-2 sm:gap-5">
+          <div className="flex flex-col items-center justify-center mr-2 sm:mr-4" title="Total Website Visits">
+            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#94a3b8] mb-[2px]">Visits</span>
+            <span className="text-[11px] font-mono font-black text-[#60a5fa] bg-[#0f2e4a] px-2 py-0.5 rounded-md border border-[#1e40af]/30 shadow-inner">{visitorCount.toLocaleString()}</span>
+          </div>
+
           {user && !user.isAnonymous ? (
             <div className="relative" ref={dropdownRef}>
               <div 
