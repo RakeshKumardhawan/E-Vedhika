@@ -1584,7 +1584,7 @@ export default function App() {
                 <LogOut size={18} /> Sign Out & Exit Portal
              </button>
              <div className="mt-16 text-[9px] text-slate-600 font-bold uppercase tracking-[0.4em] font-mono">
-                System Security Layer • E-VEDHIKA PRO
+                System Security Layer • E-VEDHIKA
              </div>
           </motion.div>
         )}
@@ -1695,7 +1695,7 @@ export default function App() {
                     </button>
                     <button aria-label="Share App"
                       onClick={() => {
-                        handleShare('E-Vedhika PRO', 'Join me on E-Vedhika PRO for all updates!', window.location.origin, () => addToast("Link copied!"));
+                        handleShare('E-Vedhika', 'Join me on E-Vedhika for all updates!', window.location.origin, () => addToast("Link copied!"));
                         setShowProfileDropdown(false);
                       }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors rounded-xl group text-left"
@@ -1895,7 +1895,7 @@ export default function App() {
                }
             }} />
             <MenuButton label="🔗 Share App" emoji="🔗" active={false} onClick={() => {
-               handleShare('E-Vedhika PRO', 'Join me on E-Vedhika PRO for all updates!', window.location.origin, () => addToast("Link copied!"));
+               handleShare('E-Vedhika', 'Join me on E-Vedhika for all updates!', window.location.origin, () => addToast("Link copied!"));
                setSidebarOpen(false);
             }} />
 
@@ -2231,7 +2231,7 @@ export default function App() {
                                <button 
                                  onClick={() => {
                                    const textToShare = u.title ? `${u.version ? u.version + ' ' : ''}${u.title}\n\n${u.text}` : u.text;
-                                   handleShare('E-Vedhika PRO Update', typeof textToShare === 'string' ? textToShare : 'Check out this update on E-Vedhika PRO', window.location.origin, () => addToast("Link copied!"));
+                                   handleShare('E-Vedhika Update', typeof textToShare === 'string' ? textToShare : 'Check out this update on E-Vedhika', window.location.origin, () => addToast("Link copied!"));
                                  }}
                                  className="hidden sm:flex items-center justify-center gap-2 text-slate-400 hover:text-blue-500 transition-colors p-2 rounded-lg hover:bg-slate-50 shrink-0"
                                  title="Share Update"
@@ -4997,7 +4997,7 @@ function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => v
         <button 
           onClick={() => {
             const url = `${window.location.origin}/?tab=workspace`;
-            handleShare('Mana Panchayath - E-Vedhika PRO', 'Access advanced tools for PR & RD Officers on Mana Panchayath - E-Vedhika PRO!', url, () => addToast("Link copied!"));
+            handleShare('Mana Panchayath - E-Vedhika', 'Access advanced tools for PR & RD Officers on Mana Panchayath - E-Vedhika!', url, () => addToast("Link copied!"));
           }}
           className="flex items-center gap-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors text-xs font-bold uppercase tracking-wider h-fit mt-1"
           title="Share Mana Panchayath"
@@ -6980,7 +6980,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
              aria-label="Share Post"
              onClick={() => {
                const url = `${window.location.origin}${window.location.pathname}?postId=${post.id}`;
-               handleShare(post.title || 'Shared Post', 'Check out this post on E-Vedhika PRO', url, () => addToast("Link copied!"));
+               handleShare(post.title || 'Shared Post', 'Check out this post on E-Vedhika', url, () => addToast("Link copied!"));
              }}
              className="flex items-center gap-2 group text-slate-400 hover:text-primary hover:bg-slate-50 p-2 rounded-lg transition-all"
              title="Share Link"
@@ -7580,7 +7580,7 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile, allUsers }
                aria-label="Share Post"
                onClick={() => {
                  const url = `${window.location.origin}/?postId=${post.id}`;
-                 handleShare(post.title || 'Shared Post', 'Check out this post on E-Vedhika PRO', url, () => addToast("Link Copied!"));
+                 handleShare(post.title || 'Shared Post', 'Check out this post on E-Vedhika', url, () => addToast("Link Copied!"));
                }} 
                className="flex items-center gap-2 text-slate-500 hover:text-primary hover:bg-slate-50 px-4 py-2 rounded-xl transition-all"
             >
