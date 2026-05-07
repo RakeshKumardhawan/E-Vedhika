@@ -1,6 +1,6 @@
 {
   "name": "E-Vedhika Portal",
-  "description": "E-Vedhika { all problems one solution }",
+  "description": "E-Vedhika All problems one solution",
   "requestFramePermissions": [
     "camera",
     "microphone"

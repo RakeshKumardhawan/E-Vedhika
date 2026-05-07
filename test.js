@@ -47,7 +47,7 @@ async function startServer() {
       const targetCollection = postId ? "posts" : problemId ? "problems" : suggestionId ? "suggestions" : requestId ? "requests" : null;
       const protocol = req.get("x-forwarded-proto") || req.protocol;
       let ogTitle = "E-Vedhika Portal";
-      let ogDescription = "E-Vedhika { all problems one solution }";
+      let ogDescription = "E-Vedhika All problems one solution";
       let ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
       if (targetId && targetCollection) {
         try {

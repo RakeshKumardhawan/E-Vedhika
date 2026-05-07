@@ -12,7 +12,7 @@ import {
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
   Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, MessageSquare,
   Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock, Shield, Pin,
-  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, ArrowRight, ArrowUpRight, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw, MapPin, Plus
+  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, ArrowRight, ArrowUpRight, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw, MapPin, Plus, Mic
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -345,6 +345,8 @@ interface ProblemReport {
   time: number;
   uid: string;
   resolvedAt?: number;
+  isAnonymous?: boolean;
+  wantsWhatsAppUpdates?: boolean;
 }
 
 interface ChatMessage {
@@ -959,6 +961,10 @@ export default function App() {
   const [showPostForm, setShowPostForm] = useState(false);
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
+  const [problemIsAnonymous, setProblemIsAnonymous] = useState(false);
+  const [problemWantsWhatsApp, setProblemWantsWhatsApp] = useState(true);
+  const [problemMessage, setProblemMessage] = useState("");
+  const [isRecordingProblem, setIsRecordingProblem] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -1564,6 +1570,41 @@ export default function App() {
   }
 
 
+  const handleRecordProblem = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      addToast("Your browser does not support voice to text capability.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'te-IN';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsRecordingProblem(true);
+      addToast("🎤 రికార్డింగ్ ప్రారంభమైంది (Recording started)...");
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setProblemMessage(prev => prev ? prev + " " + transcript : transcript);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error(event.error);
+      addToast("రికార్డింగ్‌లో సమస్య ఏర్పడింది (Error recording). ");
+      setIsRecordingProblem(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecordingProblem(false);
+    };
+
+    recognition.start();
+  };
+
+
   return (
     <div className="h-[100dvh] overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-[#f8fafc] to-slate-100 text-slate-800 flex flex-col font-sans selection:bg-accent/20 selection:text-primary antialiased">
       <PwaUpdatePrompt needRefresh={needRefresh} setNeedRefresh={setNeedRefresh} updateServiceWorker={updateServiceWorker} />
@@ -1905,12 +1946,12 @@ export default function App() {
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-4">Navigations</h3>
             <MenuButton label="Home" emoji="🏠" active={currentTab === 'home'} onClick={() => {setCurrentTab('home'); setCurrentFilter('All'); setSidebarOpen(false);}} />
             <MenuButton label="🏛️ Mana Panchayath" emoji="📊" active={currentTab === 'workspace'} onClick={() => {setCurrentTab('workspace'); setSidebarOpen(false);}} />
-            <MenuButton label="Schemes info and govt" emoji="📢" active={currentTab === 'schemes'} onClick={() => {setCurrentTab('schemes'); setSidebarOpen(false);}} />
             <MenuButton label="Live Chat" emoji="💬" active={currentTab === 'chat'} onClick={() => {setCurrentTab('chat'); setSidebarOpen(false);}} />
             <MenuButton label="Union Corner" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
             <MenuButton label="What's New! 🚀" emoji="✨" active={currentTab === 'changelog'} onClick={() => {setCurrentTab('changelog'); setSidebarOpen(false);}} />
             <MenuButton label="💡 Public suggestions & Feedback" emoji="💡" active={currentTab === 'suggestions'} onClick={() => {setCurrentTab('suggestions'); setSidebarOpen(false);}} />
             <MenuButton label="📑 Applications, Formats & GOs" emoji="📑" active={currentTab === 'gos_formats'} onClick={() => {setCurrentTab('gos_formats'); setSidebarOpen(false);}} />
+            <MenuButton label="📊 Polls & Voting" emoji="📊" active={currentTab === 'polls'} onClick={() => {setCurrentTab('polls'); setSidebarOpen(false);}} />
             <MenuButton label="🚨 Emergency Contacts" emoji="🚨" active={currentTab === 'emergency'} onClick={() => {setCurrentTab('emergency'); setSidebarOpen(false);}} />
             <MenuButton label="👤 My Activity & Reports" emoji="📋" active={currentTab === 'my_activity'} onClick={() => {
                if(!user) {
@@ -2025,7 +2066,7 @@ export default function App() {
 
 
                   </div>
-
+                  
                   <div className="space-y-10">
                     <AnimatePresence mode="popLayout">
                       {filteredPosts.flatMap((post, index) => {
@@ -2061,125 +2102,6 @@ export default function App() {
             {currentTab === 'workspace' && (
               <motion.div key="workspace" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <DigitalWorkspaceSection addToast={addToast} user={user} />
-              </motion.div>
-            )}
-
-            {currentTab === 'schemes' && (
-              <motion.div key="schemes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                 <div className="section-card card-blue">
-                    <h2 className="text-2xl font-black text-primary mb-6">🏛️ Rural Development Schemes</h2>
-                    <div className="scheme-grid">
-                      {[{ name: 'SthreeNidhi', desc: 'Financial support and credit facilities for Mahila SHG members across Telangana.', icon: '👩‍💼', link: 'https://streenidhi.telangana.gov.in/' },
-                        { name: 'Mission Bhagiratha', desc: 'The flagship project to provide safe and sustainable tap water to every household.', icon: '🚰', link: 'https://missionbhagiratha.telangana.gov.in/' },
-                        { name: 'MGNREGS', desc: 'Ensuring wage employment and building durable assets in rural areas.', icon: '👷', link: 'https://nregs.telangana.gov.in/' },
-                        { name: 'SERP', desc: 'Programs focused on poverty elimination and building community institutions.', icon: '🏘️', link: 'https://serp.telangana.gov.in/' }
-                      ].map(s => (
-                        <div key={s.name} onClick={() => window.open(s.link, '_blank')} className="scheme-card cursor-pointer hover:scale-[1.02] transition-transform">
-                          <div className="text-3xl mb-3">{s.icon}</div>
-                          <h4 className="font-black text-lg text-primary">{s.name}</h4>
-                          <p className="text-sm font-medium text-slate-600 mt-2 flex-1">{s.desc}</p>
-                          <div className="mt-4 text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-1">
-                            Visit Portal <ArrowRight size={10} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Internal URL Modal */}
-                    <AnimatePresence>
-                      {activeInternalUrl && (
-                        <motion.div 
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="fixed inset-0 bg-black/80 backdrop-blur-md z-[20000] flex items-center justify-center p-1 sm:p-2"
-                        >
-                          <motion.div 
-                            initial={{ scale: 0.95, y: 10 }}
-                            animate={{ scale: 1, y: 0 }}
-                            exit={{ scale: 0.95, y: 10 }}
-                            className="bg-white w-[100vw] h-[100dvh] sm:w-[98vw] sm:h-[96vh] rounded-none sm:rounded-[32px] overflow-hidden flex flex-col shadow-2xl shadow-black/90"
-                          >
-                            <div className="p-3 sm:p-4 bg-white border-b flex justify-between items-center shadow-sm relative z-10">
-                              <div className="flex items-center gap-2 sm:gap-3">
-                                <div className="p-2 sm:p-2.5 bg-blue-100 text-blue-600 rounded-xl shadow-inner">
-                                  <ShieldCheck size={20} className="sm:w-[22px] sm:h-[22px]" />
-                                </div>
-                                <div className="flex flex-col">
-                                  <h3 className="font-black text-primary uppercase tracking-widest text-[9px] sm:text-xs">Secure Internal Viewer</h3>
-                                  <div className="flex items-center gap-1 sm:gap-2">
-                                    <p className="text-[8px] sm:text-[11px] text-slate-500 font-bold uppercase tracking-tight">External Portal</p>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button 
-                                  onClick={() => {
-                                    const iframe = document.querySelector('iframe');
-                                    if (iframe) iframe.src = iframe.src;
-                                  }}
-                                  className="p-2 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all"
-                                  title="Refresh"
-                                >
-                                  <RefreshCw size={18} />
-                                </button>
-                                <a 
-                                  href={activeInternalUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="hidden md:flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200"
-                                >
-                                  Open In Browser <Bot size={12} />
-                                </a>
-                                <button 
-                                  onClick={() => setActiveInternalUrl(null)}
-                                  className="p-2 sm:p-3 bg-rose-50 text-rose-500 rounded-xl sm:rounded-2xl hover:bg-rose-100 transition-all shadow-sm active:scale-90 border border-rose-100"
-                                >
-                                  <XCircle size={22} className="sm:w-[24px] sm:h-[24px]" />
-                                </button>
-                              </div>
-                            </div>
-                             <div className="flex-1 bg-slate-50 relative overflow-hidden flex flex-col items-center justify-center p-4 sm:p-8 text-center">
-                              <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="max-w-md w-full bg-white p-6 sm:p-10 rounded-[32px] sm:rounded-[48px] shadow-2xl border border-slate-100 flex flex-col items-center"
-                              >
-                                <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-[28px] flex items-center justify-center mb-6 shadow-sm ring-8 ring-blue-50/50">
-                                  <ShieldCheck size={40} />
-                                </div>
-                                <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Security Check</h3>
-                                <p className="text-sm font-bold text-slate-500 mb-8 leading-relaxed px-2">
-                                  భద్రతా కారణాల దృష్ట్యా ఈ పేజీని ఇక్కడ నేరుగా చూపించలేము. ఈ క్రింది బటన్‌ను క్లిక్ చేసి అధికారిక పోర్టల్ ద్వారా వివరాలు తెలుసుకోండి.
-                                </p>
-                                <a 
-                                  href={activeInternalUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="w-full py-5 bg-blue-600 text-white rounded-3xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-800 transition-all shadow-xl shadow-blue-200 active:scale-95"
-                                >
-                                  ఓపెన్ అఫీషియల్ పోర్టల్ <ArrowUpRight size={20} />
-                                </a>
-                              </motion.div>
-                            </div>
-                            <div className="p-3 sm:p-4 bg-slate-50 text-center border-t flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-6">
-                              <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Powered by E-Vedhika Secure Sandbox</p>
-                              <div className="h-4 w-px bg-slate-200 hidden sm:block"></div>
-                              <a 
-                                href={activeInternalUrl} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="text-[9px] sm:text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
-                              >
-                                Not loading? Click here to open in new tab
-                              </a>
-                            </div>
-                          </motion.div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                 </div>
               </motion.div>
             )}
 
@@ -2464,15 +2386,15 @@ export default function App() {
                         const target = e.target as any;
                         const name = target.name.value.trim();
                         const village = target.village.value.trim();
-                        const mobile = target.mobile.value.trim();
+                        const mobile = target.mobile ? target.mobile.value.trim() : '';
                         const category = target.category.value;
                         const suggestion = target.suggestion.value.trim();
 
-                        if (!name || !village || !mobile || !category || !suggestion) {
+                        if (!name || !village || !category || !suggestion || (userProfile?.gender !== 'Female' && !mobile)) {
                           return addToast("దయచేసి అన్ని వివరాలు నింపండి (Please fill all fields)");
                         }
 
-                        if (!/^[0-9]{10}$/.test(mobile)) {
+                        if (mobile && !/^[0-9]{10}$/.test(mobile)) {
                           return addToast("దయచేసి 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి");
                         }
 
@@ -2490,7 +2412,7 @@ export default function App() {
                           await logUserActivity(`Submitted Suggestion: ${category}`);
                           target.name.value = userProfile ? `${userProfile.name || ''} ${userProfile.surname || ''}`.trim() : '';
                           target.village.value = userProfile ? `${userProfile.mandal || ''} / ${userProfile.district || ''}`.trim().replace(/^ \/ | \/ $/g, '') : '';
-                          target.mobile.value = userProfile?.mobile || '';
+                          if (target.mobile) target.mobile.value = userProfile?.mobile || '';
                           target.category.value = "";
                           target.suggestion.value = "";
                           
@@ -2531,6 +2453,7 @@ export default function App() {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                           {userProfile?.gender !== 'Female' && (
                            <div className="space-y-1.5">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">మొబైల్ నంబర్ (Mobile)</label>
                               <input 
@@ -2543,6 +2466,7 @@ export default function App() {
                                 required
                               />
                            </div>
+                           )}
                            <div className="space-y-1.5">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">విభాగం (Category)</label>
                               <select 
@@ -2598,6 +2522,17 @@ export default function App() {
               </motion.div>
             )}
 
+            {currentTab === 'polls' && (
+              <motion.div key="polls" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <div className="flex justify-between items-center mb-4">
+                  <button aria-label="Back to Dashboard" onClick={() => setCurrentTab('home')} className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors font-bold text-sm bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100">
+                    <ArrowLeft size={16} /> Back to Dashboard
+                  </button>
+                </div>
+                <PollsScreen user={user} addToast={addToast} />
+              </motion.div>
+            )}
+
             {currentTab === 'problems' && (
               <motion.div key="problems" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <div className="flex justify-between items-center mb-4">
@@ -2612,23 +2547,57 @@ export default function App() {
                        e.preventDefault();
                        const target = e.target as any;
                        const cat = target.category.value;
-                       const msg = target.message.value;
                        if (requireLoginAlert(user)) return;
                        try {
                          await addDoc(collection(db, 'problems'), {
-                           msg,
+                           msg: problemMessage,
                            category: cat,
                            status: 'pending',
                            time: Date.now(),
-                           uid: user.uid
+                           uid: user.uid,
+                           isAnonymous: problemIsAnonymous,
+                           wantsWhatsAppUpdates: problemWantsWhatsApp
                          });
                          await logUserActivity(`Reported Problem: ${cat}`);
-                         addToast("Problem reported successfully!");
+                         addToast("Problem reported successfully!" + (problemWantsWhatsApp ? " You will receive SMS/WhatsApp updates." : ""));
                          target.reset();
+                         setProblemMessage("");
+                         setProblemIsAnonymous(false);
+                         setProblemWantsWhatsApp(true);
                        } catch(err) { handleFirestoreError(err, OperationType.WRITE, 'problems'); }
                      }} className="space-y-4">
-                       <input name="category" placeholder="Category (e.g. Aadhar, Water, Tax)" required className="bg-white" />
-                       <textarea name="message" placeholder="Explain your problem in detail..." required rows={3} className="bg-white" />
+                       <input name="category" placeholder="Category (e.g. Aadhar, Water, Tax)" required className="bg-white w-full p-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-danger/20" />
+                       <div className="relative">
+                         <textarea 
+                           name="message" 
+                           placeholder="Explain your problem in detail (or use voice to text)..." 
+                           required 
+                           rows={3} 
+                           className="bg-white w-full p-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-danger/20" 
+                           value={problemMessage}
+                           onChange={e => setProblemMessage(e.target.value)}
+                         />
+                         <button 
+                           type="button" 
+                           onClick={handleRecordProblem}
+                           className={`absolute bottom-3 right-3 p-2 rounded-full transition-colors ${isRecordingProblem ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/40' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                           title="Voice to text"
+                         >
+                           <Mic size={18} />
+                         </button>
+                       </div>
+                       
+                       <div className="flex flex-col sm:flex-row gap-4 mt-2">
+                         <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none">
+                            <input type="checkbox" checked={problemIsAnonymous} onChange={e => setProblemIsAnonymous(e.target.checked)} className="w-4 h-4 rounded text-danger focus:ring-danger" />
+                            Anonymous Reporting (పేరు బయటపెట్టకుండా)
+                         </label>
+                         <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none">
+                            <input type="checkbox" checked={problemWantsWhatsApp} onChange={e => setProblemWantsWhatsApp(e.target.checked)} className="w-4 h-4 rounded text-green-600 focus:ring-green-600" />
+                            Get updates on WhatsApp/SMS
+                         </label>
+                       </div>
+
                        <button aria-label="Submit Report" className="w-full bg-danger text-white py-3 rounded-xl font-black shadow-md hover:opacity-90">Submit Report</button>
                      </form>
                   </div>
@@ -2640,6 +2609,25 @@ export default function App() {
                           <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${p.status === 'solved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.status?.toUpperCase()}</span>
                         </div>
                         <p className="text-sm font-medium text-slate-700">{p.msg}</p>
+
+                        <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-100">
+                          <span className="text-xs font-bold text-slate-400">
+                             {p.isAnonymous ? "Anonymous User" : "Citizen"}
+                          </span>
+                          <button 
+                            onClick={() => {
+                               const shareText = `Please support this issue in our village app:\nCategory: ${p.category}\nProblem: ${p.msg}`;
+                               if (navigator.share) {
+                                 navigator.share({ title: 'Important Issue', text: shareText }).catch(console.error);
+                               } else {
+                                 window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+                               }
+                            }}
+                            className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-700 transition-colors uppercase tracking-widest"
+                          >
+                            <Share2 size={14} /> Share Issue
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2728,7 +2716,7 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!username || !name || !surname || !mobile) {
+    if (!username || !name || !surname || (gender !== 'Female' && !mobile)) {
       addToast("Please fill all required fields (*)");
       return;
     }
@@ -2849,17 +2837,22 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
           <div className="grid grid-cols-2 gap-3">
              <div>
                <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Gender</label>
-               <select value={gender} onChange={e => setGender(e.target.value)} className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs">
+               <select value={gender} onChange={e => {
+                  setGender(e.target.value);
+                  if (e.target.value === 'Female') setMobile('');
+               }} className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs">
                   <option value="">Select Gender</option>
                   <option>Male</option>
                   <option>Female</option>
                   <option>Other</option>
                </select>
              </div>
+             {gender !== 'Female' && (
              <div>
                <label className="text-[9px] font-black text-slate-500 uppercase mb-1 block ml-1 tracking-wider">Mobile No *</label>
                <input value={mobile} onChange={e => setMobile(e.target.value)} required className="w-full bg-slate-50 border-2 border-transparent p-2 rounded-xl focus:border-primary/20 outline-none font-bold text-xs" placeholder="Mobile Number" />
              </div>
+             )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -7772,7 +7765,7 @@ function AuthModal({ onClose, addToast, handleGoogleLogin, districtsData }: { on
         // dynamic greeting handled via profile listener
         onClose();
       } else {
-        if (!username || !email || !password || !name || !surname || !mobile) {
+        if (!username || !email || !password || !name || !surname || (gender !== 'Female' && !mobile)) {
           addToast("Please fill all required fields (*)");
           setLoading(false);
           return;
@@ -7894,17 +7887,22 @@ function AuthModal({ onClose, addToast, handleGoogleLogin, districtsData }: { on
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Gender</label>
-                    <select value={gender} onChange={e => setGender(e.target.value)} className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors">
+                    <select value={gender} onChange={e => {
+                        setGender(e.target.value);
+                        if (e.target.value === 'Female') setMobile('');
+                    }} className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors">
                        <option value="">Select Gender</option>
                        <option>Male</option>
                        <option>Female</option>
                        <option>Other</option>
                     </select>
                   </div>
+                  {gender !== 'Female' && (
                   <div>
                     <label className="text-[8px] font-black text-[#0f2e4a] uppercase mb-0.5 block tracking-wider">Mobile No *</label>
                     <input value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Phone" required className="w-full bg-white border border-slate-200 focus:border-[#0f2e4a]/30 px-2 py-1.5 rounded-lg outline-none font-bold text-[10px] text-slate-700 transition-colors" />
                   </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -8000,6 +7998,181 @@ function AuthModal({ onClose, addToast, handleGoogleLogin, districtsData }: { on
           </div>
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+function PollsScreen({ user, addToast }: { user: any, addToast: (msg: string) => void }) {
+  const [polls, setPolls] = useState<any[]>([]);
+  const [newPollQuestion, setNewPollQuestion] = useState("");
+  const [newPollOptions, setNewPollOptions] = useState(["", ""]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onSnapshot(query(collection(db, 'polls'), orderBy('createdAt', 'desc')), (snap) => {
+      setPolls(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching polls:", error);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleCreatePoll = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return addToast("లాగిన్ అవసరం (Login required)");
+    if (!newPollQuestion.trim() || newPollOptions.some(opt => !opt.trim())) return addToast("అన్ని వివరాలు నింపండి (Fill all fields)");
+
+    try {
+      await addDoc(collection(db, 'polls'), {
+        question: newPollQuestion,
+        options: newPollOptions.map(opt => ({ text: opt, votes: 0 })),
+        votedBy: {},
+        createdBy: user.uid,
+        createdAt: Date.now()
+      });
+      setNewPollQuestion("");
+      setNewPollOptions(["", ""]);
+      addToast("పోల్ విజయవంతంగా సృష్టించబడింది (Poll created)");
+    } catch (err: any) {
+      addToast("పోల్ సృష్టించడం విఫలమైంది: " + err.message);
+    }
+  };
+
+  const handleVote = async (pollId: string, optionIndex: number, currentPoll: any) => {
+    if (!user) return addToast("లాగిన్ అవసరం (Login required)");
+    if (currentPoll.votedBy[user.uid] !== undefined) return addToast("మీరు ఇప్పటికే ఓటు వేశారు (Already voted)");
+
+    try {
+      const pollRef = doc(db, 'polls', pollId);
+      const newOptions = [...currentPoll.options];
+      newOptions[optionIndex].votes += 1;
+      
+      await updateDoc(pollRef, {
+        options: newOptions,
+        [`votedBy.${user.uid}`]: optionIndex
+      });
+      addToast("మీ ఓటు నమోదైంది (Vote recorded)");
+    } catch (err: any) {
+      addToast("ఓటు విఫలమైంది: " + err.message);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 mb-6">
+         <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
+            <Vote size={24} />
+         </div>
+         <div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">ప్రజాభిప్రాయ సేకరణ (Polls)</h2>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Village Voting & Opinions</p>
+         </div>
+      </div>
+
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-100 shadow-sm mb-8">
+         <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+           <Plus size={16} className="text-primary" /> కొత్త పోల్ సృష్టించండి (Create Poll)
+         </h3>
+         <form onSubmit={handleCreatePoll} className="space-y-4">
+           <input 
+             type="text" 
+             value={newPollQuestion} 
+             onChange={e => setNewPollQuestion(e.target.value)} 
+             placeholder="ప్రశ్న (ఉదా: ముందుగా ఏ పని చేయాలి? పార్క్ లేదా రోడ్డు?)" 
+             className="w-full bg-slate-50 border-slate-100 rounded-2xl p-4 text-sm font-bold placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-primary/20" 
+             required 
+           />
+           <div className="space-y-2">
+             {newPollOptions.map((opt, i) => (
+               <div key={i} className="flex gap-2">
+                 <input 
+                   type="text" 
+                   value={opt} 
+                   onChange={e => {
+                     const newOpts = [...newPollOptions];
+                     newOpts[i] = e.target.value;
+                     setNewPollOptions(newOpts);
+                   }} 
+                   placeholder={`ఆప్షన్ (Option) ${i + 1}`} 
+                   className="flex-1 bg-slate-50 border-slate-100 rounded-2xl p-4 text-sm font-bold placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-primary/20" 
+                   required 
+                 />
+                 {i >= 2 && (
+                   <button type="button" onClick={() => setNewPollOptions(newPollOptions.filter((_, idx) => idx !== i))} className="p-4 text-slate-400 hover:text-danger bg-slate-50 rounded-2xl transition-colors">
+                     <X size={16} />
+                   </button>
+                 )}
+               </div>
+             ))}
+           </div>
+           <button type="button" onClick={() => setNewPollOptions([...newPollOptions, ""])} className="text-[10px] font-black text-primary hover:text-blue-700 transition-colors flex items-center gap-1 uppercase tracking-widest pl-1 mt-2">
+             <Plus size={14} /> యాడ్ ఆప్షన్ (Add Option)
+           </button>
+           <button type="submit" className="w-full mt-4 bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform uppercase tracking-widest text-sm">
+             పబ్లిష్ చేయండి (Publish Poll)
+           </button>
+         </form>
+      </div>
+
+      <div className="space-y-4">
+         {loading ? (
+           <div className="text-center py-10"><div className="w-8 h-8 mx-auto border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div></div>
+         ) : polls.length === 0 ? (
+           <div className="text-center py-12 text-slate-400 font-bold">ఇంకా ఎటువంటి పోల్స్ లేవు (No polls yet)</div>
+         ) : (
+           polls.map(poll => {
+             const totalVotes = poll.options.reduce((acc: number, opt: any) => acc + opt.votes, 0);
+             const userVotedIndex = user ? poll.votedBy[user.uid] : undefined;
+             
+             return (
+               <div key={poll.id} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 bg-blue-50 text-blue-600 text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-bl-xl font-black">{totalVotes} Votes</div>
+                 <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 mt-2 pr-12">{poll.question}</h3>
+                 <div className="space-y-3">
+                   {poll.options.map((opt: any, i: number) => {
+                     const percent = totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0;
+                     const isSelected = userVotedIndex === i;
+                     return (
+                       <button 
+                         key={i} 
+                         onClick={() => handleVote(poll.id, i, poll)}
+                         disabled={userVotedIndex !== undefined}
+                         className={`w-full relative overflow-hidden rounded-xl border text-left transition-all ${userVotedIndex !== undefined ? (isSelected ? 'border-primary bg-blue-50/50' : 'border-slate-100 bg-slate-50 opacity-70') : 'border-slate-100 bg-white hover:border-primary/50 hover:bg-slate-50'}`}
+                       >
+                         <div className={`absolute top-0 left-0 bottom-0 transition-all duration-1000 ${isSelected ? 'bg-blue-100' : 'bg-slate-200/50'}`} style={{ width: `${percent}%` }} />
+                         <div className="relative p-4 flex justify-between items-center z-10">
+                           <span className={`text-sm font-bold ${isSelected ? 'text-primary' : 'text-slate-700'}`}>{opt.text}</span>
+                           {userVotedIndex !== undefined && (
+                             <span className={`text-xs font-black ${isSelected ? 'text-primary' : 'text-slate-400'}`}>{percent}%</span>
+                           )}
+                         </div>
+                       </button>
+                     );
+                   })}
+                 </div>
+                 <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] font-bold text-slate-400 tracking-wider">
+                    <span className="uppercase">Created: {new Date(poll.createdAt).toLocaleDateString('en-IN')}</span>
+                    <button 
+                      onClick={() => {
+                        const shareText = `దయచేసి ఈ పోల్ లో పాల్గొనండి:\n*${poll.question}*\n\nమా గ్రామం యాప్ లో ఓటు వేయడానికి కింది లింక్ ద్వారా వెళ్ళండి:\n${window.location.origin}`;
+                        if (navigator.share) {
+                          navigator.share({ title: 'Vote in Poll', text: shareText }).catch(console.error);
+                        } else {
+                          window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+                        }
+                      }}
+                      className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg hover:bg-slate-100 hover:text-blue-600 transition-colors uppercase tracking-widest"
+                    >
+                      <Share2 size={14} /> Share Poll
+                    </button>
+                 </div>
+               </div>
+             );
+           })
+         )}
+      </div>
     </div>
   );
 }
