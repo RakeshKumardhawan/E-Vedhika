@@ -649,26 +649,6 @@ const formatPostTitle = (title: string | undefined | null) => {
 
 export const SYSTEM_UPDATES = [
   {
-    id: 'update-v1.4.9',
-    version: 'v1.4.9',
-    title: 'మే 08, 2026: సిస్టమ్ అప్‌డేట్ క్లీనప్',
-    badge: 'MAINTENANCE',
-    text: 'అవసరం లేని పాత వెర్షన్ అప్‌డేట్ లాగ్స్ (v1.4.5, v1.4.8) మరియు ఇతర అదనపు డేటాను సిస్టమ్ నుండి తొలగించడం జరిగింది.',
-    time: Date.now(),
-    type: 'changelog',
-    status: 'Approved'
-  },
-  {
-    id: 'update-v1.4.7',
-    version: 'v1.4.7',
-    title: 'మే 08, 2026: PR Act సెర్చ్ ఐకాన్ మార్పు',
-    badge: 'PATCH',
-    text: 'PR Act పాకెట్ గైడ్ సెర్చ్ బార్‌లో యూజర్లకు సులభంగా అర్థం కావడానికి సెర్చ్ ఐకాన్‌కు బదులుగా "బాట్" ఐకాన్‌ను తిరిగి ఉంచాము.',
-    time: Date.now(),
-    type: 'changelog',
-    status: 'Approved'
-  },
-  {
     id: 'update-v1.4.6',
     version: 'v1.4.6',
     title: 'మే 08, 2026: సింగిల్ చాట్ బాట్ (ManaBot) సింప్లిఫికేషన్',
@@ -691,7 +671,7 @@ export const SYSTEM_UPDATES = [
   {
     id: 'update-v1.4.1',
     version: 'v1.4.1',
-    title: 'మే 08, 2026: వెబ్‌సైట్ విజిటర్ కౌంట్ అప్‌డేట్',
+    title: 'మే 08, 2026: వెబ్సైట్ విజిటర్ కౌంట్ అప్డేట్',
     badge: 'HOTFIX',
     text: 'గతంలో పోర్టల్ ని సందర్శించిన వారి సంఖ్య సరిగ్గా చూపించట్లేదు , ఇప్పుడు ఒరిజినల్ కౌంట్ కనిపించేలా విజిటర్ కౌంటర్ ని ఫిక్స్ చెయ్యడం జరిగింది.',
     time: Date.now(),
@@ -777,13 +757,13 @@ export const SYSTEM_UPDATES = [
     status: 'Approved'
   },
   {
-    id: 'update-v1.1.0',
+    id: 'update-v1.0.1',
     isSystemElement: true,
-    version: 'v1.1.0',
+    version: 'v1.0.1',
     text: (
       <div className="text-left space-y-4">
         <div className="flex items-center gap-3">
-          <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.1.0</kbd>
+          <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.0.1</kbd>
           <p className="font-bold text-slate-800 text-lg flex items-center gap-2">ఏప్రిల్ 15, 2026: కమ్యూనికేషన్</p>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
@@ -2086,7 +2066,7 @@ export default function App() {
                         if ((index + 1) % 5 === 0) {
                           items.push(
                             <motion.div key={`ad-${post.id}`} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
-                              <AdBanner slotId={`ad-feed-${index}`} />
+                              <AdBanner />
                             </motion.div>
                           );
                         }
@@ -6723,7 +6703,7 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
   );
 }
 
-function AdBanner({ slotId = "auto" }: { slotId?: string }) {
+function AdBanner({ slotId = "5641797386" }: { slotId?: string }) {
   const adRef = useRef<HTMLModElement>(null);
 
   useEffect(() => {
@@ -6751,17 +6731,16 @@ function AdBanner({ slotId = "auto" }: { slotId?: string }) {
   }, []);
 
   return (
-    <div className="w-full my-6 flex justify-center min-h-[100px]">
-      <div className="w-full max-w-[728px] overflow-hidden rounded-2xl bg-slate-50 border border-slate-200 shadow-sm relative group flex items-center justify-center">
-        <span className="absolute top-0 left-0 bg-slate-100 text-slate-400 text-[8px] uppercase tracking-widest px-2 py-1 rounded-br-lg font-bold z-10 border-b border-r border-slate-200">Advertisement</span>
+    <div className="w-full my-6 flex justify-center min-h-[90px]">
+      <div className="w-full max-w-[728px] overflow-hidden rounded-xl bg-slate-50 border border-slate-200 shadow-sm relative group flex items-center justify-center">
+        <span className="absolute top-0 left-0 bg-slate-100/80 backdrop-blur-sm text-slate-400 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-br-lg font-bold z-10 border-b border-r border-slate-200 pointer-events-none">AD</span>
         <ins 
              ref={adRef}
-             className="adsbygoogle w-full block"
-             style={{ display: 'block', minHeight: '90px' }}
+             className="adsbygoogle"
+             style={{ display: 'inline-block', width: '728px', height: '90px' }}
              data-ad-client="ca-pub-4602643637986053"
-             data-ad-slot={slotId !== "auto" ? slotId : undefined}
-             data-ad-format="auto"
-             data-full-width-responsive="true"></ins>
+             data-ad-slot={slotId}
+        ></ins>
       </div>
     </div>
   );
