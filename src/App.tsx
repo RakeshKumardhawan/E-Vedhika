@@ -1623,9 +1623,9 @@ export default function App() {
       </AnimatePresence>
 
       <header className="sticky top-0 z-[1001] shadow-2xl bg-[#103052] border-b-[3px] border-accent flex items-center">
-        <div className="brand-wrapper cursor-pointer flex items-center gap-4" onClick={() => { setCurrentTab('home'); setSidebarOpen(false); }}>
+        <div className="brand-wrapper cursor-pointer flex items-center gap-2 sm:gap-4 shrink-0" onClick={() => { setCurrentTab('home'); setSidebarOpen(false); }}>
           {/* లోగో HTML స్ట్రక్చర్ */}
-          <div className="logo-pro cursor-pointer transition-transform hover:scale-105 active:scale-95 duration-200">
+          <div className="logo-pro cursor-pointer transition-transform hover:scale-105 active:scale-95 duration-200 shrink-0">
             {/* యానిమేటెడ్ పార్టికల్స్ */}
             <div className="logo-particles">
               <span></span>
@@ -1634,7 +1634,7 @@ export default function App() {
             </div>
             
             {/* SVG లోగో */}
-            <svg viewBox="0 0 64 64" width="48" height="48">
+            <svg viewBox="0 0 64 64" className="w-10 h-10 sm:w-12 sm:h-12 shrink-0">
               <defs>
                 {/* కలర్ గ్రేడియంట్స్ */}
                 <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
@@ -1660,8 +1660,8 @@ export default function App() {
             </svg>
           </div>
           {/* Website Name Section */}
-          <div className="flex flex-col justify-center translate-y-[-2px]">
-            <h2 className="brand-title" style={{ 
+          <div className="flex flex-col justify-center translate-y-[-1px] shrink min-w-0">
+            <h2 className="brand-title text-lg sm:text-[20px] lg:text-[24px] truncate" style={{ 
               color: '#fbe947', 
               background: 'none',
               WebkitTextFillColor: 'initial',
@@ -1671,10 +1671,10 @@ export default function App() {
               fontWeight: '900',
               letterSpacing: '1px',
               fontFamily: '"Arial Black", Impact, sans-serif',
-              lineHeight: '1',
+              lineHeight: '1.2',
              }}>E<span style={{color: '#facc15'}}>-</span>VEDHIKA</h2>
-            <div className="flex items-center mt-[1px]">
-              <span style={{ fontSize: '9px', fontWeight: '800', letterSpacing: '1px', color: '#94a3b8', textTransform: 'uppercase' }}>
+            <div className="flex items-center">
+              <span className="whitespace-nowrap truncate" style={{ fontSize: '9px', fontWeight: '800', letterSpacing: '0.5px', color: '#94a3b8', textTransform: 'uppercase' }}>
                 all problems one solution
               </span>
             </div>
@@ -1684,7 +1684,7 @@ export default function App() {
         <div className="flex-1"></div>
 
         <div className="flex items-center gap-2 sm:gap-5">
-          <div className="flex flex-col items-center justify-center mr-2 sm:mr-4" title="Total Website Visits">
+          <div className="flex flex-col items-center justify-center mr-2 sm:mr-4 shrink-0" title="Total Website Visits">
             <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#94a3b8] mb-[2px]">Visits</span>
             <span className="text-[11px] font-mono font-black text-[#60a5fa] bg-[#0f2e4a] px-2 py-0.5 rounded-md border border-[#1e40af]/30 shadow-inner">{(visitorCount + 15420).toLocaleString()}</span>
           </div>
