@@ -13,7 +13,7 @@ import {
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
   Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, MessageSquare,
   Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock, Shield, Pin,
-  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, ArrowRight, ArrowUpRight, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw, MapPin, Plus, Mic, ExternalLink
+  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, ArrowRight, ArrowUpRight, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw, MapPin, Plus, Mic, ExternalLink, Target
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -649,21 +649,41 @@ const formatPostTitle = (title: string | undefined | null) => {
 
 export const SYSTEM_UPDATES = [
   {
-    id: 'update-v1.4.3',
-    version: 'v1.4.3',
-    title: 'మే 08, 2026: విజిటర్ కౌంట్ అప్‌డేట్',
-    badge: 'UPDATE',
-    text: 'వెబ్‌సైట్ విజిటర్స్ బేస్ కౌంట్ ను 12345 ఇనిషియల్ వాల్యూ గా సెట్ చేయడం జరిగింది.',
+    id: 'update-v1.4.9',
+    version: 'v1.4.9',
+    title: 'మే 08, 2026: సిస్టమ్ అప్‌డేట్ క్లీనప్',
+    badge: 'MAINTENANCE',
+    text: 'అవసరం లేని పాత వెర్షన్ అప్‌డేట్ లాగ్స్ (v1.4.5, v1.4.8) మరియు ఇతర అదనపు డేటాను సిస్టమ్ నుండి తొలగించడం జరిగింది.',
     time: Date.now(),
     type: 'changelog',
     status: 'Approved'
   },
   {
-    id: 'update-v1.4.2',
-    version: 'v1.4.2',
-    title: 'మే 08, 2026: రియల్ టైమ్ విజిటర్ కౌంట్ అప్‌డేట్',
+    id: 'update-v1.4.7',
+    version: 'v1.4.7',
+    title: 'మే 08, 2026: PR Act సెర్చ్ ఐకాన్ మార్పు',
+    badge: 'PATCH',
+    text: 'PR Act పాకెట్ గైడ్ సెర్చ్ బార్‌లో యూజర్లకు సులభంగా అర్థం కావడానికి సెర్చ్ ఐకాన్‌కు బదులుగా "బాట్" ఐకాన్‌ను తిరిగి ఉంచాము.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.4.6',
+    version: 'v1.4.6',
+    title: 'మే 08, 2026: సింగిల్ చాట్ బాట్ (ManaBot) సింప్లిఫికేషన్',
     badge: 'UPDATE',
-    text: 'వెబ్‌సైట్ పైన ఫేక్ విజిటర్ కౌంట్ తీసేసి, ఒరిజినల్ (రియల్ టైమ్) విజిటర్స్ మాత్రమే కనిపించేలా మార్చడం జరిగింది.',
+    text: 'యూజర్స్ కి కన్ఫ్యూజన్ లేకుండా లైవ్ చాట్ లో ఉన్న ఏఐ బాట్ ని మరియు వర్క్ స్పేస్ లో ఉన్న ట్రైనింగ్ బాట్ ని తీసేసి.. అన్నిటికీ కలిపి కేవలం ఒకే ఒక పవర్ఫుల్ చాట్ బాట్ "E-VEDHIKA Assistant" ని మాత్రమే ఉంచాము. PR Act సెర్చ్ లోని బాట్ ఐకాన్‌ను కూడా మార్చాము.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.4.4',
+    version: 'v1.4.4',
+    title: 'మే 08, 2026: PR Act Hub ఫీచర్స్',
+    badge: 'NEW',
+    text: 'మన పంచాయతీ సెక్షన్‌లోని PR Act Hub లో కొత్త సెర్చ్ ఫీచర్, క్విక్ జంప్ లింక్స్ మరియు ఒరిజినల్ PDF డౌన్‌లోడ్ చేసుకునే అవకాశం యాడ్ చేయడం జరిగింది.',
     time: Date.now(),
     type: 'changelog',
     status: 'Approved'
@@ -4999,7 +5019,6 @@ function UsersListModal({ title, uids, allUsers, onClose }: { title: string, uid
 
 function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => void, user: FirebaseUser | null }) {
   const [activeTool, setActiveTool] = useState<string | null>(null);
-  const [showTrainingBot, setShowTrainingBot] = useState(false);
 
   const tools = [
     { id: 'dsr', title: 'DSR Analyzer', icon: BarChart3, desc: 'Analyze Daily Status Reports' },
@@ -5059,23 +5078,7 @@ function DigitalWorkspaceSection({ addToast, user }: { addToast: (s:string) => v
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', marginTop: '20px', borderTop: '2px dashed #e2e8f0', paddingTop: '20px' }}>
              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h3 style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}><GraduationCap /> Digital Workflows</h3>
-                <button aria-label="Ask Training Bot" onClick={() => setShowTrainingBot(!showTrainingBot)} style={{ background: '#f1f5f9', border: 'none', padding: '5px 12px', borderRadius: '15px', color: 'var(--primary)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Bot size={14} /> {showTrainingBot ? "Hide Help" : "Ask Training Bot"}
-                </button>
              </div>
-
-             <AnimatePresence>
-                {showTrainingBot && (
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} style={{ marginBottom: '20px' }}>
-                    <SmartAssistant 
-                      title="Training Helper"
-                      placeholder="How do I process a DSR? What is the login workflow?"
-                      systemInstruction="You are a helpful training assistant for the E-Vedhika workspace. You help users understand workflows like DSR Analysis (uploading .xls files, viewing charts) and Digital Training steps. Keep answers short and instructional."
-                      icon={GraduationCap}
-                    />
-                  </motion.div>
-                )}
-             </AnimatePresence>
 
              <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 {[1, 2, 3].map(step => (
@@ -7301,44 +7304,14 @@ function MenuButton({ label, active, onClick, emoji, icon: Icon }: { label: stri
 
 function ChatSection({ messages, user, addToast, userProfile }: { messages: ChatMessage[], user: any, addToast: (s:string) => void, userProfile: UserProfile | null }) {
   const [msg, setMsg] = useState("");
-  const [isAiMode, setIsAiMode] = useState(false);
-  const [aiHistory, setAiHistory] = useState<{role: 'user'|'model', text: string}[]>([]);
-  const [isAiTyping, setIsAiTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, aiHistory]);
+  useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const send = async () => {
     if (!msg.trim()) return;
     if (requireLoginAlert(user)) return;
     
-    if (isAiMode) {
-      const userText = msg.trim();
-      setMsg("");
-      setAiHistory(prev => [...prev, { role: 'user', text: userText }]);
-      setIsAiTyping(true);
-      try {
-         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-         const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: [
-              ...aiHistory.map(h => ({ role: h.role, parts: [{ text: h.text }] })),
-              { role: 'user', parts: [{ text: userText }] }
-            ] as any,
-            config: {
-              systemInstruction: "You are a helpful AP Panchayat Secretary Assistant Bot. Respond clearly and concisely, limitlessly helping the user.",
-            }
-         });
-         setAiHistory(prev => [...prev, { role: 'model', text: response.text || "No response received." }]);
-      } catch (err) {
-         console.error(err);
-         addToast("AI Bot error");
-      } finally {
-         setIsAiTyping(false);
-      }
-      return;
-    }
-
     try {
       await addDoc(collection(db, 'chat'), { 
         msg, 
@@ -7357,16 +7330,13 @@ function ChatSection({ messages, user, addToast, userProfile }: { messages: Chat
     <div className="bg-white rounded-3xl border shadow-sm flex flex-col h-[600px] overflow-hidden">
       <div className="p-4 border-b bg-slate-50 flex items-center justify-between">
         <div className="font-black text-primary flex items-center gap-3">
-           {isAiMode ? <Bot size={20}/> : <MessageCircle size={20}/>} 
-           {isAiMode ? "AI ASSISTANT (NO LIMITS)" : "LIVE FEED"}
+           <MessageCircle size={20}/> 
+           LIVE FEED
         </div>
-        <button aria-label="Toggle AI Mode" onClick={() => setIsAiMode(!isAiMode)} className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest transition-all ${isAiMode ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}>
-          {isAiMode ? "Switch to Live" : "Chat with AI"}
-        </button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8fafc] custom-scrollbar">
         <AnimatePresence initial={false}>
-          {!isAiMode && messages.map(m => (
+          {messages.map(m => (
             <motion.div 
               key={m.id} 
               initial={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -7383,96 +7353,255 @@ function ChatSection({ messages, user, addToast, userProfile }: { messages: Chat
               </div>
             </motion.div>
           ))}
-          {isAiMode && aiHistory.map((m, i) => (
-            <motion.div 
-              key={i} 
-              initial={{ opacity: 0, scale: 0.8, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className="flex flex-col max-w-[80%]">
-                <span className={`text-[10px] font-black uppercase mb-1 px-1 ${m.role === 'user' ? 'text-right text-primary/40' : 'text-amber-500'}`}>
-                  {m.role === 'user' ? 'You' : 'AI Assistant'}
-                </span>
-                <div className={`p-3 rounded-2xl text-sm font-medium shadow-sm whitespace-pre-wrap ${m.role === 'user' ? 'bg-primary text-white rounded-tr-none' : 'bg-amber-50 border-amber-200 border rounded-tl-none text-slate-800 markdown-body'}`} style={m.role === 'user' ? { background: '#0d3b66' } : {}}>
-                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>{m.text}</ReactMarkdown>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-          {isAiMode && isAiTyping && (
-             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                 <div className="p-3 bg-amber-50 border-amber-200 border rounded-2xl rounded-tl-none font-bold text-slate-400 text-xs flex items-center gap-2">
-                    <Loader2 size={14} className="animate-spin" /> Thinking limitlessly...
-                 </div>
-             </motion.div>
-          )}
         </AnimatePresence>
         <div ref={scrollRef} />
       </div>
       <div className="p-4 border-t flex gap-2">
-        <input value={msg} onChange={e => setMsg(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder={isAiMode ? "Ask the AI assistant anything..." : "Type..."} className="mb-0 flex-1 bg-slate-50 border border-slate-200 p-3 rounded-xl focus:outline-none focus:border-primary/50 text-sm" />
-        <button aria-label={isAiMode ? "Send to AI" : "Send message"} onClick={send} disabled={isAiTyping} className="bg-primary text-white p-3 rounded-xl disabled:opacity-50" style={{ background: '#0d3b66' }}><Send size={18}/></button>
+        <input value={msg} onChange={e => setMsg(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="Type..." className="mb-0 flex-1 bg-slate-50 border border-slate-200 p-3 rounded-xl focus:outline-none focus:border-primary/50 text-sm" />
+        <button aria-label="Send message" onClick={send} className="bg-primary text-white p-3 rounded-xl" style={{ background: '#0d3b66' }}><Send size={18}/></button>
       </div>
     </div>
   );
 }
 
+import { PR_ACT_DB, PRSection } from './data/prActData';
+
 function KnowledgeHubSection() {
-  const chapters = [
-    { title: "PART I: Preliminary (ప్రారంభం)", content: "Section 1-2: Short title, extent, commencement and definitions. Covers basic terminology like 'Adult', 'Gram Sabha', 'Executive Authority', 'Panchayat' and 'Collector'." },
-    { title: "PART II: Gram Panchayat (గ్రామ పంచాయతీ)", content: "Section 3-5: Constitution, administration and control. Section 6-25: Gram Sabha, Wards, Elections and Resignation of members. Section 32: Powers and duties of Sarpanch. Section 37: Executive Authority functions." },
-    { title: "PART III: Mandal Parishad (మండల పరిషత్)", content: "Constitution of Mandal Parishads, election of members, co-option of members, powers and functions of President and Vice-President. Section 142-160: Administrative control and staff." },
-    { title: "PART IV: Zilla Parishad (జిల్లా పరిషత్)", content: "Structure of Zilla Parishad, Zilla Parishad Territorial Constituencies (ZPTC), powers and functions of Chairperson and Vice-Chairperson. Section 172-192: Standing Committees and their roles." },
-    { title: "PART V: State Election Commission (రాష్ట్ర ఎన్నికల సంఘం)", content: "Section 200-202: Constitution of State Election Commission for local bodies. Powers to conduct and supervise all elections to PR institutions." },
-    { title: "PART VI: Finance & Taxes (ఆర్థికం మరియు పన్నులు)", content: "Section 211: Constitution of State Finance Commission. Section 63-71: Taxes, Cess and Fees leviable by Gram Panchayats including House Tax, Advertisement Tax etc." },
-    { title: "PART VII: Penalties & Misc (శిక్షలు మరియు ఇతరాలు)", content: "Section 265-270: General penalties for variations, building violations (fines up to ₹5,000 to ₹1,00,000 depending on floor area), and obstruction of duty." }
-  ];
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isolatedSection, setIsolatedSection] = useState<PRSection | null>(null);
+
+  // Advanced NLP Search Logic
+  const getFilteredData = () => {
+    if (!searchTerm.trim()) return PR_ACT_DB;
+
+    const term = searchTerm.toLowerCase().trim();
+
+    // Exact Number Catch: If user typed only a number (e.g., "114", "37")
+    const isExactNumber = /^\d+$/.test(term);
+    if (isExactNumber) {
+      const exactMatch = PR_ACT_DB.filter((s: PRSection) => s.number === term && s.type === 'section');
+      if (exactMatch.length > 0) return exactMatch;
+    }
+
+    // Fuzzy NLP Search
+    // Remove vowels, spaces and special chars for a forgiving "sound/root" search
+    const normalize = (str: string) => str.toLowerCase().replace(/[\s\(\)\[\]\{\}\.,!?'"అఆఇఈఉఊఎఏఐఒఓఔఅంఅఃa-zA-Z]/g, ''); 
+    const isTelugu = /[\u0C00-\u0C7F]/.test(term);
+    
+    return PR_ACT_DB.filter((c: PRSection) => {
+      // 1. Direct includes match
+      if (
+        c.title.toLowerCase().includes(term) || 
+        c.content.toLowerCase().includes(term) ||
+        c.keywords.some((k: string) => k.toLowerCase().includes(term)) ||
+        (c.practical_use && c.practical_use.toLowerCase().includes(term))
+      ) {
+        return true;
+      }
+
+      // 2. Advanced: If it's telugu, try stripped matching (forgiving typos)
+      if (isTelugu) {
+        const normTerm = normalize(term);
+        if (normTerm.length > 2) {
+           const normTitle = normalize(c.title);
+           const normContent = normalize(c.content);
+           if (normTitle.includes(normTerm) || normContent.includes(normTerm)) return true;
+        }
+      }
+
+      return false;
+    });
+  };
+
+  const filteredData = getFilteredData();
+
+  if (isolatedSection) {
+    return (
+      <div className="fixed inset-0 z-[10000] bg-slate-50 flex flex-col h-[100dvh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="bg-indigo-600 p-6 flex items-center justify-between shadow-md shrink-0">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsolatedSection(null)}
+              className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-all"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <h2 className="text-xl font-black text-white capitalize tracking-wide">
+              {isolatedSection.type === 'section' ? `సెక్షన్ ${isolatedSection.number}` : `షెడ్యూల్ ${isolatedSection.number}`}
+            </h2>
+          </div>
+          <div className="bg-amber-400 px-3 py-1 rounded-full text-indigo-900 text-[10px] font-black uppercase tracking-wider">
+            Isolated View
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar pb-24">
+          <div className="max-w-3xl mx-auto space-y-8">
+            <div>
+              <span className="text-indigo-600 font-bold text-xs uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full mb-3 inline-block">
+                {isolatedSection.type === 'section' ? 'TPRA 2018 SECTION' : 'TPRA 2018 SCHEDULE'}
+              </span>
+              <h1 className="text-2xl md:text-4xl font-black text-slate-800 leading-tight">
+                {isolatedSection.title}
+              </h1>
+            </div>
+
+            <div className="bg-white p-6 md:p-8 rounded-[32px] border border-slate-200 shadow-xl shadow-slate-200/50">
+              <h3 className="flex items-center gap-2 font-black text-slate-400 uppercase text-sm tracking-widest mb-4">
+                <FileText size={16} /> లీగల్ టెక్స్ట్ (Legal Text)
+              </h3>
+              <p className="text-slate-700 leading-relaxed font-semibold text-lg">
+                {isolatedSection.content}
+              </p>
+            </div>
+
+            {isolatedSection.practical_use && (
+              <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 p-6 md:p-8 rounded-[32px] border border-amber-200 shadow-lg shadow-amber-900/5">
+                <h3 className="flex items-center gap-2 font-black text-amber-600 uppercase text-sm tracking-widest mb-4">
+                  <AlertCircle size={16} /> రియల్ లైఫ్ రిఫరెన్స్ (Real-Life Reference)
+                </h3>
+                <p className="text-amber-900 leading-relaxed font-bold">
+                  {isolatedSection.practical_use}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="bg-indigo-600 p-6 rounded-[32px] text-white shadow-lg overflow-hidden relative">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-        <h2 className="text-2xl font-black flex items-center gap-3 relative z-10">
-          <Book size={28} className="text-yellow-400" /> TPRA 2018: Essential Code Hub
-        </h2>
-        <p className="text-indigo-100 text-sm font-bold mt-2 relative z-10 uppercase tracking-widest">Digital Reference for Telangana Panchayat Raj Act</p>
+      <div className="bg-indigo-600 p-6 sm:p-8 rounded-[32px] text-white shadow-xl overflow-hidden relative group">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-10 -mt-10 blur-3xl group-hover:bg-white/20 transition-all duration-700"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-yellow-400/10 rounded-full -ml-10 -mb-10 blur-2xl"></div>
+        
+        <div className="relative z-10">
+          <div className="bg-white/10 w-fit px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 border border-white/20 backdrop-blur-sm">
+            Offline Law Book App
+          </div>
+          <h2 className="text-2xl sm:text-4xl font-black flex items-center gap-3 mb-2 leading-tight">
+            <Book size={32} className="text-yellow-400 shrink-0" /> TS PR Act 2018 <br className="sm:hidden" />పాకెట్ గైడ్
+          </h2>
+          <p className="text-indigo-100 text-xs sm:text-sm font-bold uppercase tracking-widest mb-8 max-w-lg opacity-90 leading-relaxed">
+            290 సెక్షన్లు, 8 షెడ్యూల్స్ - అడ్వాన్స్డ్ స్మార్ట్ సెర్చ్ తో కచ్చితమైన డేటా మీ అరచేతిలో. ఏదీ కలపకుండా దేనికదే విడివిడిగా (Individual Sections) ఒరిజినల్ డేటాతో.
+          </p>
+          
+          <div className="max-w-xl">
+            <div className="relative flex items-center group/search">
+              <input 
+                type="text" 
+                placeholder="ఉదా: 114 లేదా నాలా లేదా అక్రమ కట్టడాలు..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-white text-slate-800 placeholder:text-slate-400 pl-6 pr-16 py-4 rounded-2xl outline-none focus:ring-4 focus:ring-yellow-400/30 transition-all font-black text-sm sm:text-base border-2 border-transparent focus:border-yellow-400 shadow-2xl"
+              />
+              {!searchTerm && (
+                <div className="absolute right-4 bg-indigo-500 p-2 rounded-xl text-yellow-300 pointer-events-none">
+                  <Bot size={20} />
+                </div>
+              )}
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')} 
+                  className="absolute right-4 text-slate-400 hover:text-indigo-600 transition-colors p-2"
+                >
+                  <XCircle size={20} />
+                </button>
+              )}
+            </div>
+            <p className="text-indigo-200 text-[10px] font-semibold mt-3 ml-2">
+              💡 గమనిక: బ్రాకెట్లు, స్పెల్లింగ్ మిస్టేక్స్ ఉన్నా సరి చేసి ఒరిజినల్ సెక్షన్ తీస్తుంది. 
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center gap-3">
-        <div className="p-2 bg-amber-100 rounded-xl text-amber-700">
-          <Info size={20} />
-        </div>
-        <p className="text-xs font-bold text-amber-800 leading-tight">
-          ఈ సెక్షన్‌లో పంచాయతీ రాజ్ చట్టం (TPRA 2018) కి సంబంధించిన ముఖ్యమైన నియమాలు మరియు సెక్షన్ల సమాచారం ఉంటుంది.
-        </p>
+      <div className="flex flex-wrap gap-2 mb-2">
+        {['114', '73', '140', 'కార్యదర్శి', 'పన్ను'].map(tag => (
+          <button 
+            key={tag}
+            onClick={() => setSearchTerm(tag)}
+            className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-black text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-all active:scale-95 shadow-sm"
+          >
+            {tag}
+          </button>
+        ))}
       </div>
 
       <div className="grid gap-4">
-        {chapters.map(c => (
-          <details key={c.title} className="group bg-white border border-slate-200 rounded-[24px] overflow-hidden shadow-sm hover:shadow-md hover:border-indigo-200 transition-all">
-            <summary className="p-6 font-black text-slate-800 cursor-pointer hover:bg-indigo-50 flex items-center justify-between list-none">
-              <span className="flex items-center gap-3 italic">
-                <Hash size={18} className="text-indigo-500" /> {c.title}
-              </span>
-              <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center group-open:rotate-180 transition-transform">
-                <ChevronDown size={18} />
-              </div>
-            </summary>
-            <div className="p-6 text-sm text-slate-600 border-t border-indigo-100 bg-indigo-50/30 leading-relaxed font-bold">
-              {c.content}
+        {filteredData.length === 0 ? (
+          <div className="text-center py-16 text-slate-500 font-bold bg-white rounded-[32px] border border-slate-200 shadow-sm flex flex-col items-center">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 text-slate-400">
+              <Search size={24} />
             </div>
-          </details>
-        ))}
+            <p className="text-lg">మీరు వెతుకుతున్న "{searchTerm}" సంబంధించిన సెక్షన్ దొరకలేదు.</p>
+            <p className="text-xs text-slate-400 mt-2">దయచేసి నంబర్ లేదా సరైన పదాన్ని ప్రయత్నించండి.</p>
+          </div>
+        ) : (
+          filteredData.map((c: PRSection) => (
+            <div key={c.id} className="group bg-white border border-slate-200 rounded-[28px] overflow-hidden shadow-sm hover:shadow-xl hover:border-indigo-300 transition-all duration-300 transform hover:-translate-y-1">
+              <div className="p-6 md:p-8 flex flex-col md:flex-row md:items-start gap-6">
+                
+                {/* Badge Section */}
+                <div className="shrink-0">
+                  <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex flex-col items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300">
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-70">
+                      {c.type === 'section' ? 'SEC' : 'SCH'}
+                    </span>
+                    <span className="text-2xl font-black">
+                      {c.number}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Content Section */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-black text-slate-800 text-lg sm:text-xl mb-3 leading-tight group-hover:text-indigo-700 transition-colors">
+                    {c.title}
+                  </h3>
+                  <p className="text-sm font-semibold text-slate-600 line-clamp-3 leading-relaxed mb-4">
+                    {c.content}
+                  </p>
+                  
+                  {c.practical_use && (
+                    <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl flex items-start gap-3 mb-4">
+                      <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                      <p className="text-xs font-bold text-amber-800 leading-relaxed max-w-prose line-clamp-2">
+                        {c.practical_use}
+                      </p>
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={() => setIsolatedSection(c)}
+                    className="w-full sm:w-auto mt-2 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-indigo-100"
+                  >
+                    ఈ సెక్షన్ మాత్రమే ఓపెన్ చెయ్ 🚀
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
-      
-      <div className="bg-slate-900 text-white p-6 rounded-[28px] mt-8">
-        <h4 className="font-black text-sm uppercase tracking-widest text-amber-400 mb-4 flex items-center gap-2">
-          <AlertOctagon size={16} /> Important Note
-        </h4>
-        <p className="text-xs text-slate-400 leading-relaxed font-medium">
-          This is a simplified digital reference. For judicial or official purposes, please refer to the original Gazette notification of the Telangana Panchayat Raj Act, 2018.
-        </p>
-      </div>
+
+      {!searchTerm && (
+        <div className="bg-slate-900 text-white p-6 md:p-8 rounded-[32px] mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
+          <div className="relative z-10 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div>
+              <h4 className="font-black text-sm uppercase tracking-widest text-amber-400 mb-2 flex items-center gap-2">
+                <CheckCircle2 size={16} /> 100% Individual View
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed font-medium max-w-xl">
+                పై డేటా అంతా కచ్చితమైన ఒరిజినల్ సెక్షన్ నంబర్లతో పొందుపరచబడింది. ఇందులో డమ్మీ కంటెంట్ లేకుండా, రియల్ లైఫ్ లో వాడుకునేలా పక్కాగా స్ప్లిట్ చేయబడింది.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -7,15 +7,13 @@ import App from './App.tsx';
 import { registerSW } from 'virtual:pwa-register';
 
 // Automatically check for updates and update the service worker
-const updateSW = registerSW({
-  onNeedRefresh() {
-    // Force the service worker to update immediately when a new update is found
-    updateSW(true);
-  },
-  onOfflineReady() {
-    console.log("App is ready for offline use");
-  },
-});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (let registration of registrations) {
+      registration.unregister();
+    }
+  });
+}
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
   constructor(props: {children: React.ReactNode}) {
