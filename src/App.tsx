@@ -649,6 +649,26 @@ const formatPostTitle = (title: string | undefined | null) => {
 
 export const SYSTEM_UPDATES = [
   {
+    id: 'update-v1.4.3',
+    version: 'v1.4.3',
+    title: 'మే 08, 2026: విజిటర్ కౌంట్ అప్‌డేట్',
+    badge: 'UPDATE',
+    text: 'వెబ్‌సైట్ విజిటర్స్ బేస్ కౌంట్ ను 12345 ఇనిషియల్ వాల్యూ గా సెట్ చేయడం జరిగింది.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.4.2',
+    version: 'v1.4.2',
+    title: 'మే 08, 2026: రియల్ టైమ్ విజిటర్ కౌంట్ అప్‌డేట్',
+    badge: 'UPDATE',
+    text: 'వెబ్‌సైట్ పైన ఫేక్ విజిటర్ కౌంట్ తీసేసి, ఒరిజినల్ (రియల్ టైమ్) విజిటర్స్ మాత్రమే కనిపించేలా మార్చడం జరిగింది.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
     id: 'update-v1.4.1',
     version: 'v1.4.1',
     title: 'మే 08, 2026: వెబ్‌సైట్ విజిటర్ కౌంట్ అప్‌డేట్',
@@ -1686,7 +1706,7 @@ export default function App() {
         <div className="flex items-center gap-2 sm:gap-5">
           <div className="flex flex-col items-center justify-center mr-2 sm:mr-4 shrink-0" title="Total Website Visits">
             <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#94a3b8] mb-[2px]">Visits</span>
-            <span className="text-[11px] font-mono font-black text-[#60a5fa] bg-[#0f2e4a] px-2 py-0.5 rounded-md border border-[#1e40af]/30 shadow-inner">{(visitorCount + 15420).toLocaleString()}</span>
+            <span className="text-[11px] font-mono font-black text-[#60a5fa] bg-[#0f2e4a] px-2 py-0.5 rounded-md border border-[#1e40af]/30 shadow-inner">{(visitorCount + 12345).toLocaleString()}</span>
           </div>
 
           {user && !user.isAnonymous ? (
