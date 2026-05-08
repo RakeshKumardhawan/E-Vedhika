@@ -11,7 +11,7 @@ service cloud.firestore {
     function isAdmin() { 
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) || 
-        request.auth.token.email.lower() == 'rakeshkumardhawan123@gmail.com'
+        ('email' in request.auth.token && request.auth.token.email.lower() == 'rakeshkumardhawan123@gmail.com')
       ); 
     }
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
@@ -98,7 +98,7 @@ service cloud.firestore {
 
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isAdmin() || settingId == 'site_stats';
+      allow write: if settingId == 'site_stats' || isAdmin();
     }
 
     match /security_logs/{logId} {

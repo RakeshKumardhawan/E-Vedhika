@@ -5,64 +5,25 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { ManaBot } from './components/ManaBot';
 import { 
   Bell, Menu, X, Home, Megaphone, FileText, Wheat, Vote, 
   Wallet, Building, MessageCircle, Handshake, Lightbulb, 
-  AlertTriangle, Send, LogOut, ChevronDown, ChevronUp, Search, Filter,
+  AlertTriangle, Send, LogOut, ChevronDown, ChevronUp, Search, Filter, AlertCircle,
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
   Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, MessageSquare,
   Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock, Shield, Pin,
-  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, ArrowRight, ArrowUpRight, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw, MapPin, Plus, Mic
+  Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, ArrowRight, ArrowUpRight, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw, MapPin, Plus, Mic, ExternalLink
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
-// @ts-ignore
-import { useRegisterSW } from 'virtual:pwa-register/react';
 import { GosAndFormatsPublic, GosAndFormatsAdmin } from './GosAndFormats';
 // Lazy loaded modules
 let XLSX: any = null;
 let jsPDF: any = null;
 let autoTable: any = null;
-
-// PWA Update Prompt Component
-function PwaUpdatePrompt({ needRefresh, setNeedRefresh, updateServiceWorker }: { needRefresh: boolean, setNeedRefresh: (v: boolean) => void, updateServiceWorker: (reloadPage?: boolean) => Promise<void> }) {
-  if (!needRefresh) return null;
-  
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-6 md:p-8 rounded-[32px] shadow-2xl max-w-lg w-full border border-slate-100 relative overflow-hidden">
-        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
-            <Zap size={28} />
-          </div>
-          <div>
-            <h3 className="text-xl font-black text-slate-800">New Update Available!</h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">కొత్త వెర్షన్ అందుబాటులో ఉంది</p>
-          </div>
-        </div>
-        
-        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-6 text-sm">
-           <h4 className="font-bold text-slate-700 mb-2">What's New / కొత్త ఫీచర్లు:</h4>
-           <ul className="space-y-2 text-slate-600">
-             <li className="flex gap-2 items-start"><kbd className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-indigo-500 mt-0.5">NEW</kbd> <span><strong>Dark Mode & Theme Settings:</strong> Added new Dark Mode customization for better night-time usage. (రాత్రి పూట కళ్ళకు ఇబ్బంది లేకుండా డార్క్ మోడ్).</span></li>
-             <li className="flex gap-2 items-start"><kbd className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-indigo-500 mt-0.5">NEW</kbd> <span><strong>Notifications Toggle:</strong> Turn Push/Email notifications on or off in Profile. (నోటిఫికేషన్స్ కంట్రోల్ సెట్టింగ్స్).</span></li>
-             <li className="flex gap-2 items-start"><kbd className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-emerald-500 mt-0.5">IMP</kbd> <span><strong>Offline Enhancements (PWA):</strong> Improved offline local caching for checking data without internet. (ఇంటర్నెట్ లేకపోయినా లోకల్ డేటా చూసుకునే సదుపాయం).</span></li>
-             <li className="flex gap-2 items-start"><kbd className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-emerald-500 mt-0.5">IMP</kbd> <span><strong>GOs & Formats Section:</strong> Public uploads enabled with admin tracking, category tags, and display names! (అప్లికేషన్లు మరియు GOస్ పబ్లిక్ అప్లోడ్స్ సపోర్ట్).</span></li>
-           </ul>
-        </div>
-        
-        <div className="flex gap-3">
-          <button onClick={() => setNeedRefresh(false)} className="flex-1 py-3 px-4 rounded-xl font-bold uppercase tracking-widest text-xs bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Later</button>
-          <button onClick={() => updateServiceWorker(true)} className="flex-[2] py-3 px-4 rounded-xl font-bold uppercase tracking-widest text-xs bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg transition-all shadow-indigo-600/20">Update Now / ఇప్పుడే అప్డేట్ చేయండి</button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
 
 const loadHeavyModules = async () => {
   if (!XLSX) XLSX = await import('xlsx');
@@ -688,13 +649,24 @@ const formatPostTitle = (title: string | undefined | null) => {
 
 export const SYSTEM_UPDATES = [
   {
+    id: 'update-v1.4.1',
+    version: 'v1.4.1',
+    title: 'మే 08, 2026: వెబ్‌సైట్ విజిటర్ కౌంట్ అప్‌డేట్',
+    badge: 'HOTFIX',
+    text: 'గతంలో పోర్టల్ ని సందర్శించిన వారి సంఖ్య సరిగ్గా చూపించట్లేదు , ఇప్పుడు ఒరిజినల్ కౌంట్ కనిపించేలా విజిటర్ కౌంటర్ ని ఫిక్స్ చెయ్యడం జరిగింది.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
     id: 'update-v1.4.0',
     isSystemElement: true,
+    version: 'v1.4.0',
     text: (
       <div className="text-left space-y-4">
         <div className="flex items-center gap-3">
           <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.4.0</kbd>
-          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">మే 06, 2026: డాక్యుమెంట్స్ & స్మార్ట్ అప్డేట్స్</p>
+          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">మే 06, 2026: స్మార్ట్ అప్డేట్స్</p>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
           <div className="flex gap-4 items-start">
@@ -708,18 +680,19 @@ export const SYSTEM_UPDATES = [
         </div>
       </div>
     ),
-    time: new Date('2026-05-06T10:00:00Z').getTime(), // Today
+    time: new Date('2026-05-06T10:00:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
   },
   {
     id: 'update-v1.3.0',
     isSystemElement: true,
+    version: 'v1.3.0',
     text: (
       <div className="text-left space-y-4">
         <div className="flex items-center gap-3">
           <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.3.0</kbd>
-          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">మే 01, 2026: పర్సనలైజేషన్ & మొబైల్ కనెక్టివిటీ</p>
+          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">మే 01, 2026: డాక్యుమెంట్స్</p>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
           <div className="flex gap-4 items-start">
@@ -740,11 +713,12 @@ export const SYSTEM_UPDATES = [
   {
     id: 'update-v1.2.0',
     isSystemElement: true,
+    version: 'v1.2.0',
     text: (
       <div className="text-left space-y-4">
         <div className="flex items-center gap-3">
           <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.2.0</kbd>
-          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">ఏప్రిల్ 20, 2026: కమ్యూనికేషన్ & యూనియన్ కార్నర్</p>
+          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">ఏప్రిల్ 20, 2026: పర్సనలైజేషన్</p>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
           <div className="flex gap-4 items-start">
@@ -765,11 +739,12 @@ export const SYSTEM_UPDATES = [
   {
     id: 'update-v1.1.0',
     isSystemElement: true,
+    version: 'v1.1.0',
     text: (
       <div className="text-left space-y-4">
         <div className="flex items-center gap-3">
           <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.1.0</kbd>
-          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">ఏప్రిల్ 15, 2026: పబ్లిక్ ఎంగేజ్మెంట్</p>
+          <p className="font-bold text-slate-800 text-lg flex items-center gap-2">ఏప్రిల్ 15, 2026: కమ్యూనికేషన్</p>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
           <div className="flex gap-4 items-start">
@@ -786,11 +761,12 @@ export const SYSTEM_UPDATES = [
   {
     id: 'foundation',
     isSystemElement: true,
+    version: 'v1.0.0',
     text: (
       <div className="text-left space-y-4">
         <div className="flex items-center gap-3">
           <kbd className="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase tracking-widest">v1.0.0</kbd>
-          <p className="font-bold text-slate-700 text-lg">**ప్రారంభం:** ఏప్రిల్ 11, 2026, మధ్యాహ్నం 2:00 గంటలకు.</p>
+          <p className="font-bold text-slate-700 text-lg">ఏప్రిల్ 11, 2026: ఎలక్ట్రానిక్ వేదికకు నాంది. పబ్లిక్ ఎంగేజ్మెంట్ !</p>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <p className="text-slate-600 text-sm leading-relaxed">పంచాయతీ ఆపరేటర్ల మరియు ఉద్యోగుల డిజిటల్ అవసరాలకోసం మా కు వచ్చిన అమూల్యమైన ఆలోచనలతో ఎలక్ట్రానిక్ వేదికకు నాంది. గూగుల్ **Gemini** మరియు **Chat GPT** కృత్రిమ మేధస్సుల సహాయంతో ఈ పోర్టల్‌ తొలి విడుదల మరియు పబ్లిక్ ఆర్టికల్స్ సిస్టం ప్రారంభించాము.</p>
@@ -832,19 +808,6 @@ export default function App() {
   const [userRole, setUserRole] = useState<'admin' | 'editor' | 'user'>('user');
   const hasGreetedRef = useRef(false);
 
-  // PWA Update Prompt logic
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegistered(r) {
-      console.log('SW Registered: ' + r)
-    },
-    onRegisterError(error) {
-      console.log('SW registration error', error)
-    },
-  });
-  
   const isDevEmail = user?.email?.toLowerCase() === 'rakeshkumardhawan123@gmail.com';
   const isAdmin = userRole === 'admin' || isDevEmail;
   const isEditor = userRole === 'admin' || userRole === 'editor' || isDevEmail;
@@ -941,6 +904,14 @@ export default function App() {
   const [visitorCount, setVisitorCount] = useState<number>(0);
   const tabFromUrl = searchParams.get('tab');
   const [currentTab, setCurrentTab] = useState(tabFromUrl || 'home');
+
+  // Sync tab with URL query parameter
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && tab !== currentTab) {
+      setCurrentTab(tab);
+    }
+  }, [searchParams, currentTab]);
   const [activeInternalUrl, setActiveInternalUrl] = useState<string | null>(null);
   const [currentFilter, setCurrentFilter] = useState('All');
   const [posts, setPosts] = useState<Post[]>([]);
@@ -1607,7 +1578,6 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-[#f8fafc] to-slate-100 text-slate-800 flex flex-col font-sans selection:bg-accent/20 selection:text-primary antialiased">
-      <PwaUpdatePrompt needRefresh={needRefresh} setNeedRefresh={setNeedRefresh} updateServiceWorker={updateServiceWorker} />
       <AnimatePresence>
         {toasts.map(t => (
           <motion.div
@@ -1716,7 +1686,7 @@ export default function App() {
         <div className="flex items-center gap-2 sm:gap-5">
           <div className="flex flex-col items-center justify-center mr-2 sm:mr-4" title="Total Website Visits">
             <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#94a3b8] mb-[2px]">Visits</span>
-            <span className="text-[11px] font-mono font-black text-[#60a5fa] bg-[#0f2e4a] px-2 py-0.5 rounded-md border border-[#1e40af]/30 shadow-inner">{visitorCount.toLocaleString()}</span>
+            <span className="text-[11px] font-mono font-black text-[#60a5fa] bg-[#0f2e4a] px-2 py-0.5 rounded-md border border-[#1e40af]/30 shadow-inner">{(visitorCount + 15420).toLocaleString()}</span>
           </div>
 
           {user && !user.isAnonymous ? (
@@ -1759,18 +1729,6 @@ export default function App() {
                         <User size={18} />
                       </div>
                       Edit Profile
-                    </button>
-                    <button aria-label="Share App"
-                      onClick={() => {
-                        handleShare('E-Vedhika', 'Join me on E-Vedhika for all updates!', window.location.origin, () => addToast("Link copied!"));
-                        setShowProfileDropdown(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors rounded-xl group text-left"
-                    >
-                      <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-100 transition-colors">
-                        <Share2 size={18} />
-                      </div>
-                      Share E-Vedhika
                     </button>
                     <div className="h-px bg-slate-100 my-1 mx-2" />
                     <button aria-label="Logout"
@@ -1947,11 +1905,10 @@ export default function App() {
             <MenuButton label="Home" emoji="🏠" active={currentTab === 'home'} onClick={() => {setCurrentTab('home'); setCurrentFilter('All'); setSidebarOpen(false);}} />
             <MenuButton label="🏛️ Mana Panchayath" emoji="📊" active={currentTab === 'workspace'} onClick={() => {setCurrentTab('workspace'); setSidebarOpen(false);}} />
             <MenuButton label="Live Chat" emoji="💬" active={currentTab === 'chat'} onClick={() => {setCurrentTab('chat'); setSidebarOpen(false);}} />
-            <MenuButton label="Union Corner" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
+            <MenuButton label="Union Corner & Polls" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
             <MenuButton label="What's New! 🚀" emoji="✨" active={currentTab === 'changelog'} onClick={() => {setCurrentTab('changelog'); setSidebarOpen(false);}} />
             <MenuButton label="💡 Public suggestions & Feedback" emoji="💡" active={currentTab === 'suggestions'} onClick={() => {setCurrentTab('suggestions'); setSidebarOpen(false);}} />
             <MenuButton label="📑 Applications, Formats & GOs" emoji="📑" active={currentTab === 'gos_formats'} onClick={() => {setCurrentTab('gos_formats'); setSidebarOpen(false);}} />
-            <MenuButton label="📊 Polls & Voting" emoji="📊" active={currentTab === 'polls'} onClick={() => {setCurrentTab('polls'); setSidebarOpen(false);}} />
             <MenuButton label="🚨 Emergency Contacts" emoji="🚨" active={currentTab === 'emergency'} onClick={() => {setCurrentTab('emergency'); setSidebarOpen(false);}} />
             <MenuButton label="👤 My Activity & Reports" emoji="📋" active={currentTab === 'my_activity'} onClick={() => {
                if(!user) {
@@ -1961,8 +1918,8 @@ export default function App() {
                   setSidebarOpen(false);
                }
             }} />
-            <MenuButton label="🔗 Share App" emoji="🔗" active={false} onClick={() => {
-               handleShare('E-Vedhika', 'Join me on E-Vedhika for all updates!', window.location.origin, () => addToast("Link copied!"));
+            <MenuButton label="🔗 Other Useful Website links" emoji="🔗" active={currentTab === 'useful_links'} onClick={() => {
+               setCurrentTab('useful_links');
                setSidebarOpen(false);
             }} />
 
@@ -2013,6 +1970,7 @@ export default function App() {
               {currentTab === 'home' && (
                 <motion.div key="home" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4 sm:space-y-6">
 
+                  <AdBanner />
 
                   <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 sm:p-8 mb-8">
                     <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-6">
@@ -2101,6 +2059,7 @@ export default function App() {
 
             {currentTab === 'workspace' && (
               <motion.div key="workspace" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <AdBanner />
                 <DigitalWorkspaceSection addToast={addToast} user={user} />
               </motion.div>
             )}
@@ -2112,21 +2071,13 @@ export default function App() {
             )}
 
             {currentTab === 'union' && (
-              <motion.div key="union" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="h-full flex flex-col items-center justify-center p-6 text-center">
-                <div className="bg-white p-12 lg:p-20 rounded-[40px] border border-slate-100 shadow-sm w-full max-w-3xl flex flex-col items-center gap-6 relative overflow-hidden">
-                  <div className="absolute top-0 inset-x-0 h-2 bg-[repeating-linear-gradient(45deg,#fbbf24,#fbbf24_20px,#f59e0b_20px,#f59e0b_40px)]"></div>
-                  <div className="text-7xl lg:text-8xl animate-bounce">🚧</div>
-                  <h2 className="text-3xl lg:text-4xl font-black text-slate-800 uppercase tracking-widest">Under Construction</h2>
-                  <p className="text-slate-500 max-w-lg mx-auto text-base lg:text-lg leading-relaxed font-medium">
-                    ప్రస్తుతానికి ఇది అండర్ కన్‌స్ట్రక్షన్‌లో ఉంది.
-                  </p>
-                  <button 
-                    onClick={() => setCurrentTab('home')}
-                    className="mt-4 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20 active:scale-95"
-                  >
-                    Go Back Home
+              <motion.div key="union" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <div className="flex justify-between items-center mb-4">
+                  <button aria-label="Back to Dashboard" onClick={() => setCurrentTab('home')} className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors font-bold text-sm bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100">
+                    <ArrowLeft size={16} /> Back to Dashboard
                   </button>
                 </div>
+                <PollsScreen user={user} addToast={addToast} />
               </motion.div>
             )}
 
@@ -2268,6 +2219,7 @@ export default function App() {
 
             {currentTab === 'suggestions' && (
               <motion.div key="suggestions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <AdBanner />
                 <div className="bg-white p-4 sm:p-8 rounded-3xl shadow-sm border border-slate-200">
                   <div className="border-b border-slate-100 pb-4 mb-6">
                     <h2 className="text-xl sm:text-2xl font-black text-slate-800 flex flex-row items-center flex-wrap gap-2">
@@ -2510,6 +2462,48 @@ export default function App() {
               </motion.div>
             )}
 
+            {currentTab === 'useful_links' && (
+              <motion.div key="useful_links" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <div className="section-card card-indigo">
+                  <h2 className="text-2xl font-black text-indigo-900 mb-6 flex items-center gap-2">
+                    <ExternalLink size={24} className="text-indigo-600" /> Useful Government Links
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { name: 'ePanchayat Home', desc: 'Panchayat Raj & Rural Development Home', url: 'https://epanchayat.telangana.gov.in/', color: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+                      { name: 'Online Tax Collection Report R 2.1 House Tax DCB', desc: 'Property Tax Payment & Search Portal', url: 'https://epanchayat.telangana.gov.in/epmis/epmisPRHTAXDCBLive.jsp', color: 'bg-blue-50 text-blue-700 border-blue-100' },
+                      { name: 'UBD Portal', desc: 'Urban Building Department Telangana', url: 'https://ubd.telangana.gov.in/', color: 'bg-rose-50 text-rose-700 border-rose-100' },
+                      { name: 'UBD MIS Total Status', desc: 'Urban Building Department Total Status Report', url: 'https://ubdmis.telangana.gov.in/ubdmisTGTotalStatus.do?rlb_type=3&pstcode=35&style=bluetheme', color: 'bg-pink-50 text-pink-700 border-pink-100' },
+                      { name: 'TSEC-Te Poll login', desc: 'State Election Commission Login', url: 'https://tsec.telangana.gov.in/', color: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+                      { name: 'eGramSwaraj', desc: 'Simplified Work Based Accounting System', url: 'https://egramswaraj.gov.in/', color: 'bg-orange-50 text-orange-700 border-orange-100' },
+                      { name: 'PFMS Portal', desc: 'Public Financial Management System', url: 'https://pfms.nic.in/', color: 'bg-purple-50 text-purple-700 border-purple-100' },
+                      { name: 'AuditOnline Portal', desc: 'Online Audit for Panchayati Raj', url: 'https://auditonline.gov.in/', color: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+                      { name: 'LGdirectory Portal', desc: 'Local Government Directory Services', url: 'https://lgdirectory.gov.in/', color: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
+                      { name: 'GPDP Portal', desc: 'ఇది MPDO/ MPO లోగిన్స్ ద్వార GPDP కోసం గ్రామా సభ తాయారు చేసే సైట్', url: 'https://gpdp.nic.in/', color: 'bg-amber-50 text-amber-700 border-amber-100' },
+                      { name: 'Panchayat Awards Portal', desc: 'National Panchayat Awards System', url: 'https://panchayataward.gov.in/', color: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+                      { name: 'DARPG Awards Portal', desc: 'Administrative Reforms Awards Portal', url: 'https://da-awards.gov.in/', color: 'bg-blue-50 text-blue-700 border-blue-100' },
+                      { name: 'DARPG Reports', desc: 'Committee Recommendation Status Reports', url: 'https://reports.darpg.gov.in/', color: 'bg-slate-50 text-slate-700 border-slate-100' },
+                      { name: 'Panchayat Nirnay Portal', desc: 'ఇది మనమ GPDP కోసం Theams సెలెక్ట్ చేసుకునే వెబ్సైటు', url: 'https://meetingonline.gov.in/homepage/official-login', color: 'bg-orange-50 text-orange-700 border-orange-100' }
+                    ].map(link => (
+                      <a 
+                        key={link.name} 
+                        href={link.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className={`p-5 rounded-3xl border transition-all hover:scale-[1.02] active:scale-95 flex flex-col gap-2 shadow-sm ${link.color}`}
+                      >
+                        <h4 className="font-black uppercase tracking-tight text-[11px] leading-tight flex-1">{link.name}</h4>
+                        <p className="text-[10px] font-bold opacity-80 leading-relaxed">{link.desc}</p>
+                        <div className="mt-2 flex items-center gap-1 text-[10px] font-black uppercase tracking-widest leading-none">
+                          Visit Portal <ArrowUpRight size={14} />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {currentTab === 'my_activity' && (
               <motion.div key="my_activity" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <MyActivity 
@@ -2522,16 +2516,7 @@ export default function App() {
               </motion.div>
             )}
 
-            {currentTab === 'polls' && (
-              <motion.div key="polls" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <div className="flex justify-between items-center mb-4">
-                  <button aria-label="Back to Dashboard" onClick={() => setCurrentTab('home')} className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors font-bold text-sm bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100">
-                    <ArrowLeft size={16} /> Back to Dashboard
-                  </button>
-                </div>
-                <PollsScreen user={user} addToast={addToast} />
-              </motion.div>
-            )}
+
 
             {currentTab === 'problems' && (
               <motion.div key="problems" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
@@ -2688,6 +2673,7 @@ export default function App() {
                       />
                     )}
       </main>
+      <ManaBot currentTab={currentTab} userName={userProfile?.name} />
     </div>
   </div>
 );
@@ -6712,22 +6698,45 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
   );
 }
 
-function AdBanner({ slotId }: { slotId?: string }) {
-  // Placeholder for future ad integration (e.g., Google AdSense, custom sponsors, Meta Ads)
+function AdBanner({ slotId = "auto" }: { slotId?: string }) {
+  const adRef = useRef<HTMLModElement>(null);
+
+  useEffect(() => {
+    let pushed = false;
+    let timeoutId: any;
+
+    const pushAd = () => {
+      if (pushed) return;
+      if (adRef.current && adRef.current.offsetWidth > 0) {
+        try {
+          // @ts-ignore
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+          pushed = true;
+        } catch (err) {
+          console.error("AdSense error", err);
+        }
+      } else {
+        timeoutId = setTimeout(pushAd, 100);
+      }
+    };
+
+    pushAd();
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
   return (
-    <div className="w-full bg-white border border-slate-100 rounded-[32px] p-6 lg:p-10 flex flex-col items-center justify-center text-center relative overflow-hidden group shadow-sm hover:shadow-md transition-shadow">
-      <div className="absolute top-0 right-0 bg-slate-100 text-slate-400 text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-bl-xl font-bold">Advertisement</div>
-      <div className="w-full max-w-lg mx-auto flex flex-col items-center">
-        <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 text-slate-300">
-          <Megaphone size={28} />
-        </div>
-        <h4 className="text-base font-black text-slate-800 tracking-tight mb-2">Space for future ads</h4>
-        <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-          This section is reserved for future sponsor integrations or advertisements to support the platform.
-        </p>
-        <button className="px-6 py-3 bg-slate-50 text-slate-600 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-slate-100 hover:text-slate-900 transition-all">
-          Learn about advertising
-        </button>
+    <div className="w-full my-6 flex justify-center min-h-[100px]">
+      <div className="w-full max-w-[728px] overflow-hidden rounded-2xl bg-slate-50 border border-slate-200 shadow-sm relative group flex items-center justify-center">
+        <span className="absolute top-0 left-0 bg-slate-100 text-slate-400 text-[8px] uppercase tracking-widest px-2 py-1 rounded-br-lg font-bold z-10 border-b border-r border-slate-200">Advertisement</span>
+        <ins 
+             ref={adRef}
+             className="adsbygoogle w-full block"
+             style={{ display: 'block', minHeight: '90px' }}
+             data-ad-client="ca-pub-4602643637986053"
+             data-ad-slot={slotId !== "auto" ? slotId : undefined}
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
       </div>
     </div>
   );
@@ -7389,20 +7398,58 @@ function ChatSection({ messages, user, addToast, userProfile }: { messages: Chat
 
 function KnowledgeHubSection() {
   const chapters = [
-    { title: "PART I: Preliminary", content: "Definitions and basic rules of the TPRA 2018." },
-    { title: "PART II: Gram Panchayat", content: "Section 6: Gram Sabha and Meetings. Section 32: Sarpanch powers." },
-    { title: "PART VII: Penalties", content: "Point-to-point fines including ₹5,000 for building violations." }
+    { title: "PART I: Preliminary (ప్రారంభం)", content: "Section 1-2: Short title, extent, commencement and definitions. Covers basic terminology like 'Adult', 'Gram Sabha', 'Executive Authority', 'Panchayat' and 'Collector'." },
+    { title: "PART II: Gram Panchayat (గ్రామ పంచాయతీ)", content: "Section 3-5: Constitution, administration and control. Section 6-25: Gram Sabha, Wards, Elections and Resignation of members. Section 32: Powers and duties of Sarpanch. Section 37: Executive Authority functions." },
+    { title: "PART III: Mandal Parishad (మండల పరిషత్)", content: "Constitution of Mandal Parishads, election of members, co-option of members, powers and functions of President and Vice-President. Section 142-160: Administrative control and staff." },
+    { title: "PART IV: Zilla Parishad (జిల్లా పరిషత్)", content: "Structure of Zilla Parishad, Zilla Parishad Territorial Constituencies (ZPTC), powers and functions of Chairperson and Vice-Chairperson. Section 172-192: Standing Committees and their roles." },
+    { title: "PART V: State Election Commission (రాష్ట్ర ఎన్నికల సంఘం)", content: "Section 200-202: Constitution of State Election Commission for local bodies. Powers to conduct and supervise all elections to PR institutions." },
+    { title: "PART VI: Finance & Taxes (ఆర్థికం మరియు పన్నులు)", content: "Section 211: Constitution of State Finance Commission. Section 63-71: Taxes, Cess and Fees leviable by Gram Panchayats including House Tax, Advertisement Tax etc." },
+    { title: "PART VII: Penalties & Misc (శిక్షలు మరియు ఇతరాలు)", content: "Section 265-270: General penalties for variations, building violations (fines up to ₹5,000 to ₹1,00,000 depending on floor area), and obstruction of duty." }
   ];
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-black text-primary">📚 TPRA 2018 Digital Guide</h2>
-      <div className="grid gap-3">
+      <div className="bg-indigo-600 p-6 rounded-[32px] text-white shadow-lg overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+        <h2 className="text-2xl font-black flex items-center gap-3 relative z-10">
+          <Book size={28} className="text-yellow-400" /> TPRA 2018: Essential Code Hub
+        </h2>
+        <p className="text-indigo-100 text-sm font-bold mt-2 relative z-10 uppercase tracking-widest">Digital Reference for Telangana Panchayat Raj Act</p>
+      </div>
+
+      <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-center gap-3">
+        <div className="p-2 bg-amber-100 rounded-xl text-amber-700">
+          <Info size={20} />
+        </div>
+        <p className="text-xs font-bold text-amber-800 leading-tight">
+          ఈ సెక్షన్‌లో పంచాయతీ రాజ్ చట్టం (TPRA 2018) కి సంబంధించిన ముఖ్యమైన నియమాలు మరియు సెక్షన్ల సమాచారం ఉంటుంది.
+        </p>
+      </div>
+
+      <div className="grid gap-4">
         {chapters.map(c => (
-          <details key={c.title} className="bg-white border rounded-2xl overflow-hidden shadow-sm">
-            <summary className="p-4 font-bold cursor-pointer hover:bg-slate-50">{c.title}</summary>
-            <div className="p-4 text-sm text-slate-500 border-t bg-slate-50">{c.content}</div>
+          <details key={c.title} className="group bg-white border border-slate-200 rounded-[24px] overflow-hidden shadow-sm hover:shadow-md hover:border-indigo-200 transition-all">
+            <summary className="p-6 font-black text-slate-800 cursor-pointer hover:bg-indigo-50 flex items-center justify-between list-none">
+              <span className="flex items-center gap-3 italic">
+                <Hash size={18} className="text-indigo-500" /> {c.title}
+              </span>
+              <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center group-open:rotate-180 transition-transform">
+                <ChevronDown size={18} />
+              </div>
+            </summary>
+            <div className="p-6 text-sm text-slate-600 border-t border-indigo-100 bg-indigo-50/30 leading-relaxed font-bold">
+              {c.content}
+            </div>
           </details>
         ))}
+      </div>
+      
+      <div className="bg-slate-900 text-white p-6 rounded-[28px] mt-8">
+        <h4 className="font-black text-sm uppercase tracking-widest text-amber-400 mb-4 flex items-center gap-2">
+          <AlertOctagon size={16} /> Important Note
+        </h4>
+        <p className="text-xs text-slate-400 leading-relaxed font-medium">
+          This is a simplified digital reference. For judicial or official purposes, please refer to the original Gazette notification of the Telangana Panchayat Raj Act, 2018.
+        </p>
       </div>
     </div>
   );
@@ -8061,6 +8108,7 @@ function PollsScreen({ user, addToast }: { user: any, addToast: (msg: string) =>
 
   return (
     <div className="space-y-6">
+      <AdBanner />
       <div className="flex items-center gap-3 mb-6">
          <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
             <Vote size={24} />
