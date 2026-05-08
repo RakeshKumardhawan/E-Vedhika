@@ -921,7 +921,7 @@ export default function App() {
   }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [visitorCount, setVisitorCount] = useState<number>(0);
+  const [visitorCount, setVisitorCount] = useState<number | null>(null);
   const tabFromUrl = searchParams.get('tab');
   const [currentTab, setCurrentTab] = useState(tabFromUrl || 'home');
 
@@ -1706,7 +1706,9 @@ export default function App() {
         <div className="flex items-center gap-2 sm:gap-5">
           <div className="flex flex-col items-center justify-center mr-2 sm:mr-4 shrink-0" title="Total Website Visits">
             <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#94a3b8] mb-[2px]">Visits</span>
-            <span className="text-[11px] font-mono font-black text-[#60a5fa] bg-[#0f2e4a] px-2 py-0.5 rounded-md border border-[#1e40af]/30 shadow-inner">{(visitorCount + 12345).toLocaleString()}</span>
+            <span className="text-[11px] font-mono font-black text-[#60a5fa] bg-[#0f2e4a] px-2 py-0.5 rounded-md border border-[#1e40af]/30 shadow-inner">
+              {visitorCount !== null ? (visitorCount + 12345).toLocaleString() : '-----'}
+            </span>
           </div>
 
           {user && !user.isAnonymous ? (
