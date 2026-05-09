@@ -12,13 +12,14 @@ import {
   AlertTriangle, Send, LogOut, ChevronDown, ChevronUp, Search, Filter, AlertCircle,
   Eye, Heart, Share2, PlusCircle, Camera, User, Edit2, Save,
   Activity, Book, GraduationCap, BarChart3, Database, Download, Bot, MessageSquare,
-  Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock, Shield, Pin,
+  Trash2, Edit3, Settings, TrendingUp, Upload, Play, RefreshCw, Layers, Calendar, LayoutDashboard, ShieldAlert, Lock, Shield, Pin, Bold, Italic, Type, Link2, List,
   Users, AlertOctagon, CheckCircle2, CheckCircle, ClipboardList, Zap, Clock, ArrowLeft, ArrowRight, ArrowUpRight, Loader2, XCircle, ChevronRight, Flag, ShieldCheck, Info, Hash, EyeOff, Rocket, Mail, RotateCcw, MapPin, Plus, Mic, ExternalLink, Target
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
+import rehypeRaw from 'rehype-raw';
 import { GosAndFormatsPublic, GosAndFormatsAdmin } from './GosAndFormats';
 // Lazy loaded modules
 let XLSX: any = null;
@@ -651,24 +652,13 @@ const formatPostTitle = (title: string | undefined | null) => {
 
 export const SYSTEM_UPDATES = [
   {
-    id: 'update-v1.7.4',
+    id: 'update-v1.7.5',
     isSystemElement: true,
-    version: 'v1.7.4',
-    title: 'మే 10, 2026: Favicon మరియు PWA అప్డేట్',
-    badge: 'UI UPDATE',
-    text: 'వెబ్‌సైట్ Favicon మరియు PWA యాప్ ఐకాన్‌ని సరికొత్త టెక్ డిజైన్‌తో అప్‌డేట్ చేసాము. మిగిలిన వెబ్‌సైట్ లోగోలలో ఎలాంటి మార్పులు చేయలేదు.',
-    time: Date.now(),
-    type: 'changelog',
-    status: 'Approved'
-  },
-  {
-    id: 'update-v1.7.3',
-    isSystemElement: true,
-    version: 'v1.7.3',
-    title: 'మే 10, 2026: సిస్టమ్ లాజిక్ మరియు ఛేంజ్ లాగ్ రిఫాక్టరింగ్',
-    badge: 'UPDATE',
-    text: 'ఛేంజ్ లాగ్ లో డూప్లికేట్ ఎంట్రీల సమస్యను పరిష్కరించాము. అడ్మిన్ ప్యానెల్ లో సిస్టమ్ అప్డేట్స్ ని ఎడిట్ మరియు డిలీట్ చేసే సదుపాయం కల్పించాము. కోడ్ లో జరిగిన కొన్ని పొరపాట్లను సరిచేసాము.',
-    time: Date.now(),
+    version: 'v1.7.5',
+    title: '10/05/2026: మేజర్ ప్లాట్‌ఫార్మ్ అప్‌డేట్స్',
+    badge: 'MAJOR UPDATE',
+    text: 'నేటి అప్‌డేట్‌లో భాగంగా పోర్టల్‌లో కీలక మార్పులు చేసాము:\n\n1. 💎 **టెక్స్ట్ ఫార్మాటింగ్ టూల్‌బార్**: ఇప్పుడు మీరు పోస్ట్‌లను వ్రాసేటప్పుడు వర్డ్ ఫైల్ లాగా బోల్డ్, ఇటాలిక్, మరియు హెడింగ్స్ ఉపయోగించవచ్చు.\n2. 🎨 **UI అప్‌డేట్**: మొబైల్ హోమ్ స్క్రీన్ ఐకాన్ మరియు ఫెవికాన్ మార్చడం జరిగింది.\n3. ⚙️ **సిస్టమ్ ఆప్టిమైజేషన్**: బ్యాక్‌ఎండ్ లాజిక్ మరియు అడ్మిన్ ప్యానెల్ ఛేంజ్ లాగ్ సమస్యలను పరిష్కరించాము.',
+    time: new Date('2026-05-10T11:00:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
   },
@@ -676,10 +666,10 @@ export const SYSTEM_UPDATES = [
     id: 'update-v1.7.2',
     isSystemElement: true,
     version: 'v1.7.2',
-    title: 'మే 09, 2026: కేటగిరీల పునరుద్ధరణ (Restoration)',
+    title: '09/05/2026: కేటగిరీల పునరుద్ధరణ (Restoration)',
     badge: 'BUGFIX',
     text: 'యూజర్ కోరిక మేరకు అన్ని పోస్ట్ కేటగిరీలను యథావిధిగా పునరుద్ధరించడం జరిగింది. అల్లాగే Admin Panel లో ఏర్పడిన Firestore Update ఎర్రర్‌ను ఫిక్స్ చేశాము.',
-    time: Date.now(),
+    time: new Date('2026-05-09T18:00:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
   },
@@ -687,10 +677,10 @@ export const SYSTEM_UPDATES = [
     id: 'update-v1.7.1',
     isSystemElement: true,
     version: 'v1.7.1',
-    title: 'మే 09, 2026: కేటగిరీల జాబితా క్లీనప్',
+    title: '09/05/2026: కేటగిరీల జాబితా క్లీనప్',
     badge: 'UPDATE',
     text: 'పోస్ట్ కేటగిరీల జాబితా నుండి అనవసరమైన అంశాలను తొలగించడం జరిగింది మరియు Useful Information కేటగిరీని అప్డేట్ చేసాము.',
-    time: Date.now(),
+    time: new Date('2026-05-09T17:00:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
   },
@@ -698,10 +688,10 @@ export const SYSTEM_UPDATES = [
     id: 'update-v1.7.0',
     isSystemElement: true,
     version: 'v1.7.0',
-    title: 'మే 09, 2026: హాష్‌ట్యాగ్స్ & వ్యూస్ అప్డేట్',
+    title: '09/05/2026: హాష్‌ట్యాగ్స్ & వ్యూస్ అప్డేట్',
     badge: 'NEW',
     text: 'పోస్ట్ కంటెంట్‌లోని #hashtags ఆటోమేటిక్‌గా ట్యాగ్స్‌గా మారుతాయి. వ్యూస్ కౌంట్ ఒక యూజర్ కి ఒకసారి మాత్రమే లెక్కించబడుతుంది.',
-    time: Date.now(),
+    time: new Date('2026-05-09T16:00:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
   },
@@ -709,10 +699,10 @@ export const SYSTEM_UPDATES = [
     id: 'update-v1.6.2',
     isSystemElement: true,
     version: 'v1.6.2',
-    title: 'మే 09, 2026: మల్టీ-కేటగిరీ సపోర్ట్',
+    title: '09/05/2026: మల్టీ-కేటగిరీ సపోర్ట్',
     badge: 'NEW',
     text: 'ఇకపై ఒక పోస్ట్ కి 3 కేటగిరీల వరకు ఎంచుకోవచ్చు. కేటగిరీల జాబితాను క్లీనప్ చేయడం జరిగింది.',
-    time: Date.now(),
+    time: new Date('2026-05-09T15:00:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
   },
@@ -720,10 +710,10 @@ export const SYSTEM_UPDATES = [
     id: 'update-v1.6.1',
     isSystemElement: true,
     version: 'v1.6.1',
-    title: 'మే 09, 2026: కేటగిరీలకు ఐకాన్స్ జోడింపు',
+    title: '09/05/2026: కేటగిరీలకు ఐకాన్స్ జోడింపు',
     badge: 'NEW',
     text: 'కేటగిరీలకు ఐకాన్స్ (Emojis) జోడించడం జరిగింది మరియు మరిన్ని ఇష్యూ రిపోర్టింగ్ కేటగిరీలను అందుబాటులోకి తెచ్చాం.',
-    time: Date.now(),
+    time: new Date('2026-05-09T14:00:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
   },
@@ -731,10 +721,10 @@ export const SYSTEM_UPDATES = [
     id: 'update-v1.4.6',
     isSystemElement: true,
     version: 'v1.4.6',
-    title: 'మే 08, 2026: సింగిల్ చాట్ బాట్ (ManaBot) సింప్లిఫికేషన్',
+    title: '08/05/2026: సింగిల్ చాట్ బాట్ (ManaBot) సింప్లిఫికేషన్',
     badge: 'UPDATE',
     text: 'యూజర్స్ కి కన్ఫ్యూజన్ లేకుండా లైవ్ చాట్ లో ఉన్న ఏఐ బాట్ ని మరియు వర్క్ స్పేస్ లో ఉన్న ట్రైనింగ్ బాట్ ని తీసేసి.. అన్నిటికీ కలిపి కేవలం ఒకే ఒక పవర్ఫుల్ చాట్ బాట్ "E-VEDHIKA Assistant" ని మాత్రమే ఉంచాము. PR Act సెర్చ్ లోని బాట్ ఐకాన్‌ను కూడా మార్చాము.',
-    time: Date.now(),
+    time: new Date('2026-05-08T12:00:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
   },
@@ -745,7 +735,7 @@ export const SYSTEM_UPDATES = [
     title: 'మే 08, 2026: PR Act Hub ఫీచర్స్',
     badge: 'NEW',
     text: 'మన పంచాయతీ సెక్షన్‌లోని PR Act Hub లో కొత్త సెర్చ్ ఫీచర్, క్విక్ జంప్ లింక్స్ మరియు ఒరిజినల్ PDF డౌన్‌లోడ్ చేసుకునే అవకాశం యాడ్ చేయడం జరిగింది.',
-    time: Date.now(),
+    time: new Date('2026-05-08T11:00:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
   },
@@ -756,7 +746,7 @@ export const SYSTEM_UPDATES = [
     title: 'మే 08, 2026: వెబ్సైట్ విజిటర్ కౌంట్ అప్డేట్',
     badge: 'HOTFIX',
     text: 'గతంలో పోర్టల్ ని సందర్శించిన వారి సంఖ్య సరిగ్గా చూపించట్లేదు , ఇప్పుడు ఒరిజినల్ కౌంట్ కనిపించేలా విజిటర్ కౌంటర్ ని ఫిక్స్ చెయ్యడం జరిగింది.',
-    time: Date.now(),
+    time: new Date('2026-05-08T10:00:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
   },
@@ -2216,7 +2206,7 @@ export default function App() {
                    {/* Vertical Line */}
                    <div className="absolute left-7 lg:left-10 top-0 bottom-0 w-px bg-slate-200 z-0" />
 
-                   {allUpdates.filter(u => u.type === 'changelog' && u.status?.toLowerCase() !== 'deleted' && u.visibility !== 'internal').sort((a: any, b: any) => (b.time || 0) - (a.time || 0)).map((u: any, i) => (
+                   {allUpdates.filter(u => u.type === 'changelog' && u.status?.toLowerCase() !== 'deleted').sort((a: any, b: any) => (b.time || 0) - (a.time || 0)).map((u: any, i) => (
                       <motion.div 
                         initial={{ opacity: 0, x: -20 }} 
                         whileInView={{ opacity: 1, x: 0 }} 
@@ -2232,7 +2222,7 @@ export default function App() {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-2">
                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                                  <h3 className="text-sm sm:text-base font-black text-slate-800">
-                                   {u.id === 'foundation' ? 'Foundation Launch' : (u.isAutoPost ? 'Community Notice' : 'System Update')}
+                                   {u.version ? `Update ${u.version}` : (u.id === 'foundation' ? 'Foundation Launch' : (u.isAutoPost ? 'Community Notice' : 'System Update'))}
                                  </h3>
                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-md w-max">
                                    {new Date(getValidTime(u)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -2250,11 +2240,7 @@ export default function App() {
                                </button>
                             </div>
                             <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-shadow w-full overflow-hidden">
-                               {u.isSystemElement || (!u.version && !u.title && !u.badge && typeof u.text !== 'string') ? (
-                                  <div className="text-[14px] font-medium text-slate-600 leading-relaxed whitespace-pre-wrap">
-                                    {u.text}
-                                  </div>
-                               ) : (u.version || u.title || u.badge) ? (
+                               {(u.version || u.title || u.badge) ? (
                                   <div className="text-left space-y-4">
                                     {(u.version || u.title) && (
                                       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -3789,7 +3775,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, user, setAd
                                       {item.title && <h4 className="text-sm font-black text-slate-800 mb-2 whitespace-pre-wrap">{formatPostTitle(item.title)}</h4>}
                                       {activeSubTab === 'reports' && reportsType === 'posts' ? (
                                         <div className="text-[12px] text-slate-700 font-medium leading-relaxed whitespace-pre-wrap [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline">
-                                          <ReactMarkdown remarkPlugins={[remarkBreaks]}>{item.content || ""}</ReactMarkdown>
+                                          <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>{item.content || ""}</ReactMarkdown>
                                           <div className="mt-6 pt-4 border-t border-slate-200">
                                             <details className="group">
                                               <summary className="cursor-pointer text-sm font-black text-primary flex items-center gap-2 select-none mb-2">
@@ -5048,7 +5034,7 @@ function SmartAssistant({ title, placeholder, systemInstruction, icon: Icon }: {
       </div>
       {response && (
         <div className="mt-3 p-3 bg-white rounded-xl text-xs text-slate-600 border border-slate-100 markdown-body">
-          <ReactMarkdown>{response}</ReactMarkdown>
+          <ReactMarkdown rehypePlugins={[rehypeRaw]}>{response}</ReactMarkdown>
         </div>
       )}
     </div>
@@ -6875,7 +6861,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
       )}
 
       <div className={`post-body mb-4 whitespace-pre-wrap ${isExpanded ? '' : 'line-clamp-4'} [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline`}>
-        <ReactMarkdown remarkPlugins={[remarkBreaks]}>{post.content || ''}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>{post.content || ''}</ReactMarkdown>
       </div>
 
       {post.content && post.content.length > 200 && (
@@ -7015,6 +7001,24 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
   const [media, setMedia] = useState<{ url: string, type: string, name?: string } | null>(
     editingPost ? (editingPost.mediaUrl ? { url: editingPost.mediaUrl, type: editingPost.mediaType || 'image/jpeg', name: editingPost.mediaName } : null) : null
   );
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const wrapText = (prefix: string, suffix: string = "") => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = content;
+    const before = text.substring(0, start);
+    const selection = text.substring(start, end);
+    const after = text.substring(end);
+    const newContent = before + prefix + (selection || "text") + suffix + after;
+    setContent(newContent);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + prefix.length, end + prefix.length);
+    }, 0);
+  };
 
   const CATEGORIES = [
     "📌 General",
@@ -7158,7 +7162,24 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
 
         <div>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Content Details</label>
-          <textarea name="content" required value={content} onChange={(e) => setContent(e.target.value)} placeholder="Write details here (Markdown supported)..." rows={5} className="w-full bg-slate-50 p-3 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none text-sm font-medium leading-relaxed" />
+          <div className="flex flex-wrap items-center gap-1 mb-0 bg-slate-100 p-1.5 rounded-t-2xl border-x-2 border-t-2 border-slate-200">
+            <button type="button" onClick={() => wrapText('**', '**')} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary" title="బొల్డ్ (Bold)"><Bold size={16}/></button>
+            <button type="button" onClick={() => wrapText('*', '*')} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary" title="ఇటాలిక్ (Italic)"><Italic size={16}/></button>
+            <button type="button" onClick={() => wrapText('# ', '')} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary" title="పెద్ద ఫాంట్ (Heading 1)"><Type size={16}/></button>
+            <button type="button" onClick={() => wrapText('## ', '')} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary" title="చిన్న ఫాంట్ (Heading 2)"><Type size={14}/></button>
+            <div className="h-6 w-px bg-slate-200 mx-1"></div>
+            <button type="button" onClick={() => wrapText('- ', '')} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary" title="లిస్ట్ (Bullet List)"><List size={16}/></button>
+            <button type="button" onClick={() => wrapText('[', '](url)')} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary" title="లింక్ (Link)"><Link2 size={16}/></button>
+            <button type="button" onClick={() => setContent(content + '\n---\n')} className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary text-[10px] font-black" title="లైన్ (Divider)">LINE</button>
+          </div>
+          <textarea
+            ref={textareaRef}
+            name="content" required value={content} 
+            onChange={(e) => setContent(e.target.value)} 
+            placeholder="Write details here (Markdown supported)..." 
+            rows={8} 
+            className="w-full bg-slate-50 p-3 rounded-b-2xl border-2 border-t-0 border-slate-200 focus:border-primary/20 outline-none text-sm font-medium leading-relaxed" 
+          />
         </div>
         
         <div>
@@ -7668,7 +7689,7 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile, allUsers }
          )}
 
          <div className="prose prose-slate prose-lg md:prose-xl max-w-none pt-4 text-slate-700 leading-relaxed font-serif whitespace-pre-wrap">
-           <ReactMarkdown remarkPlugins={[remarkBreaks]}>{post.content}</ReactMarkdown>
+           <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>{post.content}</ReactMarkdown>
          </div>
          
          <div className="flex justify-between items-center sm:mt-12 mt-8 pt-8 border-t-2 border-dashed border-slate-100">
