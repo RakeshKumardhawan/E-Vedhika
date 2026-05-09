@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, Link, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { ManaBot } from './components/ManaBot';
 import { 
@@ -134,9 +134,8 @@ const logUserActivity = async (actionDesc: string) => {
 };
 
 function EVAnimatedLogo({ size = 64 }: { size?: number }) {
-  const scale = size / 64;
   return (
-    <div className="logo-pro transition-transform hover:scale-105 active:scale-95 duration-200" style={{ transform: `scale(${scale})` }}>
+    <div className="logo-pro relative" style={{ width: size, height: size }}>
       <div className="logo-particles">
         <span></span>
         <span></span>
@@ -198,7 +197,10 @@ interface Post {
   title: string;
   content: string;
   category: string;
+  categories?: string[];
   subCategory?: string;
+  tags?: string[];
+  websiteName?: string;
   mediaUrl?: string;
   mediaType?: string;
   mediaName?: string;
@@ -649,7 +651,85 @@ const formatPostTitle = (title: string | undefined | null) => {
 
 export const SYSTEM_UPDATES = [
   {
+    id: 'update-v1.7.4',
+    isSystemElement: true,
+    version: 'v1.7.4',
+    title: 'మే 10, 2026: Favicon మరియు PWA అప్డేట్',
+    badge: 'UI UPDATE',
+    text: 'వెబ్‌సైట్ Favicon మరియు PWA యాప్ ఐకాన్‌ని సరికొత్త టెక్ డిజైన్‌తో అప్‌డేట్ చేసాము. మిగిలిన వెబ్‌సైట్ లోగోలలో ఎలాంటి మార్పులు చేయలేదు.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.7.3',
+    isSystemElement: true,
+    version: 'v1.7.3',
+    title: 'మే 10, 2026: సిస్టమ్ లాజిక్ మరియు ఛేంజ్ లాగ్ రిఫాక్టరింగ్',
+    badge: 'UPDATE',
+    text: 'ఛేంజ్ లాగ్ లో డూప్లికేట్ ఎంట్రీల సమస్యను పరిష్కరించాము. అడ్మిన్ ప్యానెల్ లో సిస్టమ్ అప్డేట్స్ ని ఎడిట్ మరియు డిలీట్ చేసే సదుపాయం కల్పించాము. కోడ్ లో జరిగిన కొన్ని పొరపాట్లను సరిచేసాము.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.7.2',
+    isSystemElement: true,
+    version: 'v1.7.2',
+    title: 'మే 09, 2026: కేటగిరీల పునరుద్ధరణ (Restoration)',
+    badge: 'BUGFIX',
+    text: 'యూజర్ కోరిక మేరకు అన్ని పోస్ట్ కేటగిరీలను యథావిధిగా పునరుద్ధరించడం జరిగింది. అల్లాగే Admin Panel లో ఏర్పడిన Firestore Update ఎర్రర్‌ను ఫిక్స్ చేశాము.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.7.1',
+    isSystemElement: true,
+    version: 'v1.7.1',
+    title: 'మే 09, 2026: కేటగిరీల జాబితా క్లీనప్',
+    badge: 'UPDATE',
+    text: 'పోస్ట్ కేటగిరీల జాబితా నుండి అనవసరమైన అంశాలను తొలగించడం జరిగింది మరియు Useful Information కేటగిరీని అప్డేట్ చేసాము.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.7.0',
+    isSystemElement: true,
+    version: 'v1.7.0',
+    title: 'మే 09, 2026: హాష్‌ట్యాగ్స్ & వ్యూస్ అప్డేట్',
+    badge: 'NEW',
+    text: 'పోస్ట్ కంటెంట్‌లోని #hashtags ఆటోమేటిక్‌గా ట్యాగ్స్‌గా మారుతాయి. వ్యూస్ కౌంట్ ఒక యూజర్ కి ఒకసారి మాత్రమే లెక్కించబడుతుంది.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.6.2',
+    isSystemElement: true,
+    version: 'v1.6.2',
+    title: 'మే 09, 2026: మల్టీ-కేటగిరీ సపోర్ట్',
+    badge: 'NEW',
+    text: 'ఇకపై ఒక పోస్ట్ కి 3 కేటగిరీల వరకు ఎంచుకోవచ్చు. కేటగిరీల జాబితాను క్లీనప్ చేయడం జరిగింది.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
+    id: 'update-v1.6.1',
+    isSystemElement: true,
+    version: 'v1.6.1',
+    title: 'మే 09, 2026: కేటగిరీలకు ఐకాన్స్ జోడింపు',
+    badge: 'NEW',
+    text: 'కేటగిరీలకు ఐకాన్స్ (Emojis) జోడించడం జరిగింది మరియు మరిన్ని ఇష్యూ రిపోర్టింగ్ కేటగిరీలను అందుబాటులోకి తెచ్చాం.',
+    time: Date.now(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
     id: 'update-v1.4.6',
+    isSystemElement: true,
     version: 'v1.4.6',
     title: 'మే 08, 2026: సింగిల్ చాట్ బాట్ (ManaBot) సింప్లిఫికేషన్',
     badge: 'UPDATE',
@@ -660,6 +740,7 @@ export const SYSTEM_UPDATES = [
   },
   {
     id: 'update-v1.4.4',
+    isSystemElement: true,
     version: 'v1.4.4',
     title: 'మే 08, 2026: PR Act Hub ఫీచర్స్',
     badge: 'NEW',
@@ -670,6 +751,7 @@ export const SYSTEM_UPDATES = [
   },
   {
     id: 'update-v1.4.1',
+    isSystemElement: true,
     version: 'v1.4.1',
     title: 'మే 08, 2026: వెబ్సైట్ విజిటర్ కౌంట్ అప్డేట్',
     badge: 'HOTFIX',
@@ -1067,6 +1149,16 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const allUpdates = useMemo(() => {
+    const merged = new Map<string, any>();
+    SYSTEM_UPDATES.forEach(u => merged.set(u.id, { ...u, isSystem: true }));
+    updates.forEach(u => {
+      const existing = merged.get(u.id);
+      merged.set(u.id, { ...existing, ...u, isSystem: !!existing });
+    });
+    return Array.from(merged.values());
+  }, [updates]);
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -1405,9 +1497,16 @@ export default function App() {
     });
 
     if (!expandedPosts.has(id)) {
-      try {
-        await updateDoc(doc(db, 'posts', id), { views: increment(1) });
-      } catch (err) { console.error(err); }
+      const post = posts.find(p => p.id === id);
+      const userId = auth.currentUser?.uid;
+      if (post && userId && !post.viewedBy?.includes(userId)) {
+        try {
+          await updateDoc(doc(db, 'posts', id), { 
+            views: increment(1),
+            viewedBy: arrayUnion(userId)
+          });
+        } catch (err) { console.error(err); }
+      }
     }
   };
 
@@ -1423,7 +1522,7 @@ export default function App() {
     const cMatch = (p.content || "").toLowerCase().includes(q);
     const searchOk = !q || tMatch || cMatch;
     if (currentFilter === 'All') return searchOk;
-    return searchOk && (p.category === currentFilter || p.subCategory === currentFilter);
+    return searchOk && (p.category === currentFilter || p.subCategory === currentFilter || p.categories?.includes(currentFilter));
   });
 
   if (location.pathname.endsWith('/Evdka')) {
@@ -1536,7 +1635,7 @@ export default function App() {
                  adminLocked={adminLocked} 
                  notifications={notifications} 
                  requests={requests} 
-                 updates={updates}
+                 updates={allUpdates}
                  userRole={userRole}
                  isDevEmail={isDevEmail}
                  currentAdminPin={currentAdminPin}
@@ -1940,7 +2039,7 @@ export default function App() {
                   setSidebarOpen(false);
                }
             }} />
-            <MenuButton label="🔗 Other Useful Website links" emoji="🔗" active={currentTab === 'useful_links'} onClick={() => {
+            <MenuButton label="🔗 Useful Information" emoji="🔗" active={currentTab === 'useful_links'} onClick={() => {
                setCurrentTab('useful_links');
                setSidebarOpen(false);
             }} />
@@ -2030,11 +2129,10 @@ export default function App() {
                            </div>
                         )}
                     </div>
-
                     {user && !user.isAnonymous && (
                       <button aria-label="Compose official update"
                         onClick={() => { setEditingPost(null); setShowPostForm(true); }}
-                        className="w-full bg-slate-50 border-2 border-dashed border-slate-200 p-6 sm:p-8 rounded-[28px] text-slate-400 font-bold hover:bg-slate-100 hover:border-primary/20 transition-all flex flex-col items-center gap-3"
+                        className="w-full mt-6 bg-slate-50 border-2 border-dashed border-slate-200 p-6 sm:p-8 rounded-[28px] text-slate-400 font-bold hover:bg-slate-100 hover:border-primary/20 transition-all flex flex-col items-center gap-3"
                       >
                         <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border shadow-sm text-primary">
                           <PlusCircle size={24} />
@@ -2042,11 +2140,7 @@ export default function App() {
                         <span>Compose an official update...</span>
                       </button>
                     )}
-
-
-
                   </div>
-                  
                   <div className="space-y-10">
                     <AnimatePresence mode="popLayout">
                       {filteredPosts.flatMap((post, index) => {
@@ -2074,11 +2168,9 @@ export default function App() {
                       })}
                     </AnimatePresence>
                   </div>
-                  
-
                 </motion.div>
               )}
-
+            
             {currentTab === 'workspace' && (
               <motion.div key="workspace" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <AdBanner />
@@ -2124,10 +2216,7 @@ export default function App() {
                    {/* Vertical Line */}
                    <div className="absolute left-7 lg:left-10 top-0 bottom-0 w-px bg-slate-200 z-0" />
 
-                   {[
-                     ...SYSTEM_UPDATES,
-                     ...updates.filter(u => u.type === 'changelog' && u.status?.toLowerCase() !== 'deleted' && u.visibility !== 'internal'),
-                   ].sort((a: any, b: any) => (b.time || 0) - (a.time || 0)).map((u: any, i) => (
+                   {allUpdates.filter(u => u.type === 'changelog' && u.status?.toLowerCase() !== 'deleted' && u.visibility !== 'internal').sort((a: any, b: any) => (b.time || 0) - (a.time || 0)).map((u: any, i) => (
                       <motion.div 
                         initial={{ opacity: 0, x: -20 }} 
                         whileInView={{ opacity: 1, x: 0 }} 
@@ -2191,13 +2280,7 @@ export default function App() {
                    ))}
                 </div>
               </motion.div>
-            )}
-
-            {currentTab === 'gos_formats' && (
-              <motion.div key="gos_formats" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <GosAndFormatsPublic user={user} addToast={addToast} isAdmin={isAdmin} />
-              </motion.div>
-            )}
+            ) }
 
             {currentTab === 'emergency' && (
               <motion.div key="emergency" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
@@ -2484,11 +2567,17 @@ export default function App() {
               </motion.div>
             )}
 
+            {currentTab === 'gos_formats' && (
+              <motion.div key="gos_formats" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <GosAndFormatsPublic user={user} addToast={addToast} isAdmin={isAdmin} />
+              </motion.div>
+            )}
+
             {currentTab === 'useful_links' && (
               <motion.div key="useful_links" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <div className="section-card card-indigo">
                   <h2 className="text-2xl font-black text-indigo-900 mb-6 flex items-center gap-2">
-                    <ExternalLink size={24} className="text-indigo-600" /> Useful Government Links
+                    <ExternalLink size={24} className="text-indigo-600" /> Useful Information
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
@@ -4499,7 +4588,7 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, user, setAd
               </div>
 
               <div className="grid grid-cols-1 gap-6">
-                {[...SYSTEM_UPDATES, ...updates].filter(u => (u.type === 'changelog' || u.status === 'Approved') && u.status?.toLowerCase() !== 'deleted').sort((a:any, b:any) => (b.time || 0) - (a.time || 0)).map((upd: any) => (
+                {updates.filter(u => (u.type === 'changelog' || u.status === 'Approved') && u.status?.toLowerCase() !== 'deleted').sort((a:any, b:any) => (b.time || 0) - (a.time || 0)).map((upd: any) => (
                   <div key={upd.id} className={`p-6 bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition-shadow group ${upd.isSystemElement ? 'opacity-80' : ''}`}>
                     <div className="flex justify-between items-start gap-6">
                       <div className="flex-1">
@@ -4541,89 +4630,89 @@ function AdminPanel({ addToast, posts, problems, suggestions, users, user, setAd
                           <p className="text-sm font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">{upd.text}</p>
                         )}
                       </div>
-                      {!upd.isSystemElement && (
-                        <div className="flex items-center gap-2">
-                          <button aria-label="Edit Update"
-                            onClick={() => {
-                              Swal.fire({
-                                title: 'Edit Update',
-                                html: `
-                                  <div class="text-left mb-2 text-sm font-semibold text-slate-700">Version (Optional)</div>
-                                  <input id="edit-update-version" class="swal2-input mt-0 mb-4" value="${upd.version || ''}" placeholder="e.g. v1.4.1">
-                                  <div class="text-left mb-2 text-sm font-semibold text-slate-700">Title / Category (Optional)</div>
-                                  <input id="edit-update-title" class="swal2-input mt-0 mb-4" value="${upd.title || ''}" placeholder="e.g. Applications & GOs">
-                                  <div class="text-left mb-2 text-sm font-semibold text-slate-700">Badge/Tag (Optional)</div>
-                                  <input id="edit-update-badge" class="swal2-input mt-0 mb-4" value="${upd.badge || ''}" placeholder="e.g. NEW UI or ADMIN">
-                                  <div class="text-left mb-2 text-sm font-semibold text-slate-700">Content</div>
-                                  <textarea id="edit-update-text" class="swal2-textarea mt-0 mb-4">${upd.text}</textarea>
-                                  <div class="text-left mb-2 text-sm font-semibold text-slate-700">Visibility</div>
-                                  <select id="edit-update-visibility" class="swal2-select w-full mt-0">
-                                    <option value="public" ${(!upd.visibility || upd.visibility === 'public') ? 'selected' : ''}>Public (Visible to everyone)</option>
-                                    <option value="internal" ${(upd.visibility === 'internal') ? 'selected' : ''}>Admin Panel Only (Hidden from public)</option>
-                                  </select>
-                                `,
-                                showCancelButton: true,
-                                confirmButtonText: 'Save Changes',
-                                confirmButtonColor: '#2563eb',
-                                preConfirm: () => {
-                                  const text = (document.getElementById('edit-update-text') as HTMLTextAreaElement).value;
-                                  const visibility = (document.getElementById('edit-update-visibility') as HTMLSelectElement).value;
-                                  const version = (document.getElementById('edit-update-version') as HTMLInputElement).value;
-                                  const title = (document.getElementById('edit-update-title') as HTMLInputElement).value;
-                                  const badge = (document.getElementById('edit-update-badge') as HTMLInputElement).value;
-                                  if (!text) {
-                                    Swal.showValidationMessage('Content cannot be empty!');
-                                    return null;
-                                  }
-                                  return { text, visibility, version, title, badge };
+                      <div className="flex items-center gap-2">
+                        <button aria-label="Edit Update"
+                          onClick={() => {
+                            Swal.fire({
+                              title: 'Edit Update',
+                              html: `
+                                <div class="text-left mb-2 text-sm font-semibold text-slate-700">Version (Optional)</div>
+                                <input id="edit-update-version" class="swal2-input mt-0 mb-4" value="${upd.version || ''}" placeholder="e.g. v1.4.1">
+                                <div class="text-left mb-2 text-sm font-semibold text-slate-700">Title / Category (Optional)</div>
+                                <input id="edit-update-title" class="swal2-input mt-0 mb-4" value="${upd.title || ''}" placeholder="e.g. Applications & GOs">
+                                <div class="text-left mb-2 text-sm font-semibold text-slate-700">Badge/Tag (Optional)</div>
+                                <input id="edit-update-badge" class="swal2-input mt-0 mb-4" value="${upd.badge || ''}" placeholder="e.g. NEW UI or ADMIN">
+                                <div class="text-left mb-2 text-sm font-semibold text-slate-700">Content</div>
+                                <textarea id="edit-update-text" class="swal2-textarea mt-0 mb-4">${upd.text}</textarea>
+                                <div class="text-left mb-2 text-sm font-semibold text-slate-700">Visibility</div>
+                                <select id="edit-update-visibility" class="swal2-select w-full mt-0">
+                                  <option value="public" ${(!upd.visibility || upd.visibility === 'public') ? 'selected' : ''}>Public (Visible to everyone)</option>
+                                  <option value="internal" ${(upd.visibility === 'internal') ? 'selected' : ''}>Admin Panel Only (Hidden from public)</option>
+                                </select>
+                              `,
+                              showCancelButton: true,
+                              confirmButtonText: 'Save Changes',
+                              confirmButtonColor: '#2563eb',
+                              preConfirm: () => {
+                                const text = (document.getElementById('edit-update-text') as HTMLTextAreaElement).value;
+                                const visibility = (document.getElementById('edit-update-visibility') as HTMLSelectElement).value;
+                                const version = (document.getElementById('edit-update-version') as HTMLInputElement).value;
+                                const title = (document.getElementById('edit-update-title') as HTMLInputElement).value;
+                                const badge = (document.getElementById('edit-update-badge') as HTMLInputElement).value;
+                                if (!text) {
+                                  Swal.showValidationMessage('Content cannot be empty!');
+                                  return null;
                                 }
-                              }).then((result) => {
-                                if (result.isConfirmed) {
-                                  const newVals = result.value;
-                                  if (newVals.text !== upd.text || newVals.visibility !== upd.visibility || newVals.version !== upd.version || newVals.title !== upd.title || newVals.badge !== upd.badge) {
-                                    updateDoc(doc(db, 'updates', upd.id), { 
-                                      text: newVals.text, 
-                                      visibility: newVals.visibility,
-                                      version: newVals.version || null,
-                                      title: newVals.title || null,
-                                      badge: newVals.badge || null,
-                                    })
-                                    .then(() => addToast("Update modified successfully!"))
-                                    .catch(err => handleFirestoreError(err, OperationType.UPDATE, `updates/${upd.id}`));
-                                  }
+                                return { text, visibility, version, title, badge };
+                              }
+                            }).then((result) => {
+                              if (result.isConfirmed) {
+                                const newVals = result.value;
+                                if (newVals.text !== upd.text || newVals.visibility !== upd.visibility || newVals.version !== upd.version || newVals.title !== upd.title || newVals.badge !== upd.badge) {
+                                  setDoc(doc(db, 'updates', upd.id), { 
+                                    ...upd,
+                                    text: newVals.text, 
+                                    visibility: newVals.visibility,
+                                    version: newVals.version || null,
+                                    title: newVals.title || null,
+                                    badge: newVals.badge || null,
+                                    updatedAt: Date.now()
+                                  }, { merge: true })
+                                  .then(() => addToast("Update modified successfully!"))
+                                  .catch(err => handleFirestoreError(err, OperationType.UPDATE, `updates/${upd.id}`));
                                 }
-                              });
-                            }}
-                            className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                          >
-                            <Edit3 size={18} />
-                          </button>
-                          <button aria-label="Delete Update"
-                            onClick={() => {
-                              Swal.fire({
-                                title: 'Delete Update?',
-                                text: "This will remove the entry from What's New timeline.",
-                                icon: 'warning',
-                                showCancelButton: true,
-                                confirmButtonColor: '#ef4444',
-                                confirmButtonText: 'Yes, Delete it!'
-                              }).then(async (result) => {
-                                if (result.isConfirmed) {
-                                  try {
-                                    await updateDoc(doc(db, 'updates', upd.id), { status: 'Deleted', deletedAt: Date.now() });
-                                    addToast("Update moved to trash.");
-                                  } catch (err) {
-                                    handleFirestoreError(err, OperationType.UPDATE, `updates/${upd.id}`);
-                                  }
+                              }
+                            });
+                          }}
+                          className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit3 size={18} />
+                        </button>
+                        <button aria-label="Delete Update"
+                          onClick={() => {
+                            Swal.fire({
+                              title: 'Delete Update?',
+                              text: "This will remove the entry from What's New timeline.",
+                              icon: 'warning',
+                              showCancelButton: true,
+                              confirmButtonColor: '#ef4444',
+                              confirmButtonText: 'Yes, Delete it!'
+                            }).then(async (result) => {
+                              if (result.isConfirmed) {
+                                try {
+                                  await setDoc(doc(db, 'updates', upd.id), { ...upd, status: 'Deleted', deletedAt: Date.now() }, { merge: true });
+                                  addToast("Update moved to trash.");
+                                } catch (err) {
+                                  handleFirestoreError(err, OperationType.UPDATE, `updates/${upd.id}`);
                                 }
-                              });
-                            }}
-                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      )}
+                              }
+                            });
+                          }}
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -6704,46 +6793,8 @@ function DSRAnalyzer({ addToast, user }: { addToast: (s:string) => void, user: F
 }
 
 function AdBanner({ slotId = "5641797386" }: { slotId?: string }) {
-  const adRef = useRef<HTMLModElement>(null);
-
-  useEffect(() => {
-    let pushed = false;
-    let timeoutId: any;
-
-    const pushAd = () => {
-      if (pushed) return;
-      if (adRef.current && adRef.current.offsetWidth > 0) {
-        try {
-          // @ts-ignore
-          (window.adsbygoogle = window.adsbygoogle || []).push({});
-          pushed = true;
-        } catch (err) {
-          console.error("AdSense error", err);
-        }
-      } else {
-        timeoutId = setTimeout(pushAd, 100);
-      }
-    };
-
-    pushAd();
-
-    return () => clearTimeout(timeoutId);
-  }, []);
-
-  return (
-    <div className="w-full my-6 flex justify-center min-h-[90px]">
-      <div className="w-full max-w-[728px] overflow-hidden rounded-xl bg-slate-50 border border-slate-200 shadow-sm relative group flex items-center justify-center">
-        <span className="absolute top-0 left-0 bg-slate-100/80 backdrop-blur-sm text-slate-400 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-br-lg font-bold z-10 border-b border-r border-slate-200 pointer-events-none">AD</span>
-        <ins 
-             ref={adRef}
-             className="adsbygoogle"
-             style={{ display: 'inline-block', width: '728px', height: '90px' }}
-             data-ad-client="ca-pub-4602643637986053"
-             data-ad-slot={slotId}
-        ></ins>
-      </div>
-    </div>
-  );
+  // Ads hidden as requested
+  return null;
 }
 
 function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit, allUsers }: { post: Post, isExpanded: boolean, toggleExpansion: () => void, addToast: (s:string) => void, isAdmin: boolean, onEdit: (p: Post) => void, allUsers: UserProfile[] }) {
@@ -6755,9 +6806,6 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
   const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
-  const [showLikesModal, setShowLikesModal] = useState(false);
-  const [showViewsModal, setShowViewsModal] = useState(false);
-  const [showCommentLikesModal, setShowCommentLikesModal] = useState<{ id: string, uids: string[] } | null>(null);
 
   useEffect(() => {
     if (showComments) {
@@ -6766,44 +6814,13 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
         const fetchedComments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setComments(fetchedComments);
         setCommentsLoaded(true);
-        if (post.commentCount !== fetchedComments.length) {
-            updateDoc(doc(db, 'posts', post.id), { commentCount: fetchedComments.length }).catch(() => {});
-        }
       }, (err) => handleFirestoreError(err, OperationType.LIST, `posts/${post.id}/comments`));
       return () => unsub();
     }
-  }, [showComments, post.id, post.commentCount]);
-
-  const handleAddComment = async () => {
-    if (!newComment.trim()) return;
-    if (requireLoginAlert()) return;
-    
-    setSubmittingComment(true);
-    try {
-      await addDoc(collection(db, 'posts', post.id, 'comments'), {
-        text: newComment,
-        time: Date.now(),
-        uid: auth.currentUser!.uid,
-        userName: isAdmin ? "Admin" : (auth.currentUser!.displayName || auth.currentUser!.email?.split('@')[0] || "User"),
-        isAdminComment: isAdmin,
-        likes: [],
-        edited: false
-      });
-      setNewComment("");
-      
-      await updateDoc(doc(db, 'posts', post.id), {
-        commentCount: increment(1)
-      });
-    } catch (e: any) {
-      console.error(e);
-      addToast("Error adding comment: " + (e.message || String(e)));
-    } finally {
-      setSubmittingComment(false);
-    }
-  };
+  }, [showComments, post.id]);
 
   return (
-    <div className="post-card">
+    <motion.div layout className="post-card">
       <div className="flex items-center gap-4 mb-6">
         <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-primary font-black overflow-hidden border shadow-sm">
            {post.userPhoto ? <img src={post.userPhoto} alt={post.userName || "Author"} loading="lazy" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <div className="text-lg">{(post.userName || 'U').charAt(0).toUpperCase()}</div>}
@@ -6811,17 +6828,9 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
         <div className="flex-1">
            <div className="flex items-center gap-2">
               <h5 className="text-[17px] font-black text-primary leading-tight">{post.userName || 'Portal Member'}</h5>
-              {(post.uid === 'KGT2roF9bPTNhWIceHgWsJEnEnH3' || post.userName === 'Admin' || post.isAdminPost) && (
+              {(post.isAdminPost) && (
                  <span className="bg-blue-600 text-white text-[9px] px-2.5 py-1 rounded-lg font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
                    <ShieldCheck size={10} /> Official
-                 </span>
-              )}
-              {isAdmin && post.status === 'Deleted' && (
-                 <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider animate-pulse">Deleted Archive</span>
-              )}
-              {post.pinned && (
-                 <span className="bg-amber-100 text-amber-700 text-[9px] px-2.5 py-1 rounded-lg font-black uppercase tracking-widest flex items-center gap-1 border border-amber-200">
-                   <Pin size={10} fill="currentColor" /> Pinned Post
                  </span>
               )}
            </div>
@@ -6829,80 +6838,22 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
               <Clock size={12} />
               <span>{new Date(postTime).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
               <span>•</span>
-              <span className="text-primary/70">{post.category || 'Update'}</span>
+              <span className="text-primary/70">{post.categories && post.categories.length > 0 ? post.categories.join(", ") : (post.category || 'Update')}</span>
            </div>
         </div>
+        
         <div className="flex gap-2">
-           {isAdmin && (
-              <button aria-label={post.pinned ? "Unpin Post" : "Pin Post"}
-                onClick={async () => {
-                  try {
-                    await updateDoc(doc(db, 'posts', post.id), { 
-                      pinned: !post.pinned 
-                    });
-                    addToast(post.pinned ? "Post Unpinned" : "Post Pinned Successfully 📍");
-                  } catch (e: any) {
-                    handleFirestoreError(e, OperationType.WRITE, `posts/${post.id}`);
-                  }
-                }}
-                className={`p-1.5 transition-all rounded-lg ${post.pinned ? 'text-amber-600 bg-amber-50' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'}`}
-                title={post.pinned ? "Unpin Post" : "Pin Post"}
-              >
-                <Pin size={16} fill={post.pinned ? "currentColor" : "none"} />
-              </button>
-           )}
            {isOwner && (
               <>
                 {isAdmin && <button onClick={() => onEdit(post)} className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-primary transition-all rounded-lg" title="Edit"><Edit3 size={16} /></button>}
                 <button aria-label="Delete Post" onClick={async () => {
-                  if (isAdmin) {
-                    if (post.status === 'Deleted') {
-                      const res = await Swal.fire({ 
-                        title: 'Permanent Delete?', 
-                        text: 'This post is already soft-deleted. Delete it permanently from the database?', 
-                        icon: 'error', 
-                        showCancelButton: true,
-                        confirmButtonText: 'Delete Permanently',
-                        confirmButtonColor: '#ef4444'
-                      });
-                      if (res.isConfirmed) {
-                        try {
-                          await updateDoc(doc(db, 'posts', post.id), { status: 'Deleted', deletedAt: Date.now() });
-                          addToast("Moved to Trash");
-                        } catch (err: any) {
-                          addToast("Error: " + err.message);
-                        }
-                      }
-                    } else {
-                      const res = await Swal.fire({ 
-                        title: 'Soft Delete?', 
-                        text: 'Move this post to the Deleted archive?', 
-                        icon: 'warning', 
-                        showCancelButton: true,
-                        confirmButtonText: 'Soft Delete'
-                      });
-                      if (res.isConfirmed) {
-                        try {
-                          await updateDoc(doc(db, 'posts', post.id), { 
-                            status: 'Deleted', 
-                            deletedAt: Date.now(),
-                            deletedBy: auth.currentUser?.email 
-                          });
-                          addToast("Moved to archive");
-                        } catch (err: any) {
-                          addToast("Error: " + err.message);
-                        }
-                      }
-                    }
-                  } else {
-                    const res = await Swal.fire({ title: 'Delete?', text: 'Move this post to recycle bin?', icon: 'warning', showCancelButton: true });
-                    if (res.isConfirmed) {
-                      try {
-                        await updateDoc(doc(db, 'posts', post.id), { status: 'Deleted', deletedAt: Date.now() });
-                        addToast("Moved to recycle bin");
-                      } catch (err: any) {
-                        addToast("Failed to delete post. " + (isAdmin ? err.message : "You can only delete posts within 1 hour of creation."));
-                      }
+                  const res = await Swal.fire({ title: 'Delete?', text: 'Move this post to recycle bin?', icon: 'warning', showCancelButton: true });
+                  if (res.isConfirmed) {
+                    try {
+                      await updateDoc(doc(db, 'posts', post.id), { status: 'Deleted', deletedAt: Date.now() });
+                      addToast("Moved to recycle bin");
+                    } catch (err: any) {
+                      addToast("Failed to delete post. " + err.message);
                     }
                   }
                 }} className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-danger transition-all rounded-lg" title="Delete"><Trash2 size={16} /></button>
@@ -6913,14 +6864,36 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
       
       <h4 className="post-title !mt-0 whitespace-pre-wrap">{formatPostTitle(post.title) || 'Platform Update'}</h4>
       
+      {post.tags && post.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {post.tags.map((tag, i) => (
+            <span key={i} className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-1 border border-slate-200/50">
+              <Hash size={10} strokeWidth={3} /> {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className={`post-body mb-4 whitespace-pre-wrap ${isExpanded ? '' : 'line-clamp-4'} [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline`}>
-        <ReactMarkdown remarkPlugins={[remarkBreaks]}>{post.content || (post as any).message || (post as any).text || (post as any).desc || ''}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkBreaks]}>{post.content || ''}</ReactMarkdown>
       </div>
 
       {post.content && post.content.length > 200 && (
-        <button aria-label={isExpanded ? 'View Less' : 'Read Post'} onClick={toggleExpansion} className="text-xs font-black text-primary uppercase underline underline-offset-4 mb-6 block">
+        <button aria-label={isExpanded ? 'View Less' : 'Read Post'} onClick={toggleExpansion} className="text-xs font-black text-primary uppercase underline underline-offset-4 mb-4 block">
           {isExpanded ? 'View Less' : 'Read Post'}
         </button>
+      )}
+
+      {post.websiteName && (
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between mb-4 group hover:bg-blue-100/50 transition-colors">
+           <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-wider">
+              <div className="w-6 h-6 bg-primary text-white rounded-lg flex items-center justify-center">
+                <ExternalLink size={12} strokeWidth={3} />
+              </div>
+              {post.websiteName} Issue / Problem
+           </div>
+           <Target size={14} className="text-primary/40 group-hover:text-primary transition-colors" />
+        </div>
       )}
 
       {post.mediaUrl && (
@@ -6928,7 +6901,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
           {post.mediaType?.startsWith('video') ? (
             <video src={post.mediaUrl} controls className="post-media" />
           ) : post.mediaType?.startsWith('image') ? (
-            <img src={post.mediaUrl} alt={post.title} className="post-media" />
+            <img src={post.mediaUrl} alt={post.title} className="post-media" loading="lazy" />
           ) : (
             <a href={post.mediaUrl} download={post.mediaName || 'Document'} target="_blank" rel="noreferrer" className="flex items-center p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:bg-slate-100 hover:border-primary/30 transition-colors w-full group">
               <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex flex-shrink-0 items-center justify-center mr-4 group-hover:scale-110 transition-transform">
@@ -6947,140 +6920,86 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
       <div className="flex flex-wrap gap-4 justify-between items-center pt-6 border-t border-slate-100 mt-6">
          <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-             <button aria-label="Like Post"
-               onClick={async (e) => {
-                 e.stopPropagation();
-                 const userId = auth.currentUser?.uid;
-                 if (requireLoginAlert()) return;
-                 const likedBy = post.likedBy || [];
-                 if (likedBy.includes(userId)) {
-                   await updateDoc(doc(db, 'posts', post.id), {
-                     likes: increment(-1),
-                     likedBy: likedBy.filter(id => id !== userId)
-                   });
-                 } else {
-                   await updateDoc(doc(db, 'posts', post.id), {
-                     likes: increment(1),
-                     likedBy: arrayUnion(userId)
-                   });
-                 }
-               }} 
-               className="flex items-center gap-2 group"
-             >
-               <Heart size={20} className={`transition-transform group-hover:scale-125 ${post.likedBy?.includes(auth.currentUser?.uid || "") ? 'fill-red-500 text-red-500' : 'text-slate-400 group-hover:text-red-500'}`} />
-             </button>
-             <button onClick={(e) => { e.stopPropagation(); setShowLikesModal(true); }} className="text-sm font-black text-slate-500 hover:text-primary transition-colors cursor-pointer">{post.likes || 0}</button>
-           </div>
+              <button aria-label="Like Post"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  const userId = auth.currentUser?.uid;
+                  if (requireLoginAlert()) return;
+                  const likedBy = post.likedBy || [];
+                  try {
+                    if (likedBy.includes(userId)) {
+                      await updateDoc(doc(db, 'posts', post.id), {
+                        likes: increment(-1),
+                        likedBy: arrayRemove(userId)
+                      });
+                    } else {
+                      await updateDoc(doc(db, 'posts', post.id), {
+                        likes: increment(1),
+                        likedBy: arrayUnion(userId)
+                      });
+                    }
+                  } catch (err: any) {
+                    addToast("Error updating like: " + err.message);
+                  }
+                }} 
+                className={`flex items-center gap-2 p-2 rounded-xl transition-all ${post.likedBy?.includes(auth.currentUser?.uid || '') ? 'bg-rose-50 text-rose-500' : 'hover:bg-slate-50 text-slate-400'}`}
+              >
+                <Heart size={18} fill={post.likedBy?.includes(auth.currentUser?.uid || '') ? 'currentColor' : 'none'} />
+                <span className="text-sm font-black">{post.likes || 0}</span>
+              </button>
+            </div>
 
-           <div className="flex items-center gap-2" title="Views">
-              <Eye size={20} className="text-slate-400" />
-              <button onClick={(e) => { e.stopPropagation(); setShowViewsModal(true); }} className="text-sm font-bold text-slate-400 hover:text-primary transition-colors cursor-pointer">{post.views || 0}</button>
-           </div>
-           
-           <button aria-label="Toggle Comments" onClick={() => setShowComments(!showComments)} className="flex items-center gap-2 group text-slate-400 hover:text-primary" title="Comments">
-              <MessageCircle size={20} className="group-hover:scale-110 transition-transform" />
-              <span className="text-sm font-black">{commentsLoaded ? comments.length : (post.commentCount || 0)}</span>
-           </button>
+            <div className="flex items-center gap-2">
+               <div className="flex items-center gap-2 p-2 text-slate-400 cursor-pointer hover:bg-slate-50 rounded-xl transition-all" onClick={(e) => { e.stopPropagation(); setShowComments(!showComments); }}>
+                  <MessageSquare size={18} />
+                  <span className="text-sm font-black">{post.commentCount || 0}</span>
+               </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+               <div className="flex items-center gap-2 p-2 text-slate-400">
+                  <Eye size={18} />
+                  <span className="text-sm font-black">{post.views || 0}</span>
+               </div>
+            </div>
          </div>
 
-         <div className="flex items-center gap-3">
-           <button 
-             aria-label="Share Post"
-             onClick={() => {
-               const url = `${window.location.origin}${window.location.pathname}?postId=${post.id}`;
-               handleShare(post.title || 'Shared Post', 'Check out this post on E-Vedhika', url, () => addToast("Link copied!"));
-             }}
-             className="flex items-center gap-2 group text-slate-400 hover:text-primary hover:bg-slate-50 p-2 rounded-lg transition-all"
-             title="Share Link"
-           >
-              <Share2 size={18} className="group-hover:scale-110 transition-transform" />
-           </button>
-           
-           <Link to={`/?postId=${post.id}`} className="bg-primary text-white font-black uppercase text-xs px-5 py-2.5 rounded-xl hover:bg-primary-light transition-all shadow-sm">Read Post</Link>
-         </div>
+         <button aria-label="Share Post" onClick={(e) => { e.stopPropagation(); addToast("Sharing functionality coming soon!"); }} className="flex items-center gap-2 p-2 px-4 rounded-xl text-primary font-black text-xs uppercase bg-slate-50 hover:bg-primary hover:text-white transition-all">
+            <Share2 size={16} strokeWidth={2.5} />
+            <span>Share</span>
+         </button>
       </div>
 
       {showComments && (
-        <div className="mt-4 pt-4 border-t border-slate-100">
-          {auth.currentUser && !auth.currentUser.isAnonymous ? (
-            <div className="flex gap-2 mb-4">
-              <input 
-                value={newComment} 
-                onChange={e => setNewComment(e.target.value)} 
-                onKeyDown={e => e.key === 'Enter' && handleAddComment()}
-                placeholder="Write a comment..." 
-                className="flex-1 text-sm bg-slate-50 p-2 rounded-xl border border-slate-200 outline-none focus:border-primary/30 m-0" 
-              />
-              <button 
-                aria-label="Submit comment"
-                disabled={submittingComment}
-                onClick={handleAddComment} 
-                className="bg-primary text-white p-2 rounded-xl text-sm font-bold disabled:opacity-50"
-              >
-                <Send size={16} />
-              </button>
-            </div>
-          ) : (
-             <div className="text-center py-2 mb-4 bg-slate-50 rounded-xl">
-               <p className="text-xs font-bold text-slate-500">Please login to comment.</p>
-             </div>
-          )}
-          <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-            {comments.length === 0 && <p className="text-xs text-slate-400 text-center py-2">No comments yet</p>}
+        <div className="mt-6 pt-6 border-t border-slate-100">
+          <div className="space-y-4 mb-4">
             {comments.map(c => (
-              <div key={c.id} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                 <div className="flex justify-between items-center mb-1">
-                   <div className="flex items-center gap-1.5">
-                     <span className="text-xs font-bold text-primary">{c.userName || 'User'}</span>
-                     {(c.isAdminComment || c.uid === 'KGT2roF9bPTNhWIceHgWsJEnEnH3') && (
-                       <span className="bg-blue-600 text-white text-[7px] px-1 py-0.5 rounded-sm font-black uppercase tracking-widest flex items-center gap-0.5 shadow-sm">
-                         <ShieldCheck size={7} /> Admin
-                       </span>
-                     )}
-                   </div>
-                   <div className="flex items-center gap-1">
-                     <span className="text-[10px] text-slate-400">{new Date(getValidTime(c)).toLocaleDateString()}</span>
-                     {(auth.currentUser?.uid === c.uid || isAdmin) && (
-                       <button onClick={async () => {
-                         try {
-                           await deleteDoc(doc(db, 'posts', post.id, 'comments', c.id));
-                           await updateDoc(doc(db, 'posts', post.id), {
-                             commentCount: increment(-1)
-                           });
-                         } catch(err) { console.error(err); }
-                       }} className="text-slate-400 hover:text-red-500">
-                         <Trash2 size={12} />
-                       </button>
-                     )}
-                   </div>
-                 </div>
-                 <p className="text-sm text-slate-600">{c.text}</p>
-                 <div className="flex items-center gap-2 mt-2">
-                   <button onClick={() => {
-                        const likes = c.likes || [];
-                        const uid = auth.currentUser!.uid;
-                        if (!uid) { addToast("Please login first"); return; }
-                        if (likes.includes(uid)) {
-                          updateDoc(doc(db, 'posts', post.id, 'comments', c.id), { likes: arrayRemove(uid) });
-                        } else {
-                          updateDoc(doc(db, 'posts', post.id, 'comments', c.id), { likes: arrayUnion(uid) });
-                        }
-                   }} className={`text-xs flex items-center gap-1 ${c.likes?.includes(auth.currentUser?.uid) ? 'text-red-500 hover:text-slate-400' : 'text-slate-400 hover:text-red-500'} group transition-colors p-1 -ml-1 rounded-md`}>
-                      <Heart size={12} fill={c.likes?.includes(auth.currentUser?.uid) ? "currentColor" : "none"} className="group-hover:scale-125 transition-transform" />
-                   </button>
-                   <button onClick={() => setShowCommentLikesModal({ id: c.id, uids: c.likes || [] })} className="text-xs font-black text-slate-400 hover:text-primary transition-colors">
-                      {c.likes?.length || 0}
-                   </button>
-                 </div>
+              <div key={c.id} className="text-sm bg-slate-50 p-3 rounded-2xl">
+                <span className="font-black text-primary mr-2 uppercase text-[10px]">{c.userName}:</span>
+                <span className="text-slate-600">{c.text}</span>
               </div>
             ))}
+            {comments.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">No comments yet</p>}
+          </div>
+          <div className="flex gap-2">
+            <input value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Add a comment..." className="flex-1 bg-slate-50 px-4 py-2 rounded-xl text-sm border-2 border-transparent focus:border-primary/20 outline-none" />
+            <button onClick={async () => {
+              if (!newComment.trim() || requireLoginAlert()) return;
+              try {
+                await addDoc(collection(db, 'posts', post.id, 'comments'), {
+                  text: newComment,
+                  time: Date.now(),
+                  uid: auth.currentUser!.uid,
+                  userName: auth.currentUser!.displayName || "User"
+                });
+                await updateDoc(doc(db, 'posts', post.id), { commentCount: increment(1) });
+                setNewComment("");
+              } catch (e: any) { addToast("Error: " + e.message); }
+            }} className="bg-primary text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">SEND</button>
           </div>
         </div>
       )}
-      {showLikesModal && <UsersListModal title="Liked By" uids={post.likedBy || []} allUsers={allUsers} onClose={() => setShowLikesModal(false)} />}
-      {showViewsModal && <UsersListModal title="Viewed By" uids={post.viewedBy || []} allUsers={allUsers} onClose={() => setShowViewsModal(false)} />}
-      {showCommentLikesModal && <UsersListModal title="Comment Liked By" uids={showCommentLikesModal.uids} allUsers={allUsers} onClose={() => setShowCommentLikesModal(null)} />}
-    </div>
+    </motion.div>
   );
 }
 
@@ -7088,20 +7007,68 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState(editingPost?.title || "");
   const [content, setContent] = useState(editingPost?.content || "");
-  const [category, setCategory] = useState(editingPost?.category || "General");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    editingPost?.categories ? editingPost.categories : (editingPost?.category ? [editingPost.category] : ["📌 General"])
+  );
+  const [tags, setTags] = useState(editingPost?.tags?.join(", ") || "");
+  const [websiteName, setWebsiteName] = useState(editingPost?.websiteName || "");
   const [media, setMedia] = useState<{ url: string, type: string, name?: string } | null>(
     editingPost ? (editingPost.mediaUrl ? { url: editingPost.mediaUrl, type: editingPost.mediaType || 'image/jpeg', name: editingPost.mediaName } : null) : null
   );
 
+  const CATEGORIES = [
+    "📌 General",
+    "📊 Daily Reports",
+    "📢 Updates",
+    "🗳️ Election",
+    "🏛️ Mana Panchayath",
+    "💬 Live Chat",
+    "🤝 Union Corner",
+    "✨ Platform Updates",
+    "💡 Suggestions & Feedback",
+    "📑 Applications & GOs",
+    "🚨 Emergency Contacts",
+    "🔗 Useful Information",
+    "🏠 ePanchayat Home Issue",
+    "💰 Online Tax Collection Issue",
+    "📂 UBD Portal Issue",
+    "📉 UBD MIS Status Issue",
+    "🗳️ TSEC Poll Login Issue",
+    "🛠️ eGramSwaraj Issue"
+  ];
+
+  const toggleCategory = (cat: string) => {
+    if (selectedCategories.includes(cat)) {
+      setSelectedCategories(selectedCategories.filter(c => c !== cat));
+    } else {
+      if (selectedCategories.length < 3) {
+        setSelectedCategories([...selectedCategories, cat]);
+      } else {
+        addToast("You can select up to 3 categories only.");
+      }
+    }
+  };
+
   const onSubmit = async (e: any) => {
     e.preventDefault();
     if (!auth.currentUser) return;
+    if (selectedCategories.length === 0) {
+      addToast("Please select at least one category.");
+      return;
+    }
     setLoading(true);
     try {
+      const extractedHashtags = content.match(/#(\w+)/g)?.map(tag => tag.substring(1)) || [];
+      const manualTags = tags.split(',').map(tag => tag.trim()).filter(tag => tag !== "");
+      const finalTags = Array.from(new Set([...manualTags, ...extractedHashtags]));
+
       const postData = {
-        title: title,
-        content: content,
-        category: category,
+        title,
+        content,
+        category: selectedCategories[0],
+        categories: selectedCategories,
+        tags: finalTags,
+        websiteName,
         mediaUrl: media?.url || "",
         mediaType: media?.type || "",
         mediaName: media?.name || "",
@@ -7109,74 +7076,41 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
 
       if (editingPost) {
         await updateDoc(doc(db, 'posts', editingPost.id), {
-          title: postData.title,
-          content: postData.content,
-          category: postData.category,
-          mediaUrl: postData.mediaUrl,
-          mediaType: postData.mediaType,
-          mediaName: postData.mediaName,
-          userName: isEditor ? "Admin" : (editingPost.userName || "User"),
-          userPhoto: isEditor ? "" : (editingPost.userPhoto || ""),
-          lastEditedAt: Date.now(),
-          lastEditedBy: auth.currentUser?.uid || 'system',
-          lastEditedRole: isEditor ? "admin" : "user",
-          lastEditedName: isEditor ? "Admin" : (currentUserProfile?.username || ""),
-          isAdminPost: (editingPost as any).isAdminPost || isEditor
+          ...postData,
+          lastEditedAt: Date.now()
         });
-        await logUserActivity(`Edited Post: ${postData.title.slice(0, 20)}`);
         addToast("Update Saved!");
       } else {
-        const newPostRef = await addDoc(collection(db, "posts"), {
-          title: title,
-          content: content || "",
-          category: category,
+        await addDoc(collection(db, "posts"), {
+          ...postData,
           subCategory: "", 
-          mediaUrl: media?.url || "",
-          mediaType: media?.type || "",
-          mediaName: media?.name || "",
           likes: 0,
           likedBy: [],
           views: 0,
           commentCount: 0,
           comments: [],
           time: Date.now(),
-          uid: auth.currentUser?.uid || 'system',
+          uid: auth.currentUser.uid,
           userName: isEditor ? "Admin" : (currentUserProfile?.username || auth.currentUser.displayName || "User"),
           userPhoto: isEditor ? "" : (currentUserProfile?.photoURL || ""),
           isAdminPost: isEditor,
           status: isEditor ? 'Approved' : 'Pending'
         });
-        await logUserActivity(`Published Post: ${title.slice(0, 20)}`);
-        
-        if (isEditor && category === "Updates") {
-          await addDoc(collection(db, "notifications"), {
-            uid: "all",
-            title: "New Update",
-            message: title,
-            time: Date.now(),
-            read: false,
-            readBy: [],
-            postId: newPostRef.id
-          });
-        }
-        
         addToast("Post Published! " + (!isAdmin ? "Waiting for admin approval." : ""));
       }
       onCancel();
     } catch (err: any) { 
       handleFirestoreError(err, OperationType.WRITE, editingPost ? `posts/${editingPost.id}` : 'posts');
       addToast("Error: " + err.message); 
+    } finally { 
+      setLoading(false); 
     }
-    finally { setLoading(false); }
   };
 
   return (
     <motion.form 
-      initial={{ opacity: 0, scale: 0.95 }} 
-      animate={{ opacity: 1, scale: 1 }} 
-      onSubmit={onSubmit} 
-      className="bg-white p-6 rounded-3xl shadow-xl border-2 border-accent mb-8" 
-      style={{ borderColor: '#fbbf24' }}
+      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} onSubmit={onSubmit}
+      className="bg-white p-6 rounded-3xl shadow-xl border-2 border-accent mb-8" style={{ borderColor: '#fbbf24' }}
     >
       <div className="flex justify-between items-center mb-6">
         <h3 className="font-black text-primary uppercase text-lg flex items-center gap-2">
@@ -7185,20 +7119,41 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
         <button aria-label="Close edit modal" type="button" onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors font-black text-lg">✕</button>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 text-left">
         <div>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Title / Header</label>
           <input name="title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter catchy title..." className="w-full text-lg font-black text-primary p-3 bg-slate-50 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none transition-all" />
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="col-span-full">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Categories (Select up to 3)</label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {CATEGORIES.map(cat => (
+                <button
+                  type="button"
+                  key={cat}
+                  onClick={() => toggleCategory(cat)}
+                  className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all border-2 ${
+                    selectedCategories.includes(cat)
+                      ? 'bg-primary text-white border-primary shadow-md'
+                      : 'bg-slate-50 text-slate-400 border-transparent hover:border-slate-200'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Website Name (Optional)</label>
+            <input name="websiteName" value={websiteName} onChange={(e) => setWebsiteName(e.target.value)} placeholder="e.g. ePanchayat" className="w-full bg-slate-50 text-xs font-bold p-3 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none transition-all" />
+          </div>
+        </div>
+
         <div>
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Category</label>
-          <select name="category" value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-slate-50 font-bold text-xs uppercase p-3 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none cursor-pointer">
-             <option value="Daily reports">📊 Daily Reports</option>
-             <option value="Updates">📢 Updates</option>
-             <option value="Election">🗳️ Election</option>
-             <option value="General">📌 General</option>
-          </select>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Tags (Comma separated)</label>
+          <input name="tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="e.g. help, important, notice" className="w-full bg-slate-50 text-xs font-bold p-3 rounded-xl border-2 border-transparent focus:border-primary/20 outline-none transition-all" />
         </div>
 
         <div>
@@ -7207,20 +7162,20 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
         </div>
         
         <div>
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Media Content</label>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Media Content (Max 5MB)</label>
           <div className="py-8 border-2 border-dashed rounded-2xl text-center cursor-pointer relative bg-slate-50 overflow-hidden transition-all hover:bg-slate-100 hover:border-primary/20 group">
              {media?.url ? (
                <div className="space-y-3 px-4">
                  <div className="relative inline-block w-full max-w-sm">
                     {media.type.startsWith('video') ? (
-                      <video src={media.url} className="h-32 w-full object-cover rounded-xl border shadow-sm" />
+                       <video src={media.url} className="h-32 w-full object-cover rounded-xl border shadow-sm" />
                     ) : media.type.startsWith('image') ? (
-                      <img src={media.url} alt="Uploaded media preview" loading="lazy" className="h-32 w-full object-cover rounded-xl border shadow-sm" />
+                       <img src={media.url} alt="Uploaded media preview" loading="lazy" className="h-32 w-full object-cover rounded-xl border shadow-sm" />
                     ) : (
-                      <div className="h-32 w-full bg-slate-100 flex flex-col items-center justify-center rounded-xl border shadow-sm p-4">
+                       <div className="h-32 w-full bg-slate-100 flex flex-col items-center justify-center rounded-xl border shadow-sm p-4">
                         <FileText size={32} className="text-slate-400 mb-2" />
                         <span className="text-xs font-bold text-slate-600 truncate w-full px-4">{media.name || 'document'}</span>
-                      </div>
+                       </div>
                     )}
                     <button aria-label="Remove media"
                       type="button" 
@@ -7231,19 +7186,19 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
                     </button>
                  </div>
                  <p className="text-[11px] font-black text-success uppercase">✓ Media Attached</p>
-                 <p className="text-[10px] text-slate-400 font-bold">Click to replace or use button to remove</p>
                </div>
              ) : (
                <div className="space-y-2 py-4">
-                 <div className="text-3xl"><Upload size={28} className="mx-auto text-primary" /></div>
-                 <div className="text-xs font-black text-slate-400 group-hover:text-primary transition-colors">Add Attachment (Media or Files &lt; 700KB)</div>
+                 <div className="text-3xl tracking-tighter"><Upload size={28} className="mx-auto text-primary" /></div>
+                 <div className="text-xs font-black text-slate-400 group-hover:text-primary transition-colors uppercase tracking-widest">Add Attachment (&lt; 5MB)</div>
+                 <p className="text-[10px] text-slate-300 font-bold">Image, Video or Document</p>
                </div>
              )}
              <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="*/*" onChange={async (e) => {
                const f = e.target.files?.[0];
                if (f) {
-                 if (f.size > 750 * 1024) {
-                   addToast("File is too large! Please select a file smaller than 700KB.");
+                 if (f.size > 5 * 1024 * 1024) {
+                   addToast("File is too large! Please select a file smaller than 5MB.");
                    e.target.value = '';
                    return;
                  }
@@ -7256,12 +7211,13 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
         </div>
       </div>
 
-      <button aria-label={editingPost ? 'Save Changes' : 'Publish Now'} disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-all active:scale-95 mt-6 disabled:opacity-50" style={{ background: '#0d3b66' }}>
+      <button aria-label={editingPost ? 'Save Changes' : 'Publish Now'} disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-all active:scale-95 mt-6 disabled:opacity-50 uppercase tracking-widest" style={{ background: '#0d3b66' }}>
         {loading ? (editingPost ? 'SAVING... 🚀' : 'PUBLISHING... 🚀') : (editingPost ? 'SAVE CHANGES 🚀' : 'PUBLISH NOW 🚀')}
       </button>
     </motion.form>
   );
 }
+
 
 function MenuButton({ label, active, onClick, emoji, icon: Icon }: { label: string, active: boolean, onClick: () => void, emoji?: string, icon?: any }) {
   return (
@@ -7606,12 +7562,15 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile, allUsers }
         setPost({ id: snapshot.id, ...snapshot.data() } as Post);
         if (isInitial) {
           isInitial = false;
-          // Increment views
-          const updateData: any = { views: increment(1) };
-          if (auth.currentUser?.uid) {
-             updateData.viewedBy = arrayUnion(auth.currentUser.uid);
+          const data = snapshot.data();
+          const uid = auth.currentUser?.uid;
+          if (uid && data && !data.viewedBy?.includes(uid)) {
+            const updateData: any = { 
+              views: increment(1),
+              viewedBy: arrayUnion(uid)
+            };
+            updateDoc(docRef, updateData).catch(e => console.error(e));
           }
-          updateDoc(docRef, updateData).catch(e => console.error(e));
           setLoading(false);
         }
       } else {
