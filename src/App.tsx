@@ -655,9 +655,9 @@ export const SYSTEM_UPDATES = [
     id: 'update-v1.4.8',
     isSystemElement: true,
     version: 'v1.4.8',
-    title: '10/05/2026: సిస్టమ్ అప్‌డేట్స్ & ఫీచర్స్',
+    title: '10/05/2026: సిస్టమ్ అప్‌డేట్స్ & అనలిటిక్స్ ఫీచర్స్',
     badge: 'DAILY UPDATE',
-    text: 'నేటి సిస్టమ్ అప్‌డేట్స్‌లో భాగంగా పోర్టల్‌లో ఈ క్రింది మార్పులు చేసాము:\n\n1. 💎 **టెక్స్ట్ ఫార్మాటింగ్ టూల్‌బార్**: ఇప్పుడు మీరు పోస్ట్‌లను వ్రాసేటప్పుడు వర్డ్ ఫైల్ లాగా బోల్డ్, ఇటాలిక్ ఉపయోగించవచ్చు.\n2. 🎨 **UI అప్‌డేట్**: మొబైల్ హోమ్ స్క్రీన్ ఐకాన్ మరియు ఫెవికాన్ మార్చాము.\n3. ⚙️ **సిస్టమ్ ఆప్టిమైజేషన్**: బ్యాక్‌ఎండ్ లాజిక్ మరియు అడ్మిన్ ప్యానెల్ ఛేంజ్ లాగ్ సమస్యలను పరిష్కరించాము.\n4. 🚀 **హోమ్ పేజీ నావిగేషన్**: ఎగువన ఉన్న "EV" లోగో లేదా పేరు మీద క్లిక్ చేస్తే నేరుగా హోమ్ పేజీకి వస్తారు.\n5. 🔗 **సోషల్ మీడియా షేరింగ్**: పోస్ట్‌లను షేర్ చేసినప్పుడు సరైన థంబ్‌నెయిల్ మరియు టైటిల్‌తో "ప్రివ్యూ" వచ్చేలా ఫిక్స్ చేసాము.',
+    text: 'నేటి సిస్టమ్ అప్‌డేట్స్‌లో భాగంగా పోర్టల్‌లో ఈ క్రింది మార్పులు చేసాము:\n\n1. 💎 **టెక్స్ట్ ఫార్మాటింగ్ టూల్‌బార్**: ఇప్పుడు మీరు పోస్ట్‌లను వ్రాసేటప్పుడు వర్డ్ ఫైల్ లాగా బోల్డ్, ఇటాలిక్ మరియు లైన్ బ్రేక్స్ ఉపయోగించవచ్చు.\n2. 🎨 **UI అప్‌డేట్స్**: కస్టమ్ లోగో, మొబైల్ హోమ్ స్క్రీన్ ఐకాన్ మరియు ఫెవికాన్ కలపబడ్డాయి.\n3. 📊 **అడ్మిన్ అనలిటిక్స్**: అడ్మిన్‌లకి మాత్రమే, పోస్ట్‌లో Views లేదా Likes కౌంట్ మీద క్లిక్ చేస్తే చూసిన/లైక్ చేసిన వారి లిస్ట్ వస్తుంది.\n4. 📖 **పోస్ట్ రీడింగ్ UX**: "Read Post" మీద క్లిక్ చేస్తే ఆ పోస్ట్ ఫుల్ వ్యూ వస్తుంది, మరియు "Back to Feed" బటన్ యాడ్ చేసాం.\n5. 🚀 **నావిగేషన్**: ఎగువన ఉన్న "EV" లోగో మీద క్లిక్ చేస్తే ఏ పేజీ నుంచి అయినా నేరుగా హోమ్ పేజీకి వస్తారు.\n6. 🔗 **సోషల్ షేరింగ్**: పోస్ట్‌లను షేర్ చేసినప్పుడు సరైన థంబ్‌నెయిల్ మరియు టైటిల్‌తో "ప్రివ్యూ" (OG Image & Tags) వచ్చేలా ఫిక్స్ చేసాము.',
     time: new Date('2026-05-10T23:59:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
@@ -2013,7 +2013,12 @@ export default function App() {
               </button>
             )}
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-4">Navigations</h3>
-            <MenuButton label="Home" emoji="🏠" active={currentTab === 'home'} onClick={() => {setCurrentTab('home'); setCurrentFilter('All'); setSidebarOpen(false);}} />
+            <MenuButton label="Home" emoji="🏠" active={currentTab === 'home' && !postIdFromUrl} onClick={() => {
+               setCurrentTab('home'); 
+               setCurrentFilter('All'); 
+               setSidebarOpen(false);
+               if (searchParams.has('postId')) { searchParams.delete('postId'); setSearchParams(searchParams); }
+            }} />
             <MenuButton label="🏛️ Mana Panchayath" emoji="📊" active={currentTab === 'workspace'} onClick={() => {setCurrentTab('workspace'); setSidebarOpen(false);}} />
             <MenuButton label="Live Chat" emoji="💬" active={currentTab === 'chat'} onClick={() => {setCurrentTab('chat'); setSidebarOpen(false);}} />
             <MenuButton label="Union Corner & Polls" emoji="🤝" active={currentTab === 'union'} onClick={() => {setCurrentTab('union'); setSidebarOpen(false);}} />
@@ -6784,10 +6789,13 @@ function AdBanner({ slotId = "5641797386" }: { slotId?: string }) {
 }
 
 function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit, allUsers }: { post: Post, isExpanded: boolean, toggleExpansion: () => void, addToast: (s:string) => void, isAdmin: boolean, onEdit: (p: Post) => void, allUsers: UserProfile[] }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const isOwner = Boolean((auth.currentUser && post.uid && auth.currentUser.uid === post.uid) || isAdmin);
   const postTime = getValidTime(post);
   
   const [showComments, setShowComments] = useState(false);
+  const [showViewsModal, setShowViewsModal] = useState(false);
+  const [showLikesModal, setShowLikesModal] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [newComment, setNewComment] = useState("");
@@ -6864,9 +6872,9 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
         <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>{post.content || ''}</ReactMarkdown>
       </div>
 
-      {post.content && post.content.length > 200 && (
-        <button aria-label={isExpanded ? 'View Less' : 'Read Post'} onClick={toggleExpansion} className="text-xs font-black text-primary uppercase underline underline-offset-4 mb-4 block">
-          {isExpanded ? 'View Less' : 'Read Post'}
+      {post.content && post.content.length > 200 && !isExpanded && (
+        <button aria-label="Read Post" onClick={() => setSearchParams({ postId: post.id })} className="text-xs font-black text-primary uppercase underline underline-offset-4 mb-4 block hover:text-blue-600 transition-colors">
+          Read Post
         </button>
       )}
 
@@ -6931,7 +6939,7 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
                 className={`flex items-center gap-2 p-2 rounded-xl transition-all ${post.likedBy?.includes(auth.currentUser?.uid || '') ? 'bg-rose-50 text-rose-500' : 'hover:bg-slate-50 text-slate-400'}`}
               >
                 <Heart size={18} fill={post.likedBy?.includes(auth.currentUser?.uid || '') ? 'currentColor' : 'none'} />
-                <span className="text-sm font-black">{post.likes || 0}</span>
+                <span onClick={(e) => { if (isAdmin && post.likes > 0) { e.stopPropagation(); setShowLikesModal(true); } }} className={`text-sm font-black ${isAdmin && post.likes > 0 ? "hover:underline cursor-pointer" : ""}`}>{post.likes || 0}</span>
               </button>
             </div>
 
@@ -6943,9 +6951,9 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
             </div>
 
             <div className="flex items-center gap-2">
-               <div className="flex items-center gap-2 p-2 text-slate-400">
+               <div onClick={(e) => { if (isAdmin && post.views > 0) { e.stopPropagation(); setShowViewsModal(true); } }} className={`flex items-center gap-2 p-2 text-slate-400 rounded-xl transition-all ${isAdmin && post.views > 0 ? "cursor-pointer hover:bg-slate-50" : ""}`}>
                   <Eye size={18} />
-                  <span className="text-sm font-black">{post.views || 0}</span>
+                  <span className={`text-sm font-black ${isAdmin && post.views > 0 ? "hover:underline cursor-pointer" : ""}`}>{post.views || 0}</span>
                </div>
             </div>
          </div>
@@ -6989,6 +6997,9 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
           </div>
         </div>
       )}
+      
+      {showLikesModal && <UsersListModal title="Liked By" uids={post.likedBy || []} allUsers={allUsers} onClose={() => setShowLikesModal(false)} />}
+      {showViewsModal && <UsersListModal title="Viewed By" uids={post.viewedBy || []} allUsers={allUsers} onClose={() => setShowViewsModal(false)} />}
     </motion.div>
   );
 }
@@ -7715,11 +7726,11 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile, allUsers }
                  }
                }} className="flex items-center gap-2 text-primary bg-primary/5 hover:bg-primary/10 px-4 py-2 rounded-xl transition-colors cursor-pointer group">
                   <Heart size={20} className={post.likedBy?.includes(auth.currentUser?.uid || '') ? "fill-primary text-primary" : "text-primary group-hover:scale-110 transition-transform"} />
-                  <span onClick={(e) => { e.stopPropagation(); setShowLikesModal(true); }} className="font-black text-base hover:underline">{post.likes || 0}</span> <span className="text-xs uppercase tracking-wider hidden sm:inline">Likes</span>
+                  <span onClick={(e) => { if (isAdmin && post.likes > 0) { e.stopPropagation(); setShowLikesModal(true); } }} className={`font-black text-base ${isAdmin && post.likes > 0 ? "hover:underline cursor-pointer" : ""}`}>{post.likes || 0}</span> <span className="text-xs uppercase tracking-wider hidden sm:inline">Likes</span>
                </button>
-               <button onClick={() => setShowViewsModal(true)} className="flex items-center gap-2 text-slate-500 bg-slate-50 hover:bg-slate-100 px-4 py-2 rounded-xl border border-slate-100 transition-colors">
+               <button onClick={() => { if (isAdmin && post.views > 0) setShowViewsModal(true); }} className={`flex items-center gap-2 text-slate-500 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 transition-colors ${isAdmin && post.views > 0 ? "hover:bg-slate-100 cursor-pointer" : "cursor-default"}`}>
                   <Eye size={20} />
-                  <span className="font-black text-base hover:underline">{post.views || 0}</span> <span className="text-xs uppercase tracking-wider hidden sm:inline">Views</span>
+                  <span className={`font-black text-base ${isAdmin && post.views > 0 ? "hover:underline" : ""}`}>{post.views || 0}</span> <span className="text-xs uppercase tracking-wider hidden sm:inline">Views</span>
                </button>
             </div>
             
