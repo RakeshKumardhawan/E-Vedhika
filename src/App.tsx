@@ -652,6 +652,17 @@ const formatPostTitle = (title: string | undefined | null) => {
 
 export const SYSTEM_UPDATES = [
   {
+    id: 'update-v1.7.6',
+    isSystemElement: true,
+    version: 'v1.7.6',
+    title: '10/05/2026: హోమ్ పేజీకి సులువుగా నావిగేషన్',
+    badge: 'UX UPDATE',
+    text: 'యూజర్ల సౌలభ్యం కోసం ఒక చిన్న మార్పు: ఇప్పుడు మీరు ఏ పేజీలో ఉన్నా, ఎగువన ఉన్న "EV" లోగో లేదా "E-VEDHIKA" పేరు మీద క్లిక్ చేస్తే నేరుగా హోమ్ పేజీకి (మెయిన్ పేజీకి) వచ్చేస్తారు.',
+    time: new Date('2026-05-10T12:00:00Z').getTime(),
+    type: 'changelog',
+    status: 'Approved'
+  },
+  {
     id: 'update-v1.7.5',
     isSystemElement: true,
     version: 'v1.7.5',
@@ -1732,7 +1743,7 @@ export default function App() {
       </AnimatePresence>
 
       <header className="sticky top-0 z-[1001] shadow-2xl bg-[#103052] border-b-[3px] border-accent flex items-center">
-        <div className="brand-wrapper cursor-pointer flex items-center gap-2 sm:gap-4 shrink-0" onClick={() => { setCurrentTab('home'); setSidebarOpen(false); }}>
+        <div className="brand-wrapper cursor-pointer flex items-center gap-2 sm:gap-4 shrink-0" onClick={() => { setCurrentTab('home'); setSidebarOpen(false); if (searchParams.has('postId')) { searchParams.delete('postId'); setSearchParams(searchParams); } }}>
           {/* లోగో HTML స్ట్రక్చర్ */}
           <div className="logo-pro cursor-pointer transition-transform hover:scale-105 active:scale-95 duration-200 shrink-0">
             {/* యానిమేటెడ్ పార్టికల్స్ */}
