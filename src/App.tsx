@@ -652,24 +652,13 @@ const formatPostTitle = (title: string | undefined | null) => {
 
 export const SYSTEM_UPDATES = [
   {
-    id: 'update-v1.7.6',
+    id: 'update-v1.8.0',
     isSystemElement: true,
-    version: 'v1.7.6',
-    title: '10/05/2026: హోమ్ పేజీకి సులువుగా నావిగేషన్',
-    badge: 'UX UPDATE',
-    text: 'యూజర్ల సౌలభ్యం కోసం ఒక చిన్న మార్పు: ఇప్పుడు మీరు ఏ పేజీలో ఉన్నా, ఎగువన ఉన్న "EV" లోగో లేదా "E-VEDHIKA" పేరు మీద క్లిక్ చేస్తే నేరుగా హోమ్ పేజీకి (మెయిన్ పేజీకి) వచ్చేస్తారు.',
-    time: new Date('2026-05-10T12:00:00Z').getTime(),
-    type: 'changelog',
-    status: 'Approved'
-  },
-  {
-    id: 'update-v1.7.5',
-    isSystemElement: true,
-    version: 'v1.7.5',
-    title: '10/05/2026: మేజర్ ప్లాట్‌ఫార్మ్ అప్‌డేట్స్',
-    badge: 'MAJOR UPDATE',
-    text: 'నేటి అప్‌డేట్‌లో భాగంగా పోర్టల్‌లో కీలక మార్పులు చేసాము:\n\n1. 💎 **టెక్స్ట్ ఫార్మాటింగ్ టూల్‌బార్**: ఇప్పుడు మీరు పోస్ట్‌లను వ్రాసేటప్పుడు వర్డ్ ఫైల్ లాగా బోల్డ్, ఇటాలిక్, మరియు హెడింగ్స్ ఉపయోగించవచ్చు.\n2. 🎨 **UI అప్‌డేట్**: మొబైల్ హోమ్ స్క్రీన్ ఐకాన్ మరియు ఫెవికాన్ మార్చడం జరిగింది.\n3. ⚙️ **సిస్టమ్ ఆప్టిమైజేషన్**: బ్యాక్‌ఎండ్ లాజిక్ మరియు అడ్మిన్ ప్యానెల్ ఛేంజ్ లాగ్ సమస్యలను పరిష్కరించాము.',
-    time: new Date('2026-05-10T11:00:00Z').getTime(),
+    version: 'v1.8.0',
+    title: '10/05/2026: సిస్టమ్ అప్‌డేట్స్ & ఫీచర్స్',
+    badge: 'DAILY UPDATE',
+    text: 'నేటి సిస్టమ్ అప్‌డేట్స్‌లో భాగంగా పోర్టల్‌లో ఈ క్రింది మార్పులు చేసాము:\n\n1. 💎 **టెక్స్ట్ ఫార్మాటింగ్ టూల్‌బార్**: ఇప్పుడు మీరు పోస్ట్‌లను వ్రాసేటప్పుడు వర్డ్ ఫైల్ లాగా బోల్డ్, ఇటాలిక్ ఉపయోగించవచ్చు.\n2. 🎨 **UI అప్‌డేట్**: మొబైల్ హోమ్ స్క్రీన్ ఐకాన్ మరియు ఫెవికాన్ మార్చాము.\n3. ⚙️ **సిస్టమ్ ఆప్టిమైజేషన్**: బ్యాక్‌ఎండ్ లాజిక్ మరియు అడ్మిన్ ప్యానెల్ ఛేంజ్ లాగ్ సమస్యలను పరిష్కరించాము.\n4. 🚀 **హోమ్ పేజీ నావిగేషన్**: ఎగువన ఉన్న "EV" లోగో లేదా పేరు మీద క్లిక్ చేస్తే నేరుగా హోమ్ పేజీకి వస్తారు.\n5. 🔗 **సోషల్ మీడియా షేరింగ్**: పోస్ట్‌లను షేర్ చేసినప్పుడు సరైన థంబ్‌నెయిల్ మరియు టైటిల్‌తో "ప్రివ్యూ" వచ్చేలా ఫిక్స్ చేసాము.',
+    time: new Date('2026-05-10T23:59:00Z').getTime(),
     type: 'changelog',
     status: 'Approved'
   },
@@ -6961,7 +6950,11 @@ function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit
             </div>
          </div>
 
-         <button aria-label="Share Post" onClick={(e) => { e.stopPropagation(); addToast("Sharing functionality coming soon!"); }} className="flex items-center gap-2 p-2 px-4 rounded-xl text-primary font-black text-xs uppercase bg-slate-50 hover:bg-primary hover:text-white transition-all">
+         <button aria-label="Share Post" onClick={(e) => { 
+            e.stopPropagation(); 
+            const url = `${window.location.origin}/?postId=${post.id}`;
+            handleShare(post.title || 'Shared Post', 'Check out this post on E-Vedhika', url, () => addToast("Link Copied!"));
+         }} className="flex items-center gap-2 p-2 px-4 rounded-xl text-primary font-black text-xs uppercase bg-slate-50 hover:bg-primary hover:text-white transition-all">
             <Share2 size={16} strokeWidth={2.5} />
             <span>Share</span>
          </button>

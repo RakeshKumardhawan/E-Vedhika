@@ -68,7 +68,7 @@ async function startServer() {
       if (targetId && targetCollection) {
         try {
           const fbConfig = JSON.parse(await fs.readFile(path.resolve(__dirname, 'firebase-applet-config.json'), 'utf-8'));
-          const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${fbConfig.projectId}/databases/(default)/documents/${targetCollection}/${targetId}`;
+          const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${fbConfig.projectId}/databases/(default)/documents/${targetCollection}/${targetId}?key=${fbConfig.apiKey}`;
           
           const response = await fetch(firestoreUrl);
           if (response.ok) {
@@ -81,7 +81,7 @@ async function startServer() {
               // Description extraction
               const contentField = data.fields.content?.stringValue || data.fields.message?.stringValue || data.fields.text?.stringValue || data.fields.desc?.stringValue || data.fields.msg?.stringValue || data.fields.description?.stringValue;
               if (contentField) {
-                const plainText = contentField.replace(/[#*`]/g, '').replace(/[\r\n]+/g, ' ').replace(/ +/g, ' ').substring(0, 160).trim();
+                const plainText = contentField.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').replace(/[\r\n]+/g, ' ').replace(/ +/g, ' ').substring(0, 160).trim();
                 ogDescription = plainText + (contentField.length > 160 ? '...' : '');
               }
 
