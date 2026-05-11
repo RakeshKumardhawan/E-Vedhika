@@ -3321,6 +3321,37 @@ function AdBanner({ slotId = "5641797386" }: { slotId?: string }) {
   return null;
 }
 
+function UsersListModal({ title, uids, allUsers, onClose }: { title: string, uids: string[], allUsers: UserProfile[], onClose: () => void }) {
+  const usersList = uids.map(uid => allUsers.find(u => u.id === uid) || { id: uid, username: 'Unknown User', name: '', surname: '', designation: '' } as any);
+
+  return (
+    <div className="fixed inset-0 z-[4000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-sm max-h-[80vh] overflow-y-auto bg-white rounded-3xl shadow-2xl custom-scrollbar p-6 relative">
+         <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 p-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all">
+            <X size={16} />
+         </button>
+         <h3 className="font-black text-primary text-xl mb-4 uppercase tracking-widest">{title} <span className="text-slate-400 text-sm">({uids.length})</span></h3>
+         <div className="space-y-3">
+            {usersList.length === 0 && <p className="text-slate-400 text-xs font-bold text-center py-4 uppercase">No users found</p>}
+            {usersList.map((u, i) => (
+              <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                 <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center uppercase overflow-hidden text-xs">
+                       {(u as any).photoURL ? <img src={(u as any).photoURL} alt="" /> : (u.username?.[0] || 'U')}
+                    </div>
+                    <div>
+                       <h4 className="text-xs font-black text-slate-800 leading-tight">{(u.name && u.surname) ? `${u.name} ${u.surname}` : u.username}</h4>
+                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{u.designation || 'User'}</p>
+                    </div>
+                 </div>
+              </div>
+            ))}
+         </div>
+      </div>
+    </div>
+  );
+}
+
 function PostCard({ post, isExpanded, toggleExpansion, addToast, isAdmin, onEdit, allUsers }: { post: Post, isExpanded: boolean, toggleExpansion: () => void, addToast: (s:string) => void, isAdmin: boolean, onEdit: (p: Post) => void, allUsers: UserProfile[] }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const isOwner = Boolean((auth.currentUser && post.uid && auth.currentUser.uid === post.uid) || isAdmin);
