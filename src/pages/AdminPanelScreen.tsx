@@ -1856,14 +1856,14 @@ function SmartAssistant({ title, placeholder, systemInstruction, icon: Icon }: {
     setLoading(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+      const responseObj = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
         contents: input,
         config: {
           systemInstruction: systemInstruction,
         },
       });
-      setResponse(response.text || "No response received.");
+      setResponse(responseObj.text || "No response received.");
     } catch (error) {
       console.error("AI Error:", error);
       setResponse("Sorry, I encountered an error. Please try again.");

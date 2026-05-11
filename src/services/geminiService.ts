@@ -4,14 +4,14 @@ export async function askMana(prompt: string, context: string = "") {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.5-flash",
       contents: [
         {
           role: "user",
           parts: [
             {
-              text: `You are "E-VEDHIKA", the official guide and assistant for THIS specific application called "Mana". 
-              Your ONLY job is to help users understand how "Mana" (E-VEDHIKA) works and explain its features.
+              text: `You are the "E-VEDHIKA Assistant", the official guide and assistant for the "E-VEDHIKA" platform.
+              Your ONLY job is to help users understand how the "E-VEDHIKA" platform works and explain its features.
               
               LANGUAGE INSTRUCTION: 
               - You MUST detect the language of the user's prompt (Telugu or English).

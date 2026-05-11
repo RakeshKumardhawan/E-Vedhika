@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import rateLimit from 'express-rate-limit';
+import { GoogleGenAI } from '@google/genai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,6 +24,8 @@ async function startServer() {
 
   // Apply global rate limiting
   app.use(globalLimiter);
+  
+  app.use(express.json()); // Need body parser for POST json
   
   // API routes can go here if needed in the future
   app.post('/api/admin/restart', (req, res) => {
