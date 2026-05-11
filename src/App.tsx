@@ -1695,7 +1695,7 @@ export default function App() {
          {(showPostForm || editingPost) && (
            <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
              <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl custom-scrollbar">
-                <PostForm addToast={addToast} onCancel={() => { setShowPostForm(false); setEditingPost(null); }} currentUserProfile={userProfile} editingPost={editingPost} isAdmin={isAdmin} isEditor={isEditor} />
+                <PostForm key={editingPost?.id || 'new'} addToast={addToast} onCancel={() => { setShowPostForm(false); setEditingPost(null); }} currentUserProfile={userProfile} editingPost={editingPost} isAdmin={isAdmin} isEditor={isEditor} />
              </div>
            </div>
          )}
@@ -2828,7 +2828,7 @@ export default function App() {
         {(showPostForm || editingPost) && (
           <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl custom-scrollbar">
-               <PostForm addToast={addToast} onCancel={() => { setShowPostForm(false); setEditingPost(null); }} currentUserProfile={userProfile} editingPost={editingPost} isAdmin={isAdmin} isEditor={isEditor} />
+               <PostForm key={editingPost?.id || 'new'} addToast={addToast} onCancel={() => { setShowPostForm(false); setEditingPost(null); }} currentUserProfile={userProfile} editingPost={editingPost} isAdmin={isAdmin} isEditor={isEditor} />
             </div>
           </div>
         )}
@@ -3635,12 +3635,12 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
       const finalTags = Array.from(new Set([...manualTags, ...extractedHashtags]));
 
       const postData = {
-        title,
-        content,
-        category: selectedCategories[0],
-        categories: selectedCategories,
-        tags: finalTags,
-        websiteName,
+        title: title || "",
+        content: content || "",
+        category: selectedCategories[0] || "",
+        categories: selectedCategories || [],
+        tags: finalTags || [],
+        websiteName: websiteName || "",
         mediaUrl: media?.url || "",
         mediaType: media?.type || "",
         mediaName: media?.name || "",
@@ -3672,7 +3672,11 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
       }
       onCancel();
     } catch (err: any) { 
-      handleFirestoreError(err, OperationType.WRITE, editingPost ? `posts/${editingPost.id}` : 'posts');
+      try {
+        handleFirestoreError(err, OperationType.WRITE, editingPost ? `posts/${editingPost.id}` : 'posts');
+      } catch(e: any) {
+        // intentionally ignoring thrown error to display toast
+      }
       addToast("Error: " + err.message); 
     } finally { 
       setLoading(false); 
@@ -3779,18 +3783,13 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
              ) : (
                <div className="space-y-2 py-4">
                  <div className="text-3xl tracking-tighter"><Upload size={28} className="mx-auto text-primary" /></div>
-                 <div className="text-xs font-black text-slate-400 group-hover:text-primary transition-colors uppercase tracking-widest">Add Attachment (&lt; 5MB)</div>
+                 <div className="text-xs font-black text-slate-400 group-hover:text-primary transition-colors uppercase tracking-widest">Add Attachment</div>
                  <p className="text-[10px] text-slate-300 font-bold">Image, Video or Document</p>
                </div>
              )}
              <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="*/*" onChange={async (e) => {
                const f = e.target.files?.[0];
                if (f) {
-                 if (f.size > 5 * 1024 * 1024) {
-                   addToast("File is too large! Please select a file smaller than 5MB.");
-                   e.target.value = '';
-                   return;
-                 }
                  const reader = new FileReader();
                  reader.onload = (ev) => setMedia({ url: ev.target?.result as string, type: f.type || 'application/octet-stream', name: f.name });
                  reader.readAsDataURL(f);
@@ -3800,7 +3799,7 @@ function PostForm({ addToast, onCancel, currentUserProfile, editingPost, isAdmin
         </div>
       </div>
 
-      <button aria-label={editingPost ? 'Save Changes' : 'Publish Now'} disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-all active:scale-95 mt-6 disabled:opacity-50 uppercase tracking-widest" style={{ background: '#0d3b66' }}>
+      <button type="submit" aria-label={editingPost ? 'Save Changes' : 'Publish Now'} disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg hover:bg-primary-light transition-all active:scale-95 mt-6 disabled:opacity-50 uppercase tracking-widest" style={{ background: '#0d3b66' }}>
         {loading ? (editingPost ? 'SAVING... 🚀' : 'PUBLISHING... 🚀') : (editingPost ? 'SAVE CHANGES 🚀' : 'PUBLISH NOW 🚀')}
       </button>
     </motion.form>
