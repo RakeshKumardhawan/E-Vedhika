@@ -79,7 +79,7 @@ async function startServer() {
       const protocol = req.get('x-forwarded-proto') || req.protocol;
       let ogTitle = "E-Vedhika Portal";
       let ogDescription = "E-Vedhika All problems one solution";
-      let ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
+      let ogImage = "";
 
       if (targetId && targetCollection) {
         try {
@@ -106,8 +106,6 @@ async function startServer() {
                 ogImage = data.fields.mediaUrl.stringValue;
               } else if (data.fields.imageUrl?.stringValue && !data.fields.imageUrl.stringValue.startsWith('data:')) {
                 ogImage = data.fields.imageUrl.stringValue;
-              } else {
-                ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
               }
             }
           }
@@ -126,13 +124,13 @@ async function startServer() {
         <meta property="og:site_name" content="E-Vedhika" />
         <meta property="og:title" content="${sanitizedTitle}" />
         <meta property="og:description" content="${sanitizedDesc}" />
-        <meta property="og:image" content="${ogImage}" />
+        ${ogImage ? `<meta property="og:image" content="${ogImage}" />` : ''}
         <meta property="og:type" content="article" />
         <meta property="og:url" content="${protocol}://${req.get('host')}${req.originalUrl}" />
-        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:card" content="${ogImage ? 'summary_large_image' : 'summary'}" />
         <meta name="twitter:title" content="${sanitizedTitle}" />
         <meta name="twitter:description" content="${sanitizedDesc}" />
-        <meta name="twitter:image" content="${ogImage}" />
+        ${ogImage ? `<meta name="twitter:image" content="${ogImage}" />` : ''}
       `;
 
       // Use regex to replace title and description tags if they exist
