@@ -4,7 +4,7 @@ export async function askMana(prompt: string, context: string = "") {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: [
         {
           role: "user",
@@ -51,8 +51,8 @@ export async function askMana(prompt: string, context: string = "") {
     });
 
     return response.text;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Mana AI Error:", error);
-    return "క్షమించాలి, ప్రస్తుతం నేను స్పందించలేకపోతున్నాను. దయచేసి మళ్ళీ ప్రయత్నించండి. (Sorry, I'm having trouble responding right now.)";
+    return `క్షమించాలి, ప్రస్తుతం నేను స్పందించలేకపోతున్నాను. ఎర్రర్: ${error.message} (Sorry, I'm having trouble responding right now.)`;
   }
 }
