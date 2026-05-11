@@ -3159,7 +3159,7 @@ function EditProfileModal({ onClose, onExitForced, user, userProfile, addToast, 
   );
 }
 
-function ClockWidget() {
+export function ClockWidget() {
   const [time, setTime] = useState(new Date());
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -4007,7 +4007,7 @@ function PostDetail({ postId, onBack, isAdmin, addToast, userProfile, allUsers }
   );
 }
 
-function PostComments({ post, addToast, userProfile, isAdmin, allUsers }: { post: Post, addToast: (s:string) => void, userProfile: UserProfile | null, isAdmin: boolean, allUsers: UserProfile[] }) {
+export function PostComments({ post, addToast, userProfile, isAdmin, allUsers }: { post: Post, addToast: (s:string) => void, userProfile: UserProfile | null, isAdmin: boolean, allUsers: UserProfile[] }) {
   const [comments, setComments] = useState<any[]>([]);
   const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [newComment, setNewComment] = useState("");

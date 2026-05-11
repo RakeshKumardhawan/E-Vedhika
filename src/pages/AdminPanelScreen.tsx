@@ -1,15 +1,16 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, Mail, MapPin, Search, Download, Trash2, ArrowLeft, Loader2, Send } from 'lucide-react';
-import { AlertCircle, FileText, CheckCircle2, MessageSquare, AlertOctagon, Info, Flag, Building, User, Users, ClipboardList, Clock, Zap, Hash, X, Activity, PlusCircle, LogOut, Lock, RefreshCw, ShieldAlert, Settings, Menu, AlertTriangle, Megaphone, RotateCcw, Edit3, EyeOff, Eye, ChevronRight, Upload, Calendar, Database, ChevronDown, Bot } from 'lucide-react';
+import { AlertCircle, FileText, CheckCircle2, MessageSquare, MessageCircle, AlertOctagon, Info, Flag, Building, User, Users, ClipboardList, Clock, Zap, Hash, X, Activity, PlusCircle, LogOut, Lock, RefreshCw, ShieldAlert, Settings, Menu, AlertTriangle, Megaphone, RotateCcw, Edit3, EyeOff, Eye, ChevronRight, Upload, Calendar, Database, ChevronDown, Bot } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { GoogleGenAI } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import { collection, doc, deleteDoc, updateDoc, onSnapshot, query, orderBy, limit, addDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase';
-import { UserProfile, handleFirestoreError, OperationType, LocationManager, getValidTime, formatPostTitle, playNotificationSound } from '../App';
+import { UserProfile, handleFirestoreError, OperationType, LocationManager, getValidTime, formatPostTitle, playNotificationSound, ClockWidget, PostComments } from '../App';
 import { GosAndFormatsAdmin } from '../GosAndFormats';
 import { BarChart, XAxis, YAxis, Tooltip as RechartsTooltip, Bar, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -408,7 +409,7 @@ export default function AdminPanel({ addToast, posts, problems, suggestions, use
                       <BarChart data={Object.entries(users.filter(u => !u.isDeleted).reduce((acc: any, curr: any) => { const d = curr.district || 'Unknown'; acc[d] = (acc[d] || 0) + 1; return acc; }, {})).map(([name, value]) => ({ name, value }))}>
                          <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
                          <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-                         <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                         <RechartsTooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
                          <Bar dataKey="value" fill="#0891b2" radius={[6, 6, 0, 0]} />
                       </BarChart>
                    </ResponsiveContainer>
@@ -430,7 +431,7 @@ export default function AdminPanel({ addToast, posts, problems, suggestions, use
                               ))
                             }
                          </Pie>
-                         <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                         <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
                       </PieChart>
                    </ResponsiveContainer>
                 </div>
