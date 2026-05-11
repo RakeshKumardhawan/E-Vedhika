@@ -3,8 +3,6 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
-import rateLimit from 'express-rate-limit';
-import { GoogleGenAI } from '@google/genai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,20 +10,6 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
-
-  // Rate Limiting setup
-  const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // Limit each IP to 1000 requests per windowMs
-    message: 'Too many requests from this IP, please try again after 15 minutes',
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  });
-
-  // Apply global rate limiting
-  app.use(globalLimiter);
-  
-  app.use(express.json()); // Need body parser for POST json
   
   // API routes can go here if needed in the future
   app.post('/api/admin/restart', (req, res) => {
@@ -79,7 +63,7 @@ async function startServer() {
       const protocol = req.get('x-forwarded-proto') || req.protocol;
       let ogTitle = "E-Vedhika Portal";
       let ogDescription = "E-Vedhika All problems one solution";
-      let ogImage = "";
+      let ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
 
       if (targetId && targetCollection) {
         try {
@@ -106,6 +90,8 @@ async function startServer() {
                 ogImage = data.fields.mediaUrl.stringValue;
               } else if (data.fields.imageUrl?.stringValue && !data.fields.imageUrl.stringValue.startsWith('data:')) {
                 ogImage = data.fields.imageUrl.stringValue;
+              } else {
+                ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
               }
             }
           }
@@ -124,13 +110,13 @@ async function startServer() {
         <meta property="og:site_name" content="E-Vedhika" />
         <meta property="og:title" content="${sanitizedTitle}" />
         <meta property="og:description" content="${sanitizedDesc}" />
-        ${ogImage ? `<meta property="og:image" content="${ogImage}" />` : ''}
+        <meta property="og:image" content="${ogImage}" />
         <meta property="og:type" content="article" />
         <meta property="og:url" content="${protocol}://${req.get('host')}${req.originalUrl}" />
-        <meta name="twitter:card" content="${ogImage ? 'summary_large_image' : 'summary'}" />
+        <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="${sanitizedTitle}" />
         <meta name="twitter:description" content="${sanitizedDesc}" />
-        ${ogImage ? `<meta name="twitter:image" content="${ogImage}" />` : ''}
+        <meta name="twitter:image" content="${ogImage}" />
       `;
 
       // Use regex to replace title and description tags if they exist

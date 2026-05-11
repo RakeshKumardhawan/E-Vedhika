@@ -4,14 +4,14 @@ export async function askMana(prompt: string, context: string = "") {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: [
         {
           role: "user",
           parts: [
             {
-              text: `You are the "E-VEDHIKA Assistant", the official guide and assistant for the "E-VEDHIKA" platform.
-              Your ONLY job is to help users understand how the "E-VEDHIKA" platform works and explain its features.
+              text: `You are "E-VEDHIKA", the official guide and assistant for THIS specific application called "Mana". 
+              Your ONLY job is to help users understand how "Mana" (E-VEDHIKA) works and explain its features.
               
               LANGUAGE INSTRUCTION: 
               - You MUST detect the language of the user's prompt (Telugu or English).
@@ -51,8 +51,8 @@ export async function askMana(prompt: string, context: string = "") {
     });
 
     return response.text;
-  } catch (error: any) {
+  } catch (error) {
     console.error("Mana AI Error:", error);
-    return `క్షమించాలి, ప్రస్తుతం నేను స్పందించలేకపోతున్నాను. ఎర్రర్: ${error.message} (Sorry, I'm having trouble responding right now.)`;
+    return "క్షమించాలి, ప్రస్తుతం నేను స్పందించలేకపోతున్నాను. దయచేసి మళ్ళీ ప్రయత్నించండి. (Sorry, I'm having trouble responding right now.)";
   }
 }
