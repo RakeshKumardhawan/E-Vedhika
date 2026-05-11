@@ -658,17 +658,6 @@ export const formatPostTitle = (title: string | undefined | null) => {
 
 export const SYSTEM_UPDATES = [
   {
-    id: 'update-v1.4.9-analytics-render',
-    isSystemElement: true,
-    version: 'v1.4.9',
-    title: '11/05/2026: అడ్వాన్స్డ్ సర్వర్ ఆప్టిమైజేషన్స్ & SEO',
-    badge: 'NEW',
-    text: 'వెబ్‌సైట్ పర్ఫార్మన్స్ కోసం ఈ రోజు ఈ క్రింది అప్‌డేట్స్ చేయబడ్డాయి:\n\n1. 📊 గూగుల్ అనలిటిక్స్ (Google Analytics) ఇంటిగ్రేషన్ చేయడం జరిగింది.\n2. 🛡 రేట్ లిమిటింగ్ (Rate Limiting) ద్వారా స్పామ్ ఎటాక్స్ నివారించి, సర్వర్ ఎల్లప్పుడూ ఆన్‌లో ఉండేలా (No Server Sleep) రక్షణ కల్పించాము.\n3. 🔍 డైనమిక్ SEO (React Helmet) కలపడం వల్ల సోషల్ మీడియాలో పోస్ట్ షేర్ చేస్తే పోస్ట్ అప్డేట్ వస్తుంది.\n4. 🔔 పుష్ నోటిఫికేషన్స్ సెట్టింగ్స్‌లో కొత్త ఫీచర్ ద్వారా పాతదానిని డిస్టర్బ్ చేయకుండా మొబైల్/డెస్క్‌టాప్ డైరెక్ట్ పుష్ అలర్ట్స్ ఆప్షన్ యాడ్ చేసాం.\n5. 🔗 ప్రతి ఒక సెక్షన్‌కి (ఉదా. Chat, Polls, Directory) డైరెక్ట్ షేర్ లింక్ జనరేట్ అయ్యేలా అప్డేట్ చేయబడింది. పైన ఉన్న షేర్ ఐకాన్ ద్వారా లింక్ కాపీ చేసుకోవచ్చు.',
-    time: new Date('2026-05-11T12:00:00Z').getTime(),
-    type: 'changelog',
-    status: 'Approved'
-  },
-  {
     id: 'update-v1.4.8',
     isSystemElement: true,
     version: 'v1.4.8',
