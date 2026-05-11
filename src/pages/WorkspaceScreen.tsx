@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LayoutDashboard, Share2, BarChart3, Layers, GraduationCap, Book, FileText, Download, CheckCircle, Upload, Search, Users, Eye, Building2, UserCheck, XCircle, ArrowRight, Play, UploadCloud, Clock, ShieldCheck, Mail, MapPin, Calendar, Database, ChevronDown, ChevronRight, Hash, Info, Lock, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LabelList, Cell } from 'recharts';
