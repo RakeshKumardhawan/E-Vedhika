@@ -2,9 +2,12 @@ import React, {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 
 import { BrowserRouter } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
 import App from './App.tsx';
 import { registerSW } from 'virtual:pwa-register';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // Automatically check for updates and update the service worker
 if ('serviceWorker' in navigator) {
@@ -14,6 +17,30 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
+
+const logErrorToFirestore = async (errorMsg: string, stack?: string, componentStack?: string) => {
+  try {
+    await addDoc(collection(db, 'app_errors'), {
+      message: errorMsg,
+      stack: stack || '',
+      componentStack: componentStack || '',
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      timestamp: serverTimestamp(),
+      status: 'pending'
+    });
+  } catch (e) {
+    console.error("Failed to log error to Firestore:", e);
+  }
+};
+
+window.addEventListener('error', (event) => {
+  logErrorToFirestore(event.message, event.error?.stack);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  logErrorToFirestore(event.reason?.message || 'Unhandled Promise Rejection', event.reason?.stack);
+});
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
   constructor(props: {children: React.ReactNode}) {
@@ -25,6 +52,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   }
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
+    logErrorToFirestore(error.message, error.stack, errorInfo.componentStack || '');
   }
   render() {
     if (this.state.hasError) {
@@ -41,9 +69,11 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 }
 
 createRoot(document.getElementById('root')!).render(
-  <BrowserRouter>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </BrowserRouter>
+  <HelmetProvider>
+    <BrowserRouter>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </BrowserRouter>
+  </HelmetProvider>
 );
