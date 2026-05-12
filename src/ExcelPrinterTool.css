@@ -1,0 +1,93 @@
+/* ExcelPrinterTool.css */
+
+.excel-printer-container {
+  width: 100%;
+}
+
+.print-area-wrapper {
+  overflow-x: auto;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  display: flex;
+  justify-content: center;
+}
+
+/* Match A4 dimensions for preview */
+.printable-a4 {
+  background: white;
+  width: 210mm;
+  min-height: 297mm; /* strictly A4 size */
+  padding: 15mm;
+  box-sizing: border-box;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  margin: 0 auto;
+}
+
+.print-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.print-header h2 {
+  font-size: 16px;
+  font-weight: bold;
+  font-family: sans-serif;
+  color: #333;
+}
+
+.excel-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto; /* allows it to stretch */
+  word-wrap: break-word; /* prevent missing letters by wrapping */
+  font-size: 9px; /* Small font size to fit more data on A4 */
+  font-family: "Inter", sans-serif;
+}
+
+.excel-table td, .excel-table th {
+  border: 1px solid #000 !important; /* Strict solid bounds for print */
+  padding: 4px;
+  text-align: left;
+  vertical-align: top;
+  color: #000;
+  max-width: 150px; /* Force word wrap gently */
+  word-break: break-all;
+}
+
+/* Header row specific styling if we assume first row is header */
+.excel-table tr:first-child td {
+  font-weight: bold;
+  background-color: #f0f0f0;
+  text-align: center;
+}
+
+/* Print Specific Rules */
+@media print {
+  /* Hide all app navigation elements */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Make only the printable area visible */
+  .printable-a4, .printable-a4 * {
+    visibility: visible;
+  }
+  
+  .printable-a4 {
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0;
+    padding: 10mm; /* A4 margins */
+    width: 210mm;
+    box-shadow: none;
+    min-height: auto; 
+  }
+  
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+}

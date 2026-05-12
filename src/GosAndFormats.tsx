@@ -4,7 +4,7 @@ import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebas
 import { motion, AnimatePresence } from 'framer-motion';
 import { db, storage } from '../firebase';
 import { Download, Upload, Trash2, FileBadge } from 'lucide-react';
-import { requireLoginAlert } from './App';
+import { requireLoginAlert, getFriendlyError } from './App';
 
 export function GosAndFormatsPublic({ user, addToast, isAdmin }: { user: any, addToast: (s: string) => void, isAdmin?: boolean }) {
   const [items, setItems] = useState<any[]>([]);
@@ -51,7 +51,13 @@ export function GosAndFormatsPublic({ user, addToast, isAdmin }: { user: any, ad
     setProgress(0);
 
     try {
-      const safeName = fileNameDisplay ? fileNameDisplay.replace(/[^a-zA-Z0-9.\-]/g, '_') + '.pdf' : file.name.replace(/[^a-zA-Z0-9.\-]/g, '_');
+      const lastDotIndex = file.name.lastIndexOf('.');
+      const extension = lastDotIndex !== -1 ? file.name.substring(lastDotIndex) : '';
+      let safeFileNameDisplay = fileNameDisplay ? fileNameDisplay.replace(/[^a-zA-Z0-9.\-]/g, '_') : '';
+      if (safeFileNameDisplay && extension && !safeFileNameDisplay.endsWith(extension)) {
+        safeFileNameDisplay += extension;
+      }
+      const safeName = fileNameDisplay ? safeFileNameDisplay : file.name.replace(/[^a-zA-Z0-9.\-]/g, '_');
       const storageRef = ref(storage, `gos_formats/${Date.now()}_${safeName}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
@@ -62,7 +68,7 @@ export function GosAndFormatsPublic({ user, addToast, isAdmin }: { user: any, ad
         }, 
         (error) => {
           console.error(error);
-          addToast("Upload Failed: " + error.message);
+          addToast(getFriendlyError(error));
           setUploading(false);
         }, 
         async () => {
@@ -94,7 +100,7 @@ export function GosAndFormatsPublic({ user, addToast, isAdmin }: { user: any, ad
         }
       );
     } catch(err: any) {
-      addToast(err.message);
+      addToast(getFriendlyError(err));
       setUploading(false);
     }
   };
@@ -109,7 +115,7 @@ export function GosAndFormatsPublic({ user, addToast, isAdmin }: { user: any, ad
       await deleteDoc(doc(db, 'gos_formats', item.id));
       addToast("Document Deleted");
     } catch (err: any) {
-      addToast("Error deleting: " + err.message);
+      addToast(getFriendlyError(err));
     }
   };
 

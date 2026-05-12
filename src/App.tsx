@@ -98,7 +98,7 @@ import {
   Target,
 } from "lucide-react";
 import Swal from "sweetalert2";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import rehypeRaw from "rehype-raw";
@@ -249,6 +249,33 @@ function handleFirestoreError(
   throw new Error(JSON.stringify(errInfo));
 }
 
+export function getFriendlyError(err: any): string {
+  let msg = err.message || String(err);
+  try {
+    const parsed = JSON.parse(msg);
+    if (parsed.error) msg = parsed.error;
+  } catch (e) {
+    // Not a JSON string
+  }
+  
+  if (msg.includes("Missing or insufficient permissions")) {
+    return "మీకు ఈ యాక్షన్‌ని చేయడానికి పర్మిషన్ లేదు / You don't have permission to perform this action.";
+  }
+  if (msg.includes("offline") || msg.includes("network-request-failed") || msg.includes("Failed to get document because the client is offline")) {
+    return "ఇంటర్నెట్ కనెక్షన్ లేదు. దయచేసి నెట్‌వర్క్ చెక్ చేయండి / No internet connection. Please check your network.";
+  }
+  if (msg.includes("Quota exceeded")) {
+    return "సిస్టమ్ పరిమితి దాటింది. దయచేసి రేపు మళ్ళీ ప్రయత్నించండి / Quota exceeded. Please try again tomorrow.";
+  }
+  if (msg.includes("invalid-credential") || msg.includes("user-not-found") || msg.includes("wrong-password")) {
+    return "లాగిన్ వివరాలు తప్పు. దయచేసి సరియైన లాగిన్ వివరాలు ప్రయత్నించండి / Invalid credentials. Please try again.";
+  }
+  if (msg.includes("popup-closed-by-user") || msg.includes("cancelled-popup-request")) {
+    return "లాగిన్ విండో మూసివేయబడింది. దయచేసి మళ్ళీ ప్రయత్నించండి / The login popup was closed before completion.";
+  }
+  return msg;
+}
+
 const logUserActivity = async (actionDesc: string) => {
   if (!auth.currentUser) return;
   try {
@@ -395,7 +422,7 @@ interface UserProfile {
   office?: string;
   role?: string;
   hidden?: boolean;
-  theme?: "light" | "dark";
+  theme?: "light" | "dark" | "system";
   notifications?: boolean;
   time: number;
 }
@@ -1434,6 +1461,39 @@ const formatPostTitle = (title: string | undefined | null) => {
 
 export const SYSTEM_UPDATES = [
   {
+    id: `update-v1.5.3`,
+    isSystemElement: true,
+    version: "v1.5.3",
+    title: "12/05/2026: పెర్ఫార్మెన్స్ బూస్ట్ & ఆటో రికవరీ స్పీడప్",
+    badge: "PERFORMANCE",
+    text: "1. ⚡ **స్పీడ్ బూస్ట్**: సిస్టమ్ లోడింగ్ సమయాన్ని మరియు ఏఐ బాట్ స్పందన సమయాన్ని తగ్గించాము.\n2. 🤖 **ఫాస్ట్ రికవరీ**: ఏవైనా ఎర్రర్స్ వస్తే సిస్టమ్ ఇప్పుడు మునుపటి కంటే రెండు రెట్లు వేగంగా రీస్టార్ట్ అవుతుంది.\n3. 🎨 **రిఫ్రెష్డ్ లుక్**: రికవరీ స్క్రీన్‌ను మరింత అందంగా మరియు స్పష్టంగా అప్‌డేట్ చేశాము.\n4. 🛡️ **స్టెబిలిటీ ప్యాచ్**: హోమ్ పేజీ లోడింగ్ లో వచ్చే చిన్న చిన్న ఇబ్బందులను తొలగించాము.",
+    time: Date.now(),
+    type: "changelog",
+    status: "Approved",
+  },
+  {
+    id: `update-v1.5.2`,
+    isSystemElement: true,
+    version: "v1.5.2",
+    title: "12/05/2026: అల్టిమేట్ పేజీ బిల్డర్ (Dynamic Layouts)",
+    badge: "HUGE UPDATE",
+    text: "1. 🏗️ **డైనమిక్ సెక్షన్స్**: ఇప్పుడు మీరు హోమ్ పేజీ సెక్షన్స్ ని అడ్మిన్ ప్యానెల్ నుండి క్రియేట్, ఎడిట్, డిలీట్ మరియు రీ-ఆర్డర్ చేయవచ్చు.\n2. 👁️ **లైవ్ ప్రివ్యూ**: మార్పులు చేసేటప్పుడే అవి ఎలా ఉంటాయో అడ్మిన్ ప్యానెల్ లోనే చూడవచ్చు.\n3. ☁️ **రియల్-టైమ్ సింక్**: మీరు 'Publish' చేసిన వెంటనే మార్పులు సేవ్ అయి అందరికీ కనిపిస్తాయి.\n4. 🙈 **హైడ్/షో**: ఏదైనా సెక్షన్‌ను డిలీట్ చేయకుండానే తాత్కాలికంగా దాచిపెట్టవచ్చు.",
+    time: Date.now(),
+    type: "changelog",
+    status: "Approved",
+  },
+  {
+    id: `update-v1.5.0`,
+    isSystemElement: true,
+    version: "v1.5.0",
+    title: "12/05/2026: బాట్ విజిబిలిటీ & పేజీ బిల్డర్ వెర్షన్ 2.0",
+    badge: "MAJOR UPDATE",
+    text: "1. 🤖 **AI బాట్ ఫిక్స్**: ఏఐ బాట్ (ManaBot) కనిపించని సమస్యను పరిష్కరించాము. ఇప్పుడు అది అన్ని డివైజ్‌లలో స్పష్టంగా కనిపిస్తుంది.\n2. 🏗️ **ఫంక్షనల్ పేజీ బిల్డర్**: పేజీ బిల్డర్‌లో ఇప్పుడు మీరు ఎలిమెంట్స్ ని యాడ్ చేయడం మరియు వాటిని తొలగించడం చేయవచ్చు. ఇది ఇప్పుడు సంపూర్ణంగా పనిచేస్తుంది.\n3. 🛡️ **ఎర్రర్ హ్యాండ్లింగ్**: సిస్టమ్ లో వచ్చే ఎర్రర్స్ ని ఇప్పుడు మీరు తెలుగులో సులభంగా అర్థం చేసుకునేలా అప్‌డేట్ చేశాము.",
+    time: Date.now(),
+    type: "changelog",
+    status: "Approved",
+  },
+  {
     id: `update-v1.4.9`,
     isSystemElement: true,
     version: "v1.4.9",
@@ -1784,10 +1844,31 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (userProfile?.theme === "dark") {
-      document.body.classList.add("dark-theme");
-    } else {
-      document.body.classList.remove("dark-theme");
+    const applyTheme = (themeValue: string | undefined) => {
+      if (themeValue === "dark") {
+        document.body.classList.add("dark-theme");
+      } else if (themeValue === "light") {
+        document.body.classList.remove("dark-theme");
+      } else {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.body.classList.add("dark-theme");
+        } else {
+          document.body.classList.remove("dark-theme");
+        }
+      }
+    };
+
+    applyTheme(userProfile?.theme);
+
+    const matcher = window.matchMedia('(prefers-color-scheme: dark)');
+    const listener = () => {
+      if (!userProfile?.theme || userProfile?.theme === "system") {
+        applyTheme("system");
+      }
+    };
+    if (matcher.addEventListener) {
+      matcher.addEventListener('change', listener);
+      return () => matcher.removeEventListener('change', listener);
     }
   }, [userProfile?.theme]);
 
@@ -1867,6 +1948,16 @@ export default function App() {
   const [visitorCount, setVisitorCount] = useState<number | null>(null);
   const tabFromUrl = searchParams.get("tab");
   const [currentTab, setCurrentTab] = useState(tabFromUrl || "home");
+  const [siteConfig, setSiteConfig] = useState<any>(null);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "site_settings", "home_page"), (snap) => {
+      if (snap.exists()) {
+        setSiteConfig(snap.data());
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Sync tab with URL query parameter
   useEffect(() => {
@@ -1895,6 +1986,8 @@ export default function App() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [visiblePostsCount, setVisiblePostsCount] = useState(20);
+  const [visibleUpdatesCount, setVisibleUpdatesCount] = useState(20);
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
   const [showPostForm, setShowPostForm] = useState(false);
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
@@ -2474,7 +2567,7 @@ export default function App() {
           "Login Failed: Popup closed or blocked. Try opening the app in a new tab (arrow on top right) if this persists.",
         );
       } else {
-        addToast("Login Failed: " + err.message);
+        addToast(getFriendlyError(err));
       }
     }
   };
@@ -2703,6 +2796,8 @@ export default function App() {
               user={user}
               onExit={() => navigate("/")}
               districtsData={districtsData}
+              currentTab={currentTab}
+              userProfile={userProfile}
             />
           </div>
         )}
@@ -3337,6 +3432,15 @@ export default function App() {
                 setSidebarOpen(false);
               }}
             />
+            <MenuButton
+              label="📄 Excel A4 Print"
+              emoji="📄"
+              active={currentTab === "excel_print"}
+              onClick={() => {
+                setCurrentTab("excel_print");
+                setSidebarOpen(false);
+              }}
+            />
 
             {showInstallButton && (
               <div className="mt-8 px-4">
@@ -3405,113 +3509,446 @@ export default function App() {
                   exit={{ opacity: 0, x: -20 }}
                   className="space-y-4 sm:space-y-6"
                 >
-                  <AdBanner />
+                  <div className="space-y-12 pb-20">
+                    {(siteConfig?.elements && siteConfig.elements.length > 0 ? siteConfig.elements : DEFAULT_HOME_ELEMENTS).filter((el: any) => !el.hidden).map((el: any) => {
+                      let sizeClass = "w-full";
+                      if (el.size === "small") sizeClass = "max-w-2xl w-full mx-auto";
+                      else if (el.size === "medium") sizeClass = "max-w-4xl w-full mx-auto";
+                      else if (el.size === "large") sizeClass = "max-w-6xl w-full mx-auto";
 
-                  <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 sm:p-8 mb-8">
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-6">
-                      <div className="flex-1 w-full text-center sm:text-left">
-                        {user && !user.isAnonymous ? (
-                          <h3 className="text-xl font-black text-primary uppercase tracking-tighter">
-                            📝 Portal Updates
-                          </h3>
-                        ) : (
-                          <div className="flex items-center gap-2 sm:gap-3 flex-1 border border-slate-200 rounded-3xl px-4 py-3 sm:px-6 sm:py-4 bg-slate-50 shadow-sm focus-within:bg-white focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/5 transition-all">
-                            <Search
-                              size={20}
-                              className="text-slate-400 shrink-0 sm:w-6 sm:h-6"
-                            />
-                            <input
-                              type="text"
-                              placeholder="Search latest news, reports or notices..."
-                              className="!bg-transparent !border-none !p-0 !m-0 focus:!ring-0 text-[16px] sm:text-[18px] w-full font-bold text-primary placeholder:text-slate-400"
-                              value={searchQuery}
-                              onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                            {searchQuery && (
-                              <button
-                                aria-label="Clear Search"
-                                onClick={() => setSearchQuery("")}
-                                className="text-slate-300 hover:text-danger hover:scale-110 transition-all"
-                              >
-                                <XCircle size={22} />
-                              </button>
-                            )}
+                      return (
+                      <motion.section
+                        key={el.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        className={sizeClass}
+                      >
+                        {el.type === "Hero Section" && (
+                          <div 
+                            className={`bg-gradient-to-br from-${el.color || "blue"}-600 to-${el.color || "blue"}-800 rounded-[24px] sm:rounded-[48px] p-8 sm:p-16 text-white relative overflow-hidden shadow-2xl w-full min-h-[300px] flex flex-col justify-center`}
+                          >
+                            <div className="absolute top-0 right-0 p-12 opacity-10 rotate-12">
+                              <Zap size={240} />
+                            </div>
+                            <div className="relative z-10 max-w-2xl space-y-6">
+                              <h1 className="text-4xl sm:text-6xl font-black tracking-tighter leading-tight drop-shadow-lg">
+                                {el.title || "Welcome to E-Vedhika"}
+                              </h1>
+                              <p className="text-lg sm:text-xl text-white/80 font-medium leading-relaxed">
+                                {el.content || "Empowering citizens through digital transparency and direct access to government services."}
+                              </p>
+                              <div className="flex flex-wrap gap-4 pt-4">
+                                <button
+                                  onClick={() => window.scrollTo({ top: window.innerHeight * 0.8, behavior: "smooth" })}
+                                  className="px-8 py-4 bg-white text-blue-600 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-105 transition-all"
+                                >
+                                  Learn More
+                                </button>
+                                <button
+                                  onClick={() => setCurrentTab("suggestions")}
+                                  className="px-8 py-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl font-black uppercase tracking-widest hover:bg-white/20 transition-all"
+                                >
+                                  Contact Us
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         )}
+
+                        {el.type === "Post Grid" && (
+                          <div className="space-y-8">
+                            <div className="flex items-center justify-between px-2">
+                              <div>
+                                <h2 className="text-3xl font-black tracking-tighter text-slate-800">
+                                  {el.title || "Recent Updates"}
+                                </h2>
+                                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.3em] mt-1">
+                                  Official Broadcasts & News
+                                </p>
+                              </div>
+                              <Link to="?tab=reports" className="text-blue-600 font-black text-sm hover:underline">View All</Link>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {posts.slice(0, 4).map((post: any) => (
+                                <PostCard
+                                  key={post.id}
+                                  post={post}
+                                  isExpanded={false}
+                                  toggleExpansion={() => {}}
+                                  addToast={addToast}
+                                  isAdmin={false}
+                                  onEdit={() => {}}
+                                  allUsers={allUsers}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {el.type === "Feature Cards" && (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {[1, 2, 3].map((i) => (
+                              <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
+                                <div className={`w-14 h-14 bg-${el.color || "blue"}-50 rounded-2xl flex items-center justify-center text-${el.color || "blue"}-600 mb-6 group-hover:scale-110 transition-transform`}>
+                                  {i === 1 ? <Shield size={28} /> : i === 2 ? <Zap size={28} /> : <Users size={28} />}
+                                </div>
+                                <h3 className="text-xl font-black text-slate-800 mb-3">Feature {i}</h3>
+                                <p className="text-slate-500 font-medium leading-relaxed text-sm">
+                                  Detailed description for this amazing feature that helps the community thrive through digital connectivity.
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {el.type === "Contact Banner" && (
+                          <div className={`bg-slate-900 p-12 rounded-[48px] text-white flex flex-col md:flex-row items-center justify-between gap-8 border border-white/5`}>
+                            <div className="space-y-3 text-center md:text-left">
+                              <h2 className="text-3xl font-black tracking-tight">{el.title || "Have a suggestion?"}</h2>
+                              <p className="text-slate-400 font-medium max-w-md">{el.content || "Your feedback helps us build a better digital ecosystem for everyone."}</p>
+                            </div>
+                            <button onClick={() => setCurrentTab("suggestions")} className="px-10 py-5 bg-blue-600 rounded-[20px] font-black uppercase tracking-widest hover:scale-105 shadow-2xl shadow-blue-600/30 transition-all">
+                              Submit Feedback
+                            </button>
+                          </div>
+                        )}
+                        
+                        {el.type === "Important Links" && (
+                          <div className={`p-8 sm:p-12 bg-${el.color || "slate"}-50 border border-slate-100 rounded-[32px]`}>
+                            <h3 className="text-xl sm:text-2xl font-black text-slate-800 mb-2">{el.title || "Important Links"}</h3>
+                            <p className="text-slate-500 mb-8">{el.content || "Quick access to essential portal resources."}</p>
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                              {[1, 2, 3, 4].map(i => (
+                                 <a key={i} href="#" className={`p-5 bg-white rounded-[24px] shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center hover:border-${el.color || "blue"}-400 hover:shadow-md hover:-translate-y-1 transition-all group`}>
+                                   <div className={`w-14 h-14 rounded-[16px] bg-${el.color || "slate"}-100 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-transform text-${el.color || "slate"}-600`}>
+                                     <ExternalLink size={24} />
+                                   </div>
+                                   <span className="text-sm font-bold text-slate-700">Service Portal {i}</span>
+                                 </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {el.type === "Stats Highlight" && (
+                          <div className={`py-8 sm:py-12 bg-white rounded-[40px]`}>
+                             <div className="text-center max-w-2xl mx-auto mb-10 px-4">
+                               <h3 className="text-2xl sm:text-3xl font-black tracking-tighter text-slate-800 mb-3">{el.title || "By The Numbers"}</h3>
+                             </div>
+                             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 px-4">
+                               {[
+                                 { v: "15,200+", l: "Citizens Covered" },
+                                 { v: "98%", l: "Resolution Rate" },
+                                 { v: "24/7", l: "Digital Access" },
+                                 { v: "500+", l: "Daily Visitors" }
+                               ].map((stat, i) => (
+                                 <div key={i} className={`p-6 bg-${el.color || "blue"}-50 rounded-[32px] text-center border border-white shadow-sm hover:shadow-lg transition-all`}>
+                                   <h4 className={`text-3xl sm:text-4xl font-black text-${el.color || "blue"}-600 mb-1`}>{stat.v}</h4>
+                                   <p className="text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-widest">{stat.l}</p>
+                                 </div>
+                               ))}
+                             </div>
+                          </div>
+                        )}
+
+                        {el.type === "FAQ Section" && (
+                          <div className="p-8 sm:p-12 bg-white border border-slate-100 shadow-sm rounded-[40px] max-w-4xl mx-auto">
+                            <h3 className="text-2xl sm:text-3xl font-black text-slate-800 text-center mb-4">{el.title || "Frequently Asked Questions"}</h3>
+                            <p className="text-center text-slate-500 mb-10 max-w-xl mx-auto">{el.content || "Find answers to the most common queries about the e-Vedhika platform and digital services."}</p>
+                            <div className="space-y-4">
+                              {[1, 2, 3].map(i => (
+                                <div key={i} className="p-6 bg-slate-50 rounded-[24px] border border-slate-100 hover:bg-slate-100/80 transition-colors">
+                                  <div className="flex justify-between items-center w-full text-left">
+                                    <h4 className="text-base sm:text-lg font-bold text-slate-800">How do I access service {i} digitally?</h4>
+                                    <ChevronDown className="text-slate-400 shrink-0" size={20} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {el.type === "Alert Notice" && (
+                          <div className={`p-6 sm:p-8 bg-${el.color || "amber"}-50 border-l-8 border-${el.color || "amber"}-500 rounded-3xl flex items-start gap-4 shadow-sm`}>
+                            <div className={`text-${el.color || "amber"}-600 bg-white p-3 rounded-2xl shadow-sm shrink-0`}>
+                              <AlertTriangle size={24} />
+                            </div>
+                            <div>
+                              <h4 className={`text-lg sm:text-xl font-black text-${el.color || "amber"}-800 mb-2`}>{el.title || "ముఖ్య గమనిక (Important Notice)"}</h4>
+                              <p className={`text-${el.color || "amber"}-700/80 font-bold whitespace-pre-wrap leading-relaxed`}>{el.content || "దయచేసి గమనించగలరు... (Please note this important update...)"}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {el.type === "Quote / Testimonial" && (
+                          <div className="p-8 sm:p-12 bg-slate-900 rounded-[40px] text-center shadow-xl relative overflow-hidden">
+                            <div className="absolute opacity-10 blur-xl top-0 left-1/4 w-1/2 h-full bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+                            <h3 className="text-2xl sm:text-3xl font-black tracking-tighter text-white mb-2 relative z-10">{el.title || "Inspiring Quote"}</h3>
+                            <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-indigo-500 mx-auto rounded-full mb-8 relative z-10"></div>
+                            <p className="text-lg sm:text-2xl font-medium text-slate-300 italic mb-8 relative z-10 mx-auto max-w-3xl leading-relaxed">
+                              "{el.content || "Empowerment comes through information, and transparency is the key to progress."}"
+                            </p>
+                          </div>
+                        )}
+
+                        {el.type === "Upcoming Events" && (
+                          <div className={`p-8 sm:p-12 bg-white border border-slate-100 shadow-sm rounded-[40px] max-w-5xl mx-auto`}>
+                             <div className="flex justify-between items-center mb-8">
+                               <h3 className="text-2xl sm:text-3xl font-black text-slate-800">{el.title || "రాబోయే కార్యక్రమాలు (Upcoming Events)"}</h3>
+                               <button className="text-primary font-bold hover:underline hidden sm:block">View All</button>
+                             </div>
+                             <div className="space-y-4">
+                               {[1, 2].map((i) => (
+                                 <div key={i} className="flex flex-col sm:flex-row gap-4 sm:gap-6 bg-slate-50 p-4 sm:p-6 rounded-[24px] hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200">
+                                   <div className="bg-white rounded-2xl p-4 text-center min-w-[100px] shadow-sm border border-slate-100 flex flex-col justify-center">
+                                      <span className="text-danger font-black text-xs uppercase tracking-widest leading-none">NOV</span>
+                                      <span className="text-3xl font-black text-slate-800 mt-1">{i + 14}</span>
+                                   </div>
+                                   <div className="flex-1 flex flex-col justify-center">
+                                     <h4 className="text-lg sm:text-xl font-bold text-slate-800">{el.content ? el.content.split('|')[0] : "గ్రామ సభ (Gram Sabha)"}</h4>
+                                     <p className="text-slate-500 font-medium text-sm mt-1">{el.content && el.content.includes('|') ? el.content.split('|')[1] : "Panchayat Office, 10:00 AM"}</p>
+                                   </div>
+                                 </div>
+                               ))}
+                             </div>
+                          </div>
+                        )}
+
+                        {el.type === "Gallery Grid" && (
+                          <div className="max-w-6xl mx-auto bg-white p-6 sm:p-10 rounded-[40px] shadow-sm border border-slate-100">
+                             <div className="text-center mb-8">
+                               <h3 className="text-2xl sm:text-3xl font-black text-slate-800">{el.title || "గ్యాలరీ (Gallery)"}</h3>
+                               <p className="text-slate-500 mt-2">{el.content || "Images of past events and development activities."}</p>
+                             </div>
+                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                               <div className="aspect-square bg-slate-100 rounded-3xl overflow-hidden group relative">
+                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                                   <span className="text-white font-bold">Event 1</span>
+                                 </div>
+                               </div>
+                               <div className="aspect-square col-span-2 row-span-2 bg-slate-200 rounded-3xl overflow-hidden group relative">
+                                  <div className="absolute inset-0 flex items-center justify-center text-slate-400 font-bold">Main Highlight</div>
+                               </div>
+                               <div className="aspect-square bg-slate-100 rounded-3xl overflow-hidden group relative"></div>
+                               <div className="aspect-square bg-slate-200 rounded-3xl overflow-hidden group relative"></div>
+                               <div className="aspect-square bg-slate-100 rounded-3xl overflow-hidden group relative"></div>
+                             </div>
+                          </div>
+                        )}
+
+                        {el.type === "Services Directory" && (
+                          <div className={`p-8 sm:p-12 bg-gradient-to-br from-${el.color || "blue"}-50 to-white border border-slate-100 shadow-sm rounded-[40px]`}>
+                             <div className="mb-10 text-center">
+                               <h3 className="text-2xl sm:text-3xl font-black text-slate-800 mb-2">{el.title || "సేవలు (Services)"}</h3>
+                               <p className="text-slate-500">{el.content || "Quickly find the services you need."}</p>
+                             </div>
+                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                               {[1, 2, 3, 4, 5, 6].map(i => (
+                                 <div key={i} className="flex items-start gap-4 p-5 bg-white rounded-[24px] shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                                   <div className={`w-12 h-12 bg-${el.color || "blue"}-50 text-${el.color || "blue"}-600 rounded-2xl flex items-center justify-center shrink-0`}>
+                                     <Layers size={20} />
+                                   </div>
+                                   <div>
+                                     <h4 className="text-base font-bold text-slate-800 mb-1">Service Name {i}</h4>
+                                     <p className="text-xs text-slate-400">Description of the service and requirements.</p>
+                                   </div>
+                                 </div>
+                               ))}
+                             </div>
+                          </div>
+                        )}
+
+                        {el.type === "Profiles / Staff" && (
+                          <div className="py-12 bg-slate-50 rounded-[40px] border border-slate-100 mb-8">
+                            <h3 className="text-2xl sm:text-3xl font-black text-center text-slate-800 mb-10">{el.title || "నాయకులు / అధికారులు"}</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 px-4 md:px-12">
+                               {[1, 2, 3].map(i => (
+                                 <div key={i} className="bg-white p-6 rounded-[32px] text-center shadow-sm border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all">
+                                   <div className="w-24 h-24 mx-auto bg-slate-200 rounded-full mb-4 overflow-hidden border-4 border-slate-50 shadow-sm">
+                                     <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i * 8}`} alt="Profile" className="w-full h-full object-cover" />
+                                   </div>
+                                   <h4 className="text-lg font-bold text-slate-800">Person Name</h4>
+                                   <p className="text-sm font-bold text-slate-500 mb-2">{el.content || "Designation"}</p>
+                                 </div>
+                               ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {el.type === "Video Showcase" && (
+                          <div className={`p-8 sm:p-12 bg-${el.color || "slate"}-900 rounded-[40px] text-white shadow-xl mb-8`}>
+                             <div className="flex justify-between items-center mb-8">
+                               <h3 className="text-2xl sm:text-3xl font-black">{el.title || "వీడియోలు (Video Highlights)"}</h3>
+                               <button className="bg-white/10 px-4 py-2 rounded-xl text-sm font-bold hover:bg-white/20 transition hidden sm:block">అన్ని చూడండి</button>
+                             </div>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-slate-800 aspect-video rounded-3xl flex items-center justify-center relative group cursor-pointer overflow-hidden border border-white/10 shadow-lg">
+                                   <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition"></div>
+                                   <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white z-10 group-hover:scale-110 transition shadow-xl">
+                                     <Play size={24} fill="currentColor" />
+                                   </div>
+                                </div>
+                                <div className="flex flex-col gap-4 justify-between">
+                                  {[1, 2, 3].map(i => (
+                                    <div key={i} className="bg-white/5 p-3 sm:p-4 rounded-[24px] flex gap-4 items-center group cursor-pointer border border-white/5 hover:border-white/20 hover:bg-white/10 transition">
+                                       <div className="aspect-video w-20 sm:w-28 bg-slate-800 rounded-xl flex items-center justify-center shrink-0 shadow-inner">
+                                          <Play size={12} className="text-white/50 group-hover:text-white transition" fill="currentColor" />
+                                       </div>
+                                       <div>
+                                         <h4 className="font-bold text-sm sm:text-base line-clamp-2">{el.content || "గ్రామ సభ సమావేశం ముఖ్యాంశాలు"}</h4>
+                                         <p className="text-xs text-white/50 mt-1 font-medium">{i} days ago</p>
+                                       </div>
+                                    </div>
+                                  ))}
+                                </div>
+                             </div>
+                          </div>
+                        )}
+
+                        {el.type === "Document Downloads" && (
+                          <div className={`p-8 sm:p-12 bg-white border border-${el.color || "blue"}-100 shadow-sm rounded-[40px] relative overflow-hidden mb-8`}>
+                             <h3 className="text-2xl sm:text-3xl font-black text-slate-800 mb-2">{el.title || "ముఖ్యమైన పత్రాలు (Documents)"}</h3>
+                             <p className="text-slate-500 mb-8">{el.content || "Download necessary applications and government orders."}</p>
+                             <div className="space-y-4">
+                               {[1, 2, 3].map(i => (
+                                 <div key={i} className="flex items-center justify-between p-4 sm:p-5 bg-slate-50 rounded-[24px] hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200 group">
+                                   <div className="flex items-center gap-4">
+                                     <div className={`w-12 h-12 bg-${el.color || "blue"}-100 text-${el.color || "blue"}-600 rounded-xl flex items-center justify-center shrink-0 shadow-inner`}>
+                                       <FileText size={20} />
+                                     </div>
+                                     <div>
+                                       <h4 className="font-bold text-slate-800 text-sm sm:text-base">Document_Format_Template_{i}.pdf</h4>
+                                       <div className="flex items-center gap-2 mt-1">
+                                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white px-2 py-0.5 rounded-md shadow-sm border border-slate-100">PDF</span>
+                                          <span className="text-xs font-bold text-slate-400">2.4 MB</span>
+                                       </div>
+                                     </div>
+                                   </div>
+                                   <button className={`w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-[16px] flex items-center justify-center shadow-sm border border-slate-200 text-slate-400 group-hover:text-white group-hover:bg-${el.color || "blue"}-600 transition-colors`}>
+                                     <Download size={18} />
+                                   </button>
+                                 </div>
+                               ))}
+                             </div>
+                          </div>
+                        )}
+
+                        {/* Fallback for undefined types */}
+                        {!["Hero Section", "Post Grid", "Feature Cards", "Contact Banner", "E-Vedhika Core Feed", "Important Links", "Stats Highlight", "FAQ Section", "Alert Notice", "Quote / Testimonial", "Upcoming Events", "Gallery Grid", "Services Directory", "Profiles / Staff", "Video Showcase", "Document Downloads"].includes(el.type) && (
+                          <div className="p-10 bg-white border-2 border-dashed border-slate-200 rounded-[40px] text-center">
+                            <h3 className="text-xl font-black text-slate-400">{el.title || el.type}</h3>
+                            <p className="text-slate-400 mt-2">{el.content || "Dynamic content section."}</p>
+                          </div>
+                        )}
+                        
+                        {el.type === "E-Vedhika Core Feed" && (
+                          <>
+                            <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 p-6 sm:p-8 mb-8 flex flex-col gap-4">
+                              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-6">
+                                <div 
+                                  className="flex items-center gap-2 sm:gap-3 border border-slate-200 rounded-3xl bg-slate-50 shadow-sm focus-within:bg-white focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/5 transition-all flex-1 w-full max-w-2xl px-6 py-3"
+                                >
+                                  <Search
+                                    size={20}
+                                    className="text-slate-400 shrink-0 sm:w-6 sm:h-6"
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder={el.content || "Search latest news, reports or notices..."}
+                                    className="!bg-transparent !border-none !p-0 !m-0 focus:!ring-0 text-[16px] sm:text-[18px] w-full font-bold text-primary placeholder:text-slate-400"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                  />
+                                  {searchQuery && (
+                                    <button
+                                      aria-label="Clear Search"
+                                      onClick={() => setSearchQuery("")}
+                                      className="text-slate-300 hover:text-danger hover:scale-110 transition-all"
+                                    >
+                                      <XCircle size={22} />
+                                    </button>
+                                  )}
+                                </div>
+                                <h3 className="text-xl sm:text-2xl font-black text-primary uppercase tracking-tighter w-full sm:w-auto text-center sm:text-left">
+                                  {el.title || "📝 Portal Updates"}
+                                </h3>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  if (!user) requireLoginAlert();
+                                  else setShowPostForm(true);
+                                }}
+                                className="px-6 py-3 bg-primary text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 transition-all text-xs sm:text-sm w-full flex items-center justify-center gap-2 shrink-0"
+                              >
+                                <PlusCircle size={18} /> Public Post
+                              </button>
+                            </div>
+                            <div className="space-y-10">
+                              <AnimatePresence mode="popLayout">
+                                {filteredPosts.slice(0, visiblePostsCount).flatMap((post, index) => {
+                                  const renderIndex = index; // Optional: cap stagger delay if needed
+                                  const items = [
+                                    <motion.div
+                                      key={post.id}
+                                      initial={{ opacity: 0, y: 30 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      transition={{ delay: Math.min(renderIndex * 0.05, 0.5) }}
+                                    >
+                                      <PostCard
+                                        post={post}
+                                        isExpanded={expandedPosts.has(post.id)}
+                                        toggleExpansion={() =>
+                                          togglePostExpansion(post.id)
+                                        }
+                                        addToast={addToast}
+                                        isAdmin={isEditor}
+                                        onEdit={(p) => {
+                                          setEditingPost(p);
+                                          setShowPostForm(true);
+                                        }}
+                                        allUsers={allUsers}
+                                      />
+                                    </motion.div>,
+                                  ];
+                                  if ((index + 1) % 5 === 0) {
+                                    items.push(
+                                      <motion.div
+                                        key={`ad-${post.id}`}
+                                        initial={{ opacity: 0, y: 30 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: Math.min(renderIndex * 0.05, 0.5) }}
+                                      >
+                                        <AdBanner />
+                                      </motion.div>,
+                                    );
+                                  }
+                                  return items;
+                                })}
+                              </AnimatePresence>
+                              
+                              {filteredPosts.length > visiblePostsCount && (
+                                <div className="pt-8 text-center">
+                                  <button
+                                    onClick={() => setVisiblePostsCount(prev => prev + 20)}
+                                    className="px-8 py-3 bg-slate-50 text-slate-600 rounded-xl font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-100 hover:text-primary transition-all active:scale-95"
+                                  >
+                                    Load More Posts
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </motion.section>
+                      );
+                    })}
+
+                    {(!siteConfig || !siteConfig.elements || siteConfig.elements.length === 0) && (
+                      <div className="text-center py-20 text-slate-400 font-bold">
+                        Home page layout is empty.
                       </div>
-                      {user && !user.isAnonymous && (
-                        <div className="flex items-center gap-3 w-64 border border-slate-100 rounded-2xl px-4 py-2 bg-slate-50 focus-within:bg-white focus-within:border-primary/30 transition-all">
-                          <Search
-                            size={16}
-                            className="text-slate-400 shrink-0"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Filter updates..."
-                            className="!bg-transparent !border-none !p-0 !m-0 focus:!ring-0 text-[13px] w-full font-medium"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    {user && !user.isAnonymous && (
-                      <button
-                        aria-label="Compose official update"
-                        onClick={() => {
-                          setEditingPost(null);
-                          setShowPostForm(true);
-                        }}
-                        className="w-full mt-6 bg-slate-50 border-2 border-dashed border-slate-200 p-6 sm:p-8 rounded-[28px] text-slate-400 font-bold hover:bg-slate-100 hover:border-primary/20 transition-all flex flex-col items-center gap-3"
-                      >
-                        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border shadow-sm text-primary">
-                          <PlusCircle size={24} />
-                        </div>
-                        <span>Compose an official update...</span>
-                      </button>
                     )}
-                  </div>
-                  <div className="space-y-10">
-                    <AnimatePresence mode="popLayout">
-                      {filteredPosts.flatMap((post, index) => {
-                        const items = [
-                          <motion.div
-                            key={post.id}
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                          >
-                            <PostCard
-                              post={post}
-                              isExpanded={expandedPosts.has(post.id)}
-                              toggleExpansion={() =>
-                                togglePostExpansion(post.id)
-                              }
-                              addToast={addToast}
-                              isAdmin={isEditor}
-                              onEdit={(p) => {
-                                setEditingPost(p);
-                                setShowPostForm(true);
-                              }}
-                              allUsers={allUsers}
-                            />
-                          </motion.div>,
-                        ];
-                        if ((index + 1) % 5 === 0) {
-                          items.push(
-                            <motion.div
-                              key={`ad-${post.id}`}
-                              initial={{ opacity: 0, y: 30 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: index * 0.05 }}
-                            >
-                              <AdBanner />
-                            </motion.div>,
-                          );
-                        }
-                        return items;
-                      })}
-                    </AnimatePresence>
                   </div>
                 </motion.div>
               )}
@@ -4297,6 +4734,17 @@ export default function App() {
                 </motion.div>
               )}
 
+              {currentTab === "excel_print" && (
+                <motion.div
+                  key="excel_print"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <ExcelPrinterTool />
+                </motion.div>
+              )}
+
               {currentTab === "my_activity" && (
                 <motion.div
                   key="my_activity"
@@ -4550,8 +4998,8 @@ export default function App() {
             />
           )}
         </main>
-        <ManaBot currentTab={currentTab} userName={userProfile?.name} />
       </div>
+      <ManaBot currentTab={currentTab} userName={userProfile?.name} />
     </div>
   );
 }
@@ -4594,8 +5042,8 @@ function EditProfileModal({
     userProfile?.designation || "",
   );
   const [office, setOffice] = useState(userProfile?.office || "");
-  const [theme, setTheme] = useState<"light" | "dark">(
-    userProfile?.theme || "light",
+  const [theme, setTheme] = useState<"light" | "dark" | "system">(
+    userProfile?.theme || "system",
   );
   const [notifications, setNotifications] = useState(
     userProfile?.notifications ?? true,
@@ -4678,7 +5126,7 @@ function EditProfileModal({
           "Error: Connection lost. Please check your internet or refresh the page.",
         );
       } else {
-        addToast("Failed to update profile: " + err.message);
+        addToast(getFriendlyError(err));
       }
     } finally {
       setSaving(false);
@@ -4904,16 +5352,19 @@ function EditProfileModal({
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
               <label className="flex items-center justify-between cursor-pointer">
                 <span className="text-[10px] font-black uppercase text-slate-600">
-                  Dark Theme
+                  Theme
                 </span>
-                <input
-                  type="checkbox"
-                  checked={theme === "dark"}
+                <select
+                  value={theme}
                   onChange={(e) =>
-                    setTheme(e.target.checked ? "dark" : "light")
+                    setTheme(e.target.value as "light" | "dark" | "system")
                   }
-                  className="w-4 h-4 accent-primary"
-                />
+                  className="bg-transparent text-right font-bold text-[10px] outline-none cursor-pointer"
+                >
+                  <option value="system">System</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
               </label>
             </div>
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -5347,6 +5798,47 @@ function MyActivity({ user, userProfile, problems, suggestions, posts }: any) {
   );
 }
 
+export const DEFAULT_HOME_ELEMENTS = [
+  {
+    id: 1,
+    type: "E-Vedhika Core Feed",
+    title: "📝 Portal Updates",
+    content: "Search latest news, reports or notices...",
+    color: "blue",
+    hidden: false,
+  },
+  {
+    id: 2,
+    type: "Hero Section",
+    title: "Welcome to E-Vedhika",
+    content: "Empowering citizens through digital transparency and direct access to government services.",
+    color: "blue",
+    hidden: true,
+  },
+  {
+    id: 3,
+    type: "Post Grid",
+    title: "Recent Updates",
+    content: "Official Broadcasts & News",
+    color: "blue",
+    hidden: true,
+  },
+  {
+    id: 4,
+    type: "Feature Cards",
+    color: "indigo",
+    hidden: true,
+  },
+  {
+    id: 5,
+    type: "Contact Banner",
+    title: "Have a suggestion?",
+    content: "Your feedback helps us build a better digital ecosystem for everyone.",
+    color: "slate",
+    hidden: true,
+  }
+];
+
 function AdminPanel({
   addToast,
   posts,
@@ -5367,14 +5859,61 @@ function AdminPanel({
   currentAdminPin,
   setCurrentAdminPin,
   districtsData,
+  currentTab,
+  userProfile,
 }: any) {
   const isAdmin = userRole === "admin" || isDevEmail;
   const isEditor = userRole === "admin" || userRole === "editor" || isDevEmail;
   const [activeSubTab, setActiveSubTab] = useState("dash");
+  const [builderElements, setBuilderElements] = useState<any[]>([]);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [editingElementId, setEditingElementId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isEditor) return;
+    const unsub = onSnapshot(doc(db, "site_settings", "home_page"), (snap) => {
+      if (snap.exists() && snap.data().elements && snap.data().elements.length > 0) {
+        setBuilderElements(snap.data().elements);
+      } else {
+        setBuilderElements(DEFAULT_HOME_ELEMENTS);
+      }
+    });
+    return () => unsub();
+  }, [isEditor]);
+
+  const handlePublish = async () => {
+    try {
+      await setDoc(doc(db, "site_settings", "home_page"), {
+        elements: builderElements,
+        updatedAt: Date.now(),
+        updatedBy: user?.email || "Admin",
+      });
+      addToast("Page Published Successfully! Changes are now live.");
+    } catch (err) {
+      addToast("Failed to publish page: " + (err instanceof Error ? err.message : "Unknown error"));
+    }
+  };
+
+  const moveElement = (index: number, direction: "up" | "down") => {
+    const newElements = [...builderElements];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newElements.length) return;
+    [newElements[index], newElements[targetIndex]] = [
+      newElements[targetIndex],
+      newElements[index],
+    ];
+    setBuilderElements(newElements);
+  };
+
+  const updateElementProps = (id: number, props: any) => {
+    setBuilderElements(
+      builderElements.map((el) => (el.id === id ? { ...el, ...props } : el)),
+    );
+  };
   const [usersFilter, setUsersFilter] = useState<"All" | "Deleted">("All");
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [trashTab, setTrashTab] = useState<
-    "posts" | "problems" | "suggestions" | "users" | "updates"
+    "posts" | "problems" | "suggestions" | "users" | "updates" | "gos_formats"
   >("posts");
   const [userViewMode, setUserViewMode] = useState<"access" | "directory">(
     "access",
@@ -5383,6 +5922,7 @@ function AdminPanel({
   const [logType, setLogType] = useState<"admin" | "public">("admin");
   const [logActionFilter, setLogActionFilter] = useState("");
   const [logAdminFilter, setLogAdminFilter] = useState("");
+  const [logSearchTerm, setLogSearchTerm] = useState("");
 
   const exportLogsToCSV = () => {
     const filteredLogs = logs.filter((log) => {
@@ -5658,9 +6198,9 @@ function AdminPanel({
             initial={{ x: -300 }}
             animate={{ x: 0 }}
             exit={{ x: -300 }}
-            className={`w-full lg:w-64 bg-[#1a1c1e] text-white p-6 shrink-0 flex flex-col absolute lg:relative z-50 h-full lg:h-auto ${adminMenuOpen ? "fixed inset-y-0 left-0 max-w-[280px]" : "hidden lg:flex"}`}
+            className={`w-full lg:w-64 bg-white text-slate-800 p-6 shrink-0 flex flex-col absolute lg:relative z-50 h-full lg:h-auto border-r border-slate-100 ${adminMenuOpen ? "fixed inset-y-0 left-0 max-w-[280px]" : "hidden lg:flex"}`}
           >
-            <div className="flex items-center justify-between mb-0 pb-0 border-b border-white/5 text-[13px] leading-[18px]">
+            <div className="flex items-center justify-between mb-0 pb-0 border-b border-slate-100 text-[13px] leading-[18px]">
               <div className="flex items-center gap-3">
                 <div className="logo-pro logo-pro-glow relative">
                   <div className="logo-particles">
@@ -5711,7 +6251,7 @@ function AdminPanel({
               </div>
               <button
                 aria-label="Close menu"
-                className="lg:hidden text-white/50 hover:text-white"
+                className="lg:hidden text-slate-400 hover:text-slate-600"
                 onClick={() => setAdminMenuOpen(false)}
               >
                 <X size={20} />
@@ -5762,6 +6302,11 @@ function AdminPanel({
                   icon: <Info size={18} />,
                 },
                 {
+                  id: "ai",
+                  label: "Admin AI Bot",
+                  icon: <Bot size={18} />,
+                },
+                {
                   id: "logs",
                   label: "Security Logs",
                   icon: <ShieldAlert size={18} />,
@@ -5783,6 +6328,7 @@ function AdminPanel({
                     [
                       "dash",
                       "reports",
+                      "builder",
                       "suggestions",
                       "trash",
                       "updates",
@@ -5799,7 +6345,7 @@ function AdminPanel({
                     className={`w-full flex items-center gap-3 p-2.5 lg:p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${
                       activeSubTab === tab.id
                         ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                        : "text-slate-400 hover:bg-white/5 hover:text-white"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
                     }`}
                   >
                     {tab.icon}
@@ -5808,11 +6354,11 @@ function AdminPanel({
                 ))}
             </nav>
 
-            <div className="mt-auto pt-0 border-t border-white/5 space-y-1.5">
+            <div className="mt-auto pt-0 border-t border-slate-100 space-y-1.5">
               <button
                 aria-label="Exit to Portal"
                 onClick={onExit}
-                className="w-full flex items-center gap-3 p-2.5 lg:p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:bg-white/5 hover:text-white transition-all"
+                className="w-full flex items-center gap-3 p-2.5 lg:p-3.5 rounded-xl text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-all"
               >
                 <LogOut size={16} />
                 Exit to Portal
@@ -5881,6 +6427,7 @@ function AdminPanel({
                 {activeSubTab === "suggestions" && "💡 Suggestions & Feedback"}
                 {activeSubTab === "updates" && "⚡ Flash News"}
                 {activeSubTab === "changelog" && "🚀 What's New Management"}
+                {activeSubTab === "ai" && "🤖 Admin AI Assistant"}
               </h1>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 ml-1">
                 Administration & Monitoring Terminal
@@ -5982,16 +6529,16 @@ function AdminPanel({
             </motion.div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl transition-all">
+              <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl transition-all w-full overflow-hidden">
                 <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest pl-2 mb-4">
                   Users per District
                 </h4>
-                <div className="h-64 min-h-[256px]">
+                <div className="h-64 min-h-[256px] w-full relative">
                   <ResponsiveContainer
-                    width="100%"
+                    width="99%"
                     height="100%"
-                    minWidth={0}
-                    minHeight={0}
+                    minWidth={100}
+                    minHeight={200}
                   >
                     <BarChart
                       data={Object.entries(
@@ -6033,16 +6580,16 @@ function AdminPanel({
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl transition-all">
+              <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl transition-all w-full overflow-hidden">
                 <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-widest pl-2 mb-4">
                   Post Status Overview
                 </h4>
-                <div className="h-64 min-h-[256px]">
+                <div className="h-64 min-h-[256px] w-full relative">
                   <ResponsiveContainer
-                    width="100%"
+                    width="99%"
                     height="100%"
-                    minWidth={0}
-                    minHeight={0}
+                    minWidth={100}
+                    minHeight={200}
                   >
                     <PieChart>
                       <Pie
@@ -6414,7 +6961,7 @@ function AdminPanel({
                                   });
                                   addToast("Status Updated");
                                 } catch (err: any) {
-                                  addToast(err.message);
+                                  addToast(getFriendlyError(err));
                                 }
                               }}
                               className="bg-slate-50 border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest p-2 pr-8 rounded-xl focus:border-blue-500 outline-none w-auto min-w-[150px] shadow-sm cursor-pointer"
@@ -6493,7 +7040,7 @@ function AdminPanel({
                                       });
                                       addToast("Restored from Trash");
                                     } catch (err: any) {
-                                      addToast(err.message);
+                                      addToast(getFriendlyError(err));
                                     }
                                   }}
                                   className="px-3 py-2 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm text-xs font-bold gap-2"
@@ -6525,7 +7072,7 @@ function AdminPanel({
                                         await deleteDoc(doc(db, col, item.id));
                                         addToast("Permanently Deleted");
                                       } catch (err: any) {
-                                        addToast(err.message);
+                                        addToast(getFriendlyError(err));
                                       }
                                     }
                                   }}
@@ -6560,7 +7107,7 @@ function AdminPanel({
                                       });
                                       addToast("Moved to Trash");
                                     } catch (err: any) {
-                                      addToast(err.message);
+                                      addToast(getFriendlyError(err));
                                     }
                                   }
                                 }}
@@ -6736,7 +7283,7 @@ function AdminPanel({
                                   });
                                   addToast("User restored from trash");
                                 } catch (err: any) {
-                                  addToast("Error: " + err.message);
+                                  addToast(getFriendlyError(err));
                                 }
                               }}
                               className="p-2 text-blue-500 bg-blue-50 hover:bg-blue-600 hover:text-white rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
@@ -6760,7 +7307,7 @@ function AdminPanel({
                                     await deleteDoc(doc(db, "users", u.id));
                                     addToast("User permanently deleted");
                                   } catch (err: any) {
-                                    addToast("Error: " + err.message);
+                                    addToast(getFriendlyError(err));
                                   }
                                 }
                               }}
@@ -7069,35 +7616,68 @@ function AdminPanel({
                 </h2>
                 <p className="text-blue-100 max-w-xl font-medium leading-relaxed">
                   Drag and drop UI components, define custom sections, and
-                  deploy new portal views dynamically without editing code.
+                  deploy new portal views dynamically without editing code. All changes preview live on the right.
                 </p>
               </div>
-              <div className="relative z-10 shrink-0">
-                <button className="px-8 py-3.5 bg-white text-blue-600 rounded-xl font-black uppercase tracking-widest shadow-[0_8px_16px_rgba(0,0,0,0.15)] hover:scale-105 hover:bg-blue-50 transition-all">
-                  Create New Page{" "}
-                  <Plus className="inline ml-2 -mt-1" size={18} />
+              <div className="relative z-10 shrink-0 flex gap-3">
+                <button
+                  onClick={() => setBuilderElements(DEFAULT_HOME_ELEMENTS)}
+                  className="px-6 py-3.5 bg-blue-500/20 text-white rounded-xl font-black border border-white/20 uppercase tracking-widest hover:bg-blue-500/30 transition-all flex items-center gap-2"
+                >
+                  <RotateCcw size={18} /> Reset
+                </button>
+                <button
+                  onClick={handlePublish}
+                  className="px-8 py-3.5 bg-white text-blue-600 rounded-xl font-black uppercase tracking-widest shadow-[0_8px_16px_rgba(0,0,0,0.15)] hover:scale-105 hover:bg-blue-50 transition-all flex items-center gap-2"
+                >
+                  <Rocket size={18} /> Publish Page
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* Elements Palette */}
-              <div className="md:col-span-1 space-y-4">
-                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+              <div className="lg:col-span-1 space-y-4">
+                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm sticky top-6">
                   <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4 px-2">
                     UI Elements
                   </h4>
                   <div className="space-y-2">
                     {[
+                      "E-Vedhika Core Feed",
                       "Hero Section",
                       "Post Grid",
                       "Feature Cards",
                       "Form Builder",
                       "Contact Banner",
+                      "Important Links",
+                      "Stats Highlight",
+                      "FAQ Section",
+                      "Alert Notice",
+                      "Quote / Testimonial",
+                      "Upcoming Events",
+                      "Gallery Grid",
+                      "Services Directory",
+                      "Profiles / Staff",
+                      "Video Showcase",
+                      "Document Downloads"
                     ].map((el) => (
                       <div
                         key={el}
-                        className="p-3 bg-slate-50 border border-slate-100 text-slate-600 font-bold rounded-2xl cursor-grab hover:bg-blue-50 hover:text-blue-600 hover:border-blue-100 transition-all flex justify-between items-center group"
+                        onClick={() => {
+                          const newEl = {
+                            id: Date.now(),
+                            type: el,
+                            title: "",
+                            content: "",
+                            color: "blue",
+                            hidden: false,
+                          };
+                          setBuilderElements([...builderElements, newEl]);
+                          addToast(`${el} added to canvas`);
+                          setEditingElementId(newEl.id);
+                        }}
+                        className="p-3 bg-slate-50 border border-slate-100 text-slate-600 font-bold rounded-2xl cursor-pointer hover:bg-blue-50 hover:text-blue-600 hover:border-blue-100 transition-all flex justify-between items-center group shadow-sm"
                       >
                         <span>{el}</span>
                         <PlusCircle
@@ -7110,24 +7690,424 @@ function AdminPanel({
                 </div>
               </div>
 
-              {/* Canvas */}
-              <div className="md:col-span-2">
-                <div className="bg-white p-8 rounded-[32px] border-2 border-dashed border-slate-200 min-h-[500px] flex flex-col items-center justify-center text-center">
-                  <div className="w-20 h-20 bg-slate-50 rounded-[24px] flex items-center justify-center text-slate-300 mb-6 drop-shadow-sm">
-                    <Layers size={40} />
+              {/* Editor List */}
+              <div className="lg:col-span-1 border-r border-slate-200/60 pr-4 lg:max-h-[800px] overflow-y-auto custom-scrollbar">
+                <div className="flex items-center gap-2 mb-6 ml-2">
+                  <Layers className="text-slate-400" size={18} />
+                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Layout Sequence</h3>
+                </div>
+                {builderElements.length === 0 ? (
+                  <div className="mt-10 text-center">
+                    <div className="w-16 h-16 bg-slate-50 rounded-[20px] flex items-center justify-center text-slate-300 mx-auto mb-4">
+                      <Layers size={24} />
+                    </div>
+                    <p className="text-slate-400 text-xs font-bold leading-relaxed px-4">
+                      Select elements from the panel to start building your page interface.
+                    </p>
                   </div>
-                  <h3 className="text-xl font-black text-slate-400 mb-2">
-                    Editor Canvas
-                  </h3>
-                  <p className="text-slate-400 max-w-sm mx-auto text-sm">
-                    Select an element from the left panel to add to this page,
-                    then customize its properties below.
-                  </p>
+                ) : (
+                  <Reorder.Group axis="y" values={builderElements} onReorder={setBuilderElements} className="space-y-4">
+                    {builderElements.map((el, index) => (
+                      <Reorder.Item
+                        value={el}
+                        key={el.id}
+                        className={`group relative p-4 bg-white border cursor-grab active:cursor-grabbing ${el.hidden ? "opacity-50 grayscale border-slate-100 bg-slate-50" : "border-slate-200 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)]"} rounded-3xl text-left hover:border-blue-400 transition-colors ${editingElementId === el.id ? "ring-2 ring-blue-500/20 border-blue-400" : ""}`}
+                      >
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${el.hidden ? "bg-slate-200 text-slate-500" : "bg-blue-50 text-blue-600 border border-blue-100"}`}>
+                              {el.type} {el.hidden && "- Hidden"}
+                            </span>
+                            <div className="flex items-center text-slate-300">
+                              <span className="text-[10px] uppercase font-bold tracking-widest mr-1 opacity-0 group-hover:opacity-100 transition-opacity">Drag</span>
+                              <Layers size={14} />
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-1">
+                            <button
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => updateElementProps(el.id, { hidden: !el.hidden })}
+                              className={`flex-1 flex justify-center p-2 rounded-xl border border-transparent transition-colors ${el.hidden ? "text-amber-500 bg-amber-50" : "text-slate-400 bg-slate-50 hover:text-amber-500 hover:bg-amber-50"}`}
+                               title="Toggle Visibility"
+                            >
+                              {el.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                            <button
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => setEditingElementId(editingElementId === el.id ? null : el.id)}
+                              className={`flex-1 flex justify-center p-2 rounded-xl border transition-colors ${editingElementId === el.id ? "bg-blue-600 text-white border-blue-600" : "bg-slate-50 border-transparent text-slate-400 hover:text-blue-600 hover:bg-blue-50"}`}
+                              title="Settings"
+                            >
+                              <Settings size={16} />
+                            </button>
+                            <button
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => {
+                                setBuilderElements(builderElements.filter((e) => e.id !== el.id));
+                                addToast(`${el.type} deleted successfully.`);
+                              }}
+                              className="flex-1 flex justify-center p-2 text-slate-400 bg-slate-50 rounded-xl hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                              title="Delete Area"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <AnimatePresence>
+                          {editingElementId === el.id && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="overflow-hidden"
+                              onPointerDown={(e) => e.stopPropagation()}
+                            >
+                              <div className="mt-4 pt-4 border-t border-slate-100 space-y-3 cursor-auto">
+                                <div>
+                                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1 mb-1 block">Title</label>
+                                  <input type="text" value={el.title || ""} onChange={(e) => updateElementProps(el.id, { title: e.target.value })} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs" placeholder="Section Title..." />
+                                </div>
+                                <div className="flex gap-2">
+                                  <div className="flex-1">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1 mb-1 block">Theme Color</label>
+                                    <select value={el.color || "blue"} onChange={(e) => updateElementProps(el.id, { color: e.target.value })} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs appearance-none">
+                                      <option value="blue">Blue Signature</option>
+                                      <option value="indigo">Indigo Royal</option>
+                                      <option value="emerald">Emerald Success</option>
+                                      <option value="rose">Rose Alert</option>
+                                      <option value="amber">Amber Attention</option>
+                                      <option value="slate">Dark Slate</option>
+                                    </select>
+                                  </div>
+                                  <div className="flex-1">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1 mb-1 block">Layout Size</label>
+                                    <select value={el.size || "full"} onChange={(e) => updateElementProps(el.id, { size: e.target.value })} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs appearance-none">
+                                      <option value="small">Small</option>
+                                      <option value="medium">Medium</option>
+                                      <option value="large">Large</option>
+                                      <option value="full">Full Width</option>
+                                    </select>
+                                  </div>
+                                </div>
+                                {el.type !== "Post Grid" && el.type !== "Feature Cards" && el.type !== "Stats Highlight" && (
+                                  <div>
+                                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest pl-1 mb-1 block">Content / Desc</label>
+                                    <textarea value={el.content || ""} onChange={(e) => updateElementProps(el.id, { content: e.target.value })} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs min-h-[80px] custom-scrollbar" placeholder="Description..." />
+                                  </div>
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </Reorder.Item>
+                    ))}
+                  </Reorder.Group>
+                )}
+              </div>
+
+              {/* Live Preview Pane */}
+              <div className="lg:col-span-2">
+                <div className="bg-slate-100 rounded-[32px] sm:rounded-[48px] p-2 sm:p-4 border-[6px] sm:border-[12px] border-slate-800 shadow-2xl relative h-[700px] flex flex-col pointer-events-none opacity-90">
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 w-32 sm:w-48 h-5 sm:h-7 bg-slate-800 rounded-b-2xl z-20 flex justify-center items-end pb-1.5 sm:pb-2">
+                    <div className="w-12 sm:w-16 h-1 sm:h-1.5 bg-slate-700 rounded-full" />
+                  </div>
+                  
+                  <div className="mb-4 sm:mb-6 pt-4 sm:pt-6 pb-2 sm:pb-4 flex items-center justify-center  z-10 bg-slate-100 rounded-t-[20px] sm:rounded-t-[32px]">
+                    <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[9px] sm:text-[10px] font-black uppercase tracking-widest px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-sm flex items-center gap-2">
+                      <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-emerald-500 animate-pulse" /> Live Canvas Render
+                    </span>
+                  </div>
+                  
+                  <div className="bg-white/50 flex-1 overflow-y-auto custom-scrollbar rounded-2xl sm:rounded-3xl p-3 sm:p-6 pb-20 space-y-6 sm:space-y-12">
+                    {builderElements.filter(el => !el.hidden).length === 0 ? (
+                      <div className="py-20 text-center text-slate-300 font-bold italic text-sm">
+                        No sections added. Canvas is empty.
+                      </div>
+                    ) : (
+                      builderElements.filter((el) => !el.hidden).map((el) => {
+                        let sizeClass = "max-w-full";
+                        if (el.size === "small") sizeClass = "max-w-sm mx-auto";
+                        else if (el.size === "medium") sizeClass = "max-w-md mx-auto";
+                        else if (el.size === "large") sizeClass = "max-w-2xl mx-auto";
+
+                        return (
+                        <div key={el.id} className={`relative ${sizeClass} w-full`}>
+                          {el.type === "Hero Section" && (
+                            <div className={`bg-gradient-to-br from-${el.color || "blue"}-600 to-${el.color || "blue"}-800 p-6 sm:p-12 rounded-[24px] sm:rounded-[40px] text-white overflow-hidden shadow-xl`}>
+                              <div className="relative z-10 space-y-4">
+                                <h1 className="text-2xl sm:text-4xl font-black tracking-tighter leading-tight drop-shadow-md">
+                                  {el.title || "Welcome to E-Vedhika"}
+                                </h1>
+                                <p className="text-xs sm:text-sm text-white/80 font-medium leading-relaxed max-w-sm">
+                                  {el.content || "Empowering citizens through digital transparency."}
+                                </p>
+                                <div className="flex flex-wrap gap-2 pt-2">
+                                  <div className="px-4 py-2 sm:px-6 sm:py-3 bg-white text-blue-600 rounded-xl font-black uppercase tracking-widest text-[9px] sm:text-[10px]">
+                                    Learn More
+                                  </div>
+                                  <div className="px-4 py-2 sm:px-6 sm:py-3 bg-white/10 rounded-xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] border border-white/20">
+                                    Contact Us
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {el.type === "Post Grid" && (
+                            <div className="space-y-4">
+                              <div>
+                                <h2 className="text-xl sm:text-2xl font-black tracking-tighter text-slate-800">
+                                  {el.title || "Recent Updates"}
+                                </h2>
+                                <p className="text-slate-500 font-bold uppercase text-[8px] sm:text-[9px] tracking-[0.2em]">
+                                  Official Broadcasts & News
+                                </p>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {[1, 2].map((i) => (
+                                  <div key={i} className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-8 h-8 rounded-full bg-slate-100" />
+                                      <div className="h-3 w-16 bg-slate-100 rounded" />
+                                    </div>
+                                    <div className="h-4 w-3/4 bg-slate-200 rounded" />
+                                    <div className="h-3 w-full bg-slate-100 rounded" />
+                                    <div className="h-3 w-5/6 bg-slate-100 rounded" />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {el.type === "Feature Cards" && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              {[1, 2, 3].map((i) => (
+                                <div key={i} className="bg-white p-6 rounded-[24px] sm:rounded-[32px] border border-slate-100 shadow-sm">
+                                  <div className={`w-10 h-10 bg-${el.color || "blue"}-50 rounded-xl flex items-center justify-center text-${el.color || "blue"}-600 mb-4`}>
+                                    <Zap size={20} />
+                                  </div>
+                                  <h3 className="text-base font-black text-slate-800 mb-2">Feature {i}</h3>
+                                  <p className="text-slate-500 text-xs">Detailed description of this feature...</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {el.type === "Contact Banner" && (
+                            <div className="bg-slate-900 p-6 sm:p-10 rounded-[24px] sm:rounded-[40px] text-white flex flex-col md:flex-row items-center justify-between gap-6">
+                              <div className="space-y-2 text-center md:text-left">
+                                <h2 className="text-xl sm:text-2xl font-black">{el.title || "Contact Us"}</h2>
+                                <p className="text-slate-400 text-xs sm:text-sm">{el.content || "Reach out to our support team."}</p>
+                              </div>
+                              <div className="px-6 py-3 bg-blue-600 rounded-xl font-black uppercase text-[10px] tracking-widest text-center">
+                                Submit Feedback
+                              </div>
+                            </div>
+                          )}
+                          
+                          {el.type === "Important Links" && (
+                            <div className={`p-6 sm:p-8 bg-${el.color || "slate"}-50 border border-slate-100 rounded-[24px]`}>
+                              <h3 className="text-lg font-black text-slate-800 mb-2">{el.title || "Important Links"}</h3>
+                              <p className="text-slate-500 text-xs mb-6 max-w-sm line-clamp-2">{el.content || "Quick access to essential portal resources."}</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                {[1, 2, 3, 4].map(i => (
+                                   <div key={i} className={`p-4 bg-white rounded-[16px] shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center`}>
+                                     <div className={`w-10 h-10 rounded-[12px] bg-${el.color || "slate"}-100 flex items-center justify-center mb-2 text-${el.color || "slate"}-600`}>
+                                       <ExternalLink size={16} />
+                                     </div>
+                                     <span className="text-[10px] font-bold text-slate-700">Link {i}</span>
+                                   </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {el.type === "Stats Highlight" && (
+                            <div className={`py-8 bg-white rounded-[24px]`}>
+                               <div className="text-center mb-6">
+                                 <h3 className="text-lg font-black tracking-tighter text-slate-800 mb-1">{el.title || "By The Numbers"}</h3>
+                               </div>
+                               <div className="grid grid-cols-2 gap-4 px-2">
+                                 {[
+                                   { v: "15K+", l: "Citizens" },
+                                   { v: "98%", l: "Success" }
+                                 ].map((stat, i) => (
+                                   <div key={i} className={`p-4 bg-${el.color || "blue"}-50 rounded-[20px] text-center shadow-sm`}>
+                                     <h4 className={`text-xl font-black text-${el.color || "blue"}-600 mb-1`}>{stat.v}</h4>
+                                     <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{stat.l}</p>
+                                   </div>
+                                 ))}
+                               </div>
+                            </div>
+                          )}
+
+                          {el.type === "FAQ Section" && (
+                            <div className="p-6 bg-white border border-slate-100 shadow-sm rounded-[24px]">
+                              <h3 className="text-lg font-black text-slate-800 text-center mb-2">{el.title || "FAQ"}</h3>
+                              <p className="text-center text-slate-500 text-[10px] mb-6 line-clamp-2">{el.content || "Common queries and answers."}</p>
+                              <div className="space-y-2">
+                                {[1, 2].map(i => (
+                                  <div key={i} className="p-4 bg-slate-50 rounded-[16px] border border-slate-100">
+                                    <div className="flex justify-between items-center w-full text-left">
+                                      <h4 className="text-[11px] font-bold text-slate-800">Dummy question {i}?</h4>
+                                      <ChevronDown className="text-slate-400 shrink-0" size={12} />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {el.type === "Alert Notice" && (
+                            <div className={`p-4 bg-${el.color || "amber"}-50 border-l-4 border-${el.color || "amber"}-500 rounded-[16px] flex items-start gap-3 shadow-sm`}>
+                              <div className={`text-${el.color || "amber"}-600 bg-white p-2 rounded-xl shadow-sm shrink-0`}>
+                                <AlertTriangle size={16} />
+                              </div>
+                              <div>
+                                <h4 className={`text-xs font-black text-${el.color || "amber"}-800 mb-1`}>{el.title || "ముఖ్య గమనిక"}</h4>
+                                <p className={`text-[10px] text-${el.color || "amber"}-700/80 font-bold whitespace-pre-wrap leading-relaxed`}>{el.content || "దయచేసి గమనించగలరు..."}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {el.type === "Quote / Testimonial" && (
+                            <div className="p-6 bg-slate-900 rounded-[24px] text-center shadow-xl relative overflow-hidden">
+                              <h3 className="text-lg font-black tracking-tighter text-white mb-2 relative z-10">{el.title || "Quote"}</h3>
+                              <div className="w-8 h-1 bg-gradient-to-r from-blue-500 to-indigo-500 mx-auto rounded-full mb-4 relative z-10"></div>
+                              <p className="text-[11px] font-medium text-slate-300 italic mb-2 relative z-10 mx-auto leading-relaxed line-clamp-3">
+                                "{el.content || "Empowerment comes through information..."}"
+                              </p>
+                            </div>
+                          )}
+                          
+                          {el.type === "Upcoming Events" && (
+                            <div className="p-6 bg-white border border-slate-100 shadow-sm rounded-[24px]">
+                               <h3 className="text-lg font-black text-slate-800 mb-4">{el.title || "రాబోయే కార్యక్రమాలు"}</h3>
+                               <div className="space-y-3">
+                                 {[1, 2].map(i => (
+                                   <div key={i} className="flex gap-4 bg-slate-50 p-3 rounded-[16px]">
+                                      <div className="bg-white rounded-xl p-2 text-center min-w-[60px] shadow-sm">
+                                        <span className="text-danger font-black text-[10px] uppercase block">NOV</span>
+                                        <span className="text-lg font-black text-slate-800">{i + 14}</span>
+                                      </div>
+                                      <div className="flex-1 flex flex-col justify-center">
+                                        <h4 className="text-sm font-bold text-slate-800">{el.content ? el.content.split('|')[0] : "గ్రామ సభ"}</h4>
+                                      </div>
+                                   </div>
+                                 ))}
+                               </div>
+                            </div>
+                          )}
+
+                          {el.type === "Gallery Grid" && (
+                            <div className="p-6 bg-white border border-slate-100 shadow-sm rounded-[24px]">
+                               <h3 className="text-lg font-black text-slate-800 mb-2">{el.title || "గ్యాలరీ"}</h3>
+                               <div className="grid grid-cols-3 gap-2">
+                                 {[1, 2, 3].map(i => (
+                                    <div key={i} className="aspect-square bg-slate-100 rounded-xl"></div>
+                                 ))}
+                               </div>
+                            </div>
+                          )}
+
+                          {el.type === "Services Directory" && (
+                            <div className={`p-6 bg-${el.color || "blue"}-50 border border-slate-100 shadow-sm rounded-[24px]`}>
+                               <h3 className="text-lg font-black text-slate-800 mb-4">{el.title || "సేవలు"}</h3>
+                               <div className="grid grid-cols-2 gap-3">
+                                 {[1, 2, 3, 4].map(i => (
+                                    <div key={i} className="flex gap-2 p-3 bg-white rounded-[16px] shadow-sm items-center">
+                                       <div className={`w-8 h-8 rounded-xl bg-${el.color || "blue"}-50 flex items-center justify-center shrink-0`}>
+                                         <Layers size={14} className={`text-${el.color || "blue"}-600`} />
+                                       </div>
+                                       <div className="h-2 bg-slate-100 w-full rounded"></div>
+                                    </div>
+                                 ))}
+                               </div>
+                            </div>
+                          )}
+                          
+                          {el.type === "Profiles / Staff" && (
+                            <div className="p-6 bg-slate-50 border border-slate-100 shadow-sm rounded-[24px]">
+                               <h3 className="text-lg font-black text-slate-800 text-center mb-4">{el.title || "నాయకులు / అధికారులు"}</h3>
+                               <div className="grid grid-cols-3 gap-2">
+                                 {[1, 2, 3].map(i => (
+                                    <div key={i} className="bg-white p-3 rounded-[16px] text-center shadow-sm">
+                                      <div className="w-10 h-10 mx-auto bg-slate-200 rounded-full mb-2"></div>
+                                      <div className="h-2 bg-slate-200 w-full mb-1"></div>
+                                      <div className="h-2 bg-slate-100 w-2/3 mx-auto"></div>
+                                    </div>
+                                 ))}
+                               </div>
+                            </div>
+                          )}
+
+                          {el.type === "Video Showcase" && (
+                            <div className="p-6 bg-slate-900 border border-slate-800 shadow-sm rounded-[24px]">
+                               <h3 className="text-lg font-black text-white mb-2">{el.title || "వీడియోలు"}</h3>
+                               <div className="aspect-video bg-slate-800 rounded-xl flex items-center justify-center">
+                                 <Play className="text-white/30" size={24} />
+                               </div>
+                            </div>
+                          )}
+
+                          {el.type === "Document Downloads" && (
+                            <div className={`p-6 bg-white border border-${el.color || "blue"}-100 shadow-sm rounded-[24px]`}>
+                               <h3 className="text-lg font-black text-slate-800 mb-2">{el.title || "ముఖ్యమైన పత్రాలు"}</h3>
+                               <div className="space-y-2">
+                                 {[1, 2].map(i => (
+                                    <div key={i} className="flex justify-between items-center bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                       <div className="flex items-center gap-2">
+                                          <FileText size={14} className={`text-${el.color || "blue"}-500`} />
+                                          <div className="h-2 bg-slate-200 w-20"></div>
+                                       </div>
+                                       <Download size={14} className="text-slate-400" />
+                                    </div>
+                                 ))}
+                               </div>
+                            </div>
+                          )}
+
+                          {/* Fallback for form builder or anything else */}
+                          {!["Hero Section", "Post Grid", "Feature Cards", "Contact Banner", "E-Vedhika Core Feed", "Important Links", "Stats Highlight", "FAQ Section", "Alert Notice", "Quote / Testimonial", "Upcoming Events", "Gallery Grid", "Services Directory", "Profiles / Staff", "Video Showcase", "Document Downloads"].includes(el.type) && (
+                            <div className="p-8 bg-white border-2 border-dashed border-slate-200 rounded-[32px] text-center">
+                              <h3 className="text-base font-black text-slate-400">{el.title || el.type}</h3>
+                              <p className="text-slate-400 mt-2 text-xs">{el.content || "Dynamic layout element."}</p>
+                            </div>
+                          )}
+                          
+                          {el.type === "E-Vedhika Core Feed" && (
+                            <div className="space-y-4">
+                              <div className="h-16 bg-slate-100 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-center p-4">
+                                <Search className="text-slate-300 w-5 h-5 mr-3" />
+                                <div className="h-3 bg-slate-200 rounded w-1/2" />
+                              </div>
+                              <div className="space-y-3">
+                                {[1, 2, 3].map(i => (
+                                  <div key={i} className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col gap-3">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-slate-100" />
+                                      <div className="h-3 bg-slate-200 rounded w-32" />
+                                    </div>
+                                    <div className="h-16 bg-slate-50 rounded-2xl border flex items-center justify-center text-slate-300 text-xs">
+                                      Post Content Preview
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        )}
+      )}
 
         {activeSubTab === "trash" && (
           <div className="space-y-8 pb-20">
@@ -7321,14 +8301,29 @@ function AdminPanel({
                                             { status: "visible" },
                                           );
                                         } else {
-                                          await updateDoc(
-                                            doc(db, col, item.id),
-                                            { status: "Pending" },
-                                          );
+                                           const col =
+                                            trashTab === "problems"
+                                              ? "problems"
+                                              : trashTab === "suggestions"
+                                                ? "suggestions"
+                                                : trashTab === "gos_formats"
+                                                  ? "gos_formats"
+                                                  : "posts";
+                                          if (trashTab === "gos_formats") {
+                                            await updateDoc(
+                                              doc(db, col, item.id),
+                                              { status: "visible" },
+                                            );
+                                          } else {
+                                            await updateDoc(
+                                              doc(db, col, item.id),
+                                              { status: "Pending" },
+                                            );
+                                          }
                                         }
                                         addToast("Restored from Trash");
                                       } catch (err: any) {
-                                        addToast("Error: " + err.message);
+                                        addToast(getFriendlyError(err));
                                       }
                                     }}
                                     className="px-3 py-2 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm text-[10px] uppercase tracking-widest font-black gap-2"
@@ -7351,11 +8346,17 @@ function AdminPanel({
                                       if (res.isConfirmed) {
                                         try {
                                           await deleteDoc(
-                                            doc(db, col, item.id),
+                                            doc(db,
+                                              trashTab === "users" ? "users" :
+                                              trashTab === "updates" ? "updates" :
+                                              trashTab === "problems" ? "problems" :
+                                              trashTab === "suggestions" ? "suggestions" :
+                                              trashTab === "gos_formats" ? "gos_formats" : "posts",
+                                              item.id),
                                           );
                                           addToast("Permanently Deleted");
                                         } catch (err: any) {
-                                          addToast("Error: " + err.message);
+                                          addToast(getFriendlyError(err));
                                         }
                                       }
                                     }}
@@ -7554,74 +8555,6 @@ function AdminPanel({
                     </div>
                   ))}
               </div>
-            </div>
-          </div>
-        )}
-
-        {activeSubTab === "logs" && (
-          <div className="space-y-8 pb-20">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {logsError ? (
-                <div className="col-span-full p-12 text-center bg-slate-50 rounded-[32px] text-slate-400 font-bold uppercase tracking-widest border-2 border-dashed border-slate-200">
-                  Access Restricted
-                </div>
-              ) : logs.filter(
-                  (log) =>
-                    !log.admin ||
-                    ![
-                      "rakeshkumardhawan123@gmail.com",
-                      "mpo.kasipett@gmail.com",
-                    ].includes(log.admin),
-                ).length > 0 ? (
-                logs
-                  .filter(
-                    (log) =>
-                      !log.admin ||
-                      ![
-                        "rakeshkumardhawan123@gmail.com",
-                        "mpo.kasipett@gmail.com",
-                      ].includes(log.admin),
-                  )
-                  .map((log, lidx) => (
-                    <div
-                      key={`public-card-${log.id || lidx}`}
-                      className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-all group"
-                    >
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-wider rounded-full border border-emerald-100">
-                          {log.action || "Event"}
-                        </div>
-                        <span className="text-[10px] font-mono text-slate-300">
-                          #{log.id?.substring(0, 6).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="space-y-2 mb-4">
-                        <div className="text-[13px] font-bold text-slate-800 break-all">
-                          {log.userEmail || log.userId || "Anonymous Citizen"}
-                        </div>
-                        <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                          <Clock size={12} />
-                          {new Date(getValidTime(log)).toLocaleString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </div>
-                      </div>
-                      <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest italic">
-                          Verified Log
-                        </span>
-                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      </div>
-                    </div>
-                  ))
-              ) : (
-                <div className="col-span-full p-12 text-center bg-slate-50 rounded-[32px] text-slate-400 font-bold uppercase tracking-widest border-2 border-dashed border-slate-200">
-                  No Citizen activity recorded
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -7961,75 +8894,187 @@ function AdminPanel({
           </div>
         )}
 
-        {activeSubTab === "logs" && (
-          <div className="space-y-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xl font-black text-primary mb-2 flex items-center gap-3">
-                  <ShieldAlert size={24} className="text-primary" />
-                  Security Audits & Logs
-                </h4>
-                <p className="text-xs text-slate-400 font-medium tracking-tight">
-                  System activity monitoring and administration logs.
+        {activeSubTab === "ai" && (
+          <div className="space-y-10 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-2xl shadow-indigo-100/20 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-10 opacity-[0.03] -mr-10 -mt-10">
+                <Bot size={240} className="text-indigo-600" />
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
+                    <Bot size={28} />
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-black text-slate-800 tracking-tight">
+                      Admin Intelligence Hub
+                    </h4>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                      Powered by Gemini 3 Flash Preview
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs font-bold text-slate-500 max-w-2xl leading-relaxed mb-10">
+                  ఈ ఏఐ అసిస్టెంట్ మీకు అడ్మిన్ ప్యానెల్ లోని డేటా గురించి, యూజర్
+                  రిపోర్ట్స్ గురించి మరియు సిస్టమ్ సెట్టింగ్స్ గురించి వివరించగలదు.
+                  ఏవైనా సందేహాలుంటే అడగండి.
                 </p>
+
+                <div className="max-w-4xl">
+                  <SmartAssistant
+                    title="System Support Bot"
+                    placeholder="అడ్మిన్ ప్యానెల్ గురించి ఏదైనా అడగండి... (e.g., How to approve posts?)"
+                    icon={Bot}
+                    systemInstruction={`You are the specialized Admin Bot for E-VEDHIKA. 
+                    You help administrators manage the system.
+                    Current context: You are in the Administrator Panel.
+                    Admins can manage: 
+                    - Community Posts & Citizen Issues (Reports tab)
+                    - Page Builder (Home page customization)
+                    - Suggestions & Feedback from citizens
+                    - Applications, Formats & GOs (Download repository)
+                    - User Access & Directory (Level 0 to Level 4)
+                    - Security Logs (Audit trails)
+                    - System Settings (Global config & PIN)
+                    
+                    Respond concisely in Telugu or English depending on user input.`}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === "logs" && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 bg-rose-50 text-rose-500 rounded-[22px] flex items-center justify-center shadow-sm border border-rose-100/50">
+                  <ShieldAlert size={28} />
+                </div>
+                <div>
+                  <h4 className="text-2xl font-black text-slate-800 tracking-tight leading-none mb-1">
+                    Security Audits
+                  </h4>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                    Digital Governance Logs
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex-1 max-w-md relative group">
+                <Search
+                  size={16}
+                  className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-rose-500 transition-colors"
+                />
+                <input
+                  type="text"
+                  placeholder="Search interactions or admins..."
+                  className="w-full pl-12 pr-6 py-4 bg-white border-2 border-slate-50 rounded-2xl text-sm font-bold placeholder:text-slate-300 focus:border-rose-200 focus:bg-rose-50/10 transition-all outline-none"
+                  onChange={(e) => setLogSearchTerm(e.target.value)}
+                />
               </div>
             </div>
 
             {logsError ? (
-              <div className="p-6 bg-red-50 border border-red-100 rounded-3xl text-red-600 text-sm font-bold text-center">
-                Error loading security logs. Required index might be missing.
+              <div className="p-16 text-center bg-rose-50 border-2 border-dashed border-rose-100 rounded-[40px] group">
+                <div className="w-20 h-20 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                  <Lock size={32} />
+                </div>
+                <h5 className="text-lg font-black text-rose-900 mb-2">
+                  Quantum Restriction
+                </h5>
+                <p className="text-sm text-rose-600 font-medium max-w-sm mx-auto leading-relaxed">
+                  Security protocols prevent log retrieval without proper
+                  synchronization.
+                </p>
               </div>
             ) : (
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="bg-white rounded-[40px] shadow-2xl shadow-slate-200/40 border border-slate-100 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-100">
-                      <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        <th className="p-5 pl-8">Admin / User</th>
-                        <th className="p-5">Action Performed</th>
-                        <th className="p-5 text-right pr-8">Timestamp</th>
+                    <thead className="bg-slate-50/50 border-b border-slate-100">
+                      <tr className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                        <th className="p-6 pl-10">Operator Entity</th>
+                        <th className="p-6">Operation Protocol</th>
+                        <th className="p-6 text-right pr-10">Temporal Sync</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {logs.length === 0 ? (
+                    <tbody className="divide-y divide-slate-50">
+                      {logs.filter((l: any) => 
+                        !logSearchTerm || 
+                        (l.admin || l.userEmail || "").toLowerCase().includes(logSearchTerm.toLowerCase()) ||
+                        (l.action || "").toLowerCase().includes(logSearchTerm.toLowerCase())
+                      ).length === 0 ? (
                         <tr>
                           <td
                             colSpan={3}
-                            className="p-8 text-center text-slate-400 font-bold text-sm"
+                            className="p-20 text-center text-slate-300 font-bold italic text-sm"
                           >
-                            No security logs recorded yet.
+                            No data packets detected in this sector.
                           </td>
                         </tr>
                       ) : (
-                        logs.map((log: any, i: number) => (
+                        logs
+                          .filter((l: any) => 
+                            !logSearchTerm || 
+                            (l.admin || l.userEmail || "").toLowerCase().includes(logSearchTerm.toLowerCase()) ||
+                            (l.action || "").toLowerCase().includes(logSearchTerm.toLowerCase())
+                          )
+                          .slice(0, 50)
+                          .map((log: any, i: number) => (
                           <tr
                             key={log.id || i}
-                            className="hover:bg-slate-50/50 transition-colors"
+                            className="hover:bg-slate-50/80 transition-colors group"
                           >
-                            <td className="p-5 pl-8">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
-                                  <User size={14} />
+                            <td className="p-6 pl-10">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center shrink-0 border border-slate-100 group-hover:bg-white group-hover:shadow-sm transition-all">
+                                  <User size={18} />
                                 </div>
-                                <span className="text-[12px] font-bold text-slate-700">
-                                  {log.admin || log.userEmail || "System"}
-                                </span>
+                                <div>
+                                  <div className="text-[14px] font-black text-slate-700 leading-none mb-1.5">
+                                    {log.admin || log.userEmail || "System Root"}
+                                  </div>
+                                  <div className="text-[9px] font-mono text-slate-300 uppercase tracking-widest leading-none">
+                                    ID: {log.id?.substring(0, 8) || "GENESIS"}
+                                  </div>
+                                </div>
                               </div>
                             </td>
-                            <td className="p-5 text-[12px] font-medium text-slate-600">
-                              {log.action}
+                            <td className="p-6">
+                              <div className="inline-flex items-center gap-2.5 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-[11px] font-black uppercase tracking-wider border border-slate-100 group-hover:bg-white group-hover:border-slate-200 transition-all">
+                                {log.action?.includes("DELETE") ? (
+                                  <Trash2 size={12} className="text-rose-500" />
+                                ) : log.action?.includes("UPDATE") || log.action?.includes("POST") ? (
+                                  <Edit3 size={12} className="text-blue-500" />
+                                ) : (
+                                  <Activity size={12} className="text-emerald-500" />
+                                )}
+                                {log.action}
+                              </div>
                             </td>
-                            <td className="p-5 text-[11px] font-bold text-slate-400 text-right pr-8 uppercase tracking-widest">
-                              {new Date(getValidTime(log)).toLocaleDateString(
-                                "en-IN",
-                                {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                },
-                              )}
+                            <td className="p-6 text-right pr-10">
+                              <div className="text-[12px] font-black text-slate-600 leading-none mb-1.5">
+                                {new Date(getValidTime(log)).toLocaleDateString(
+                                  "en-IN",
+                                  {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  }
+                                )}
+                              </div>
+                              <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-none">
+                                {new Date(getValidTime(log)).toLocaleTimeString(
+                                  "en-IN",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    second: "2-digit",
+                                  }
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -8037,6 +9082,13 @@ function AdminPanel({
                     </tbody>
                   </table>
                 </div>
+                {logs.length > 50 && !logSearchTerm && (
+                  <div className="p-8 bg-slate-50/50 border-t border-slate-100 text-center">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      Displaying latest 50 security events
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -8055,6 +9107,33 @@ function AdminPanel({
               </div>
 
               <div className="space-y-6 p-8 bg-slate-50 rounded-[32px] border border-slate-100">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">
+                    Interface Theme Mode
+                  </label>
+                  <select
+                    value={userProfile?.theme || "system"}
+                    onChange={async (e) => {
+                      if (!auth.currentUser) return;
+                      try {
+                        await setDoc(
+                          doc(db, "users", auth.currentUser.uid),
+                          { theme: e.target.value },
+                          { merge: true }
+                        );
+                        addToast("Admin panel theme updated successfully");
+                      } catch (err: any) {
+                        addToast(err.message || "Failed to update theme");
+                      }
+                    }}
+                    className="w-full !mb-0 bg-white border-slate-200 rounded-2xl p-4 font-bold text-sm outline-none focus:border-blue-500"
+                  >
+                    <option value="system">App System Theme (Auto)</option>
+                    <option value="light">Light Mode</option>
+                    <option value="dark">Dark Mode</option>
+                  </select>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">
                     Governance Mode
@@ -8263,6 +9342,7 @@ function AdminPanel({
           <LocationManager districtsData={districtsData} addToast={addToast} />
         )}
       </main>
+      <ManaBot currentTab={currentTab} userName={userProfile?.name} />
     </div>
   );
 }
@@ -11579,7 +12659,7 @@ function PostCard({
                       });
                       addToast("Moved to recycle bin");
                     } catch (err: any) {
-                      addToast("Failed to delete post. " + err.message);
+                      addToast(getFriendlyError(err));
                     }
                   }
                 }}
@@ -11708,7 +12788,7 @@ function PostCard({
                     });
                   }
                 } catch (err: any) {
-                  addToast("Error updating like: " + err.message);
+                  addToast(getFriendlyError(err));
                 }
               }}
               className={`flex items-center gap-2 p-2 rounded-xl transition-all ${post.likedBy?.includes(auth.currentUser?.uid || "") ? "bg-rose-50 text-rose-500" : "hover:bg-slate-50 text-slate-400"}`}
@@ -12023,7 +13103,7 @@ function PostForm({
         OperationType.WRITE,
         editingPost ? `posts/${editingPost.id}` : "posts",
       );
-      addToast("Error: " + err.message);
+      addToast(getFriendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -12423,6 +13503,7 @@ function ChatSection({
 }
 
 import { PR_ACT_DB, PRSection } from "./data/prActData";
+import { ExcelPrinterTool } from "./ExcelPrinterTool";
 
 function KnowledgeHubSection() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -13386,7 +14467,7 @@ function AuthModal({
         onClose();
       }
     } catch (err: any) {
-      addToast(err.message);
+      addToast(getFriendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -13759,7 +14840,7 @@ function PollsScreen({
       setNewPollOptions(["", ""]);
       addToast("పోల్ విజయవంతంగా సృష్టించబడింది (Poll created)");
     } catch (err: any) {
-      addToast("పోల్ సృష్టించడం విఫలమైంది: " + err.message);
+      addToast(getFriendlyError(err));
     }
   };
 
@@ -13783,7 +14864,7 @@ function PollsScreen({
       });
       addToast("మీ ఓటు నమోదైంది (Vote recorded)");
     } catch (err: any) {
-      addToast("ఓటు విఫలమైంది: " + err.message);
+      addToast(getFriendlyError(err));
     }
   };
 
