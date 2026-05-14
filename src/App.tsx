@@ -102,6 +102,7 @@ import { motion, AnimatePresence, Reorder } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import rehypeRaw from "rehype-raw";
+// Joyride removed
 import { GosAndFormatsPublic, GosAndFormatsAdmin } from "./GosAndFormats";
 // Lazy loaded modules
 let XLSX: any = null;
@@ -1164,7 +1165,6 @@ body {
 
 .brand-title {
   font-family: 'Righteous', cursive;
-  font-size: 34px;
   margin: 0;
   letter-spacing: 2px;
   color: var(--accent);
@@ -1797,10 +1797,32 @@ export const handleShare = async (
   text: string,
   url: string,
   onSuccess?: () => void,
+  mediaUrl?: string,
+  mediaType?: string
 ) => {
+  let filesToShare: File[] | undefined = undefined;
+
+  if (mediaUrl && mediaType?.startsWith("image") && navigator.canShare) {
+    try {
+      const response = await fetch(mediaUrl);
+      const blob = await response.blob();
+      const ext = mediaType.split("/")[1] || "jpeg";
+      const file = new File([blob], `shared_media.${ext}`, { type: blob.type || "image/jpeg" });
+      if (navigator.canShare({ files: [file] })) {
+        filesToShare = [file];
+      }
+    } catch (err) {
+      console.warn("Could not prepare media for sharing", err);
+    }
+  }
+
   if (navigator.share) {
     try {
-      await navigator.share({ title, text, url });
+      const shareData: any = { title, text, url };
+      if (filesToShare && filesToShare.length > 0) {
+        shareData.files = filesToShare;
+      }
+      await navigator.share(shareData);
       if (onSuccess) onSuccess();
     } catch (error: any) {
       if (error && error.name !== "AbortError") {
@@ -1944,11 +1966,12 @@ export default function App() {
     };
   }, []);
 
+  const [siteConfig, setSiteConfig] = useState<any>(null);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [visitorCount, setVisitorCount] = useState<number | null>(null);
   const tabFromUrl = searchParams.get("tab");
   const [currentTab, setCurrentTab] = useState(tabFromUrl || "home");
-  const [siteConfig, setSiteConfig] = useState<any>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "site_settings", "home_page"), (snap) => {
@@ -1988,6 +2011,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [visiblePostsCount, setVisiblePostsCount] = useState(20);
   const [visibleUpdatesCount, setVisibleUpdatesCount] = useState(20);
+  const [visibleProblemsCount, setVisibleProblemsCount] = useState(20);
+  const [visibleSuggestionsCount, setVisibleSuggestionsCount] = useState(20);
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
   const [showPostForm, setShowPostForm] = useState(false);
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
@@ -2918,7 +2943,7 @@ export default function App() {
 
       <header className="sticky top-0 z-[1001] shadow-2xl bg-[#103052] border-b-[3px] border-accent flex items-center">
         <div
-          className="brand-wrapper cursor-pointer flex items-center gap-2 sm:gap-4 shrink-0"
+          className="brand-wrapper cursor-pointer flex items-center gap-1.5 sm:gap-4 min-w-0"
           onClick={() => {
             setCurrentTab("home");
             setSidebarOpen(false);
@@ -2940,7 +2965,7 @@ export default function App() {
             {/* SVG లోగో */}
             <svg
               viewBox="0 0 64 64"
-              className="w-10 h-10 sm:w-12 sm:h-12 shrink-0"
+              className="w-[36px] h-[36px] sm:w-12 sm:h-12 shrink-0"
             >
               <defs>
                 {/* కలర్ గ్రేడియంట్స్ */}
@@ -2989,7 +3014,7 @@ export default function App() {
           {/* Website Name Section */}
           <div className="flex flex-col justify-center translate-y-[-1px] shrink min-w-0">
             <h2
-              className="brand-title text-lg sm:text-[20px] lg:text-[24px] truncate"
+              className="brand-title text-[15px] sm:text-[18px] md:text-[20px] lg:text-[24px] whitespace-nowrap overflow-hidden text-ellipsis"
               style={{
                 color: "#fbe947",
                 background: "none",
@@ -3007,9 +3032,8 @@ export default function App() {
             </h2>
             <div className="flex items-center">
               <span
-                className="whitespace-nowrap truncate"
+                className="whitespace-nowrap overflow-hidden text-ellipsis text-[7px] sm:text-[9px] md:text-[11px]"
                 style={{
-                  fontSize: "9px",
                   fontWeight: "800",
                   letterSpacing: "0.5px",
                   color: "#94a3b8",
@@ -3022,11 +3046,13 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex-1"></div>
+        <div className="flex-1 flex justify-end sm:justify-center px-1 sm:px-4">
+          {/* Search bar removed from header */}
+        </div>
 
-        <div className="flex items-center gap-2 sm:gap-5">
+        <div className="flex items-center gap-1 sm:gap-5">
           <div
-            className="flex flex-col items-center justify-center mr-2 sm:mr-4 shrink-0"
+            className="hidden sm:flex flex-col items-center justify-center mr-2 sm:mr-4 shrink-0"
             title="Total Website Visits"
           >
             <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#94a3b8] mb-[2px]">
@@ -3039,8 +3065,131 @@ export default function App() {
             </span>
           </div>
 
+          <div className="relative">
+            <div
+              className="p-1 sm:p-2 cursor-pointer text-white/80 hover:text-white transition-colors mr-0 sm:mr-3 rounded-full hover:bg-white/10"
+              onClick={() => setShowNotifications(!showNotifications)}
+            >
+              <Bell size={20} className="w-[18px] h-[18px] sm:w-[20px] sm:h-[20px]" />
+              {unreadCount > 0 && (
+                <span className="notif-badge" style={{ display: "flex", top: 0, right: 0 }}>
+                  {unreadCount}
+                </span>
+              )}
+            </div>
+
+            <AnimatePresence>
+              {showNotifications && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute top-12 right-0 w-[280px] sm:w-[320px] bg-white rounded-3xl shadow-2xl border border-slate-100 z-[2000] overflow-hidden"
+                >
+                  <div className="p-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                    <h3 className="text-xs font-black text-primary uppercase tracking-widest">
+                      Signal Inbox
+                    </h3>
+                    <button
+                      onClick={() => setShowNotifications(false)}
+                      className="text-slate-400 hover:text-danger"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
+                    {notifications.length > 0 ? (
+                      <div className="divide-y divide-slate-50">
+                        {notifications.map((n) => {
+                          const isUnread =
+                            n.uid === "all"
+                              ? !(n as any).readBy?.includes(user?.uid)
+                              : !n.read;
+                          return (
+                            <div
+                              key={n.id}
+                              onClick={async () => {
+                                if (isUnread) {
+                                  try {
+                                    if (n.uid === "all") {
+                                      await updateDoc(
+                                        doc(db, "notifications", n.id),
+                                        { readBy: arrayUnion(user?.uid) },
+                                      );
+                                    } else {
+                                      await updateDoc(
+                                        doc(db, "notifications", n.id),
+                                        { read: true },
+                                      );
+                                    }
+                                  } catch (e) {}
+                                }
+                                if ((n as any).postId) {
+                                  setSearchParams({ postId: (n as any).postId });
+                                }
+                                setShowNotifications(false);
+                              }}
+                              className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors ${isUnread ? "bg-blue-50/30" : ""}`}
+                            >
+                              <div className="flex justify-between items-start mb-1">
+                                <span
+                                  className={`text-[9px] font-black uppercase tracking-wider ${n.type === "flash_update" ? "text-amber-500" : "text-primary"}`}
+                                >
+                                  {n.type?.replace("_", " ")}
+                                </span>
+                                <span className="text-[8px] font-bold text-slate-400">
+                                  {new Date(n.time).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              </div>
+                              <h4 className="text-xs font-black text-slate-800 leading-tight mb-1">
+                                {n.title}
+                              </h4>
+                              <p className="text-[10px] font-medium text-slate-500 line-clamp-2">
+                                {n.message}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-10 text-center">
+                        <Zap size={24} className="mx-auto text-slate-200 mb-2" />
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          No active signals
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        const unread = notifications.filter((n) => !n.read);
+                        try {
+                          await Promise.all(
+                            unread.map((n) =>
+                              updateDoc(doc(db, "notifications", n.id), {
+                                read: true,
+                              }),
+                            ),
+                          );
+                          addToast("Marked all as read");
+                        } catch (e) {}
+                      }}
+                      className="w-full p-3 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-primary bg-slate-50 border-t border-slate-100 transition-colors"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {user && !user.isAnonymous ? (
-            <div className="relative" ref={dropdownRef}>
+            <div className="relative" ref={dropdownRef} id="profile-dropdown-btn">
               <div
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                 className="flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-[#174b7c] to-transparent pl-1.5 pr-2 sm:pr-5 py-1.5 rounded-[16px] border border-accent/30 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_0_20px_rgba(250,204,21,0.25)] hover:border-accent/60 transition-all duration-300 relative overflow-hidden group cursor-pointer"
@@ -3126,17 +3275,20 @@ export default function App() {
             <button
               aria-label="Sign In"
               onClick={triggerLogin}
-              className="bg-[#fbbf24] text-[#0f2e4a] px-5 py-2.5 rounded-[12px] font-black text-[11px] uppercase tracking-widest shadow-lg shadow-[#fbbf24]/20 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#fbbf24]/30 hover:bg-[#fcd34d] transition-all active:scale-[0.96] flex items-center gap-2 border border-[#fbbf24]/30"
+              className="bg-[#fbbf24] text-[#0f2e4a] px-2.5 py-1.5 sm:px-5 sm:py-2.5 rounded-[8px] sm:rounded-[12px] font-black text-[9px] sm:text-[11px] uppercase tracking-widest shadow-lg shadow-[#fbbf24]/20 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#fbbf24]/30 hover:bg-[#fcd34d] transition-all active:scale-[0.96] flex items-center gap-1 sm:gap-2 border border-[#fbbf24]/30 shrink-0"
             >
-              <User size={14} className="text-[#0f2e4a]" />
-              Sign In
+              <User size={14} className="text-[#0f2e4a] w-[14px] h-[14px]" />
+              <span className="whitespace-nowrap hidden min-[360px]:inline">Sign In</span>
             </button>
           )}
         </div>
       </header>
 
       <div className="latest-bar overflow-hidden">
-        <div className="latest-label">Latest Updates</div>
+        <div className="latest-label whitespace-nowrap shrink-0 flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+          Latest Updates
+        </div>
         <div className="latest-text flex-1">
           <span>
             {(() => {
@@ -3156,7 +3308,7 @@ export default function App() {
         </div>
       </div>
 
-      <nav className="nav-trigger-bar sticky top-0 z-[1000]">
+      <nav className="nav-trigger-bar sticky z-[1000]">
         <div className="trigger-left">
           <button
             aria-label="Toggle Menu"
@@ -3169,129 +3321,28 @@ export default function App() {
           </button>
         </div>
 
-        <div className="flex-1"></div>
-
-        <div className="flex items-center gap-4">
-          <div
-            className="notif-bell p-2 -mr-2"
-            onClick={() => setShowNotifications(!showNotifications)}
-          >
-            <Bell size={20} />
-            {unreadCount > 0 && (
-              <span className="notif-badge" style={{ display: "flex" }}>
-                {unreadCount}
-              </span>
-            )}
-          </div>
-
-          <AnimatePresence>
-            {showNotifications && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="fixed top-16 right-4 sm:right-10 w-[280px] sm:w-[320px] bg-white rounded-3xl shadow-2xl border border-slate-100 z-[2000] overflow-hidden"
-              >
-                <div className="p-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                  <h3 className="text-xs font-black text-primary uppercase tracking-widest">
-                    Signal Inbox
-                  </h3>
-                  <button
-                    onClick={() => setShowNotifications(false)}
-                    className="text-slate-400 hover:text-danger"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-                <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
-                  {notifications.length > 0 ? (
-                    <div className="divide-y divide-slate-50">
-                      {notifications.map((n) => {
-                        const isUnread =
-                          n.uid === "all"
-                            ? !(n as any).readBy?.includes(user?.uid)
-                            : !n.read;
-                        return (
-                          <div
-                            key={n.id}
-                            onClick={async () => {
-                              if (isUnread) {
-                                try {
-                                  if (n.uid === "all") {
-                                    await updateDoc(
-                                      doc(db, "notifications", n.id),
-                                      { readBy: arrayUnion(user?.uid) },
-                                    );
-                                  } else {
-                                    await updateDoc(
-                                      doc(db, "notifications", n.id),
-                                      { read: true },
-                                    );
-                                  }
-                                } catch (e) {}
-                              }
-                              if ((n as any).postId) {
-                                setSearchParams({ postId: (n as any).postId });
-                              }
-                              setShowNotifications(false);
-                            }}
-                            className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors ${isUnread ? "bg-blue-50/30" : ""}`}
-                          >
-                            <div className="flex justify-between items-start mb-1">
-                              <span
-                                className={`text-[9px] font-black uppercase tracking-wider ${n.type === "flash_update" ? "text-amber-500" : "text-primary"}`}
-                              >
-                                {n.type?.replace("_", " ")}
-                              </span>
-                              <span className="text-[8px] font-bold text-slate-400">
-                                {new Date(n.time).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                            </div>
-                            <h4 className="text-xs font-black text-slate-800 leading-tight mb-1">
-                              {n.title}
-                            </h4>
-                            <p className="text-[10px] font-medium text-slate-500 line-clamp-2">
-                              {n.message}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="p-10 text-center">
-                      <Zap size={24} className="mx-auto text-slate-200 mb-2" />
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        No active signals
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {notifications.length > 0 && (
-                  <button
-                    onClick={async () => {
-                      const unread = notifications.filter((n) => !n.read);
-                      try {
-                        await Promise.all(
-                          unread.map((n) =>
-                            updateDoc(doc(db, "notifications", n.id), {
-                              read: true,
-                            }),
-                          ),
-                        );
-                        addToast("Marked all as read");
-                      } catch (e) {}
-                    }}
-                    className="w-full p-3 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-primary bg-slate-50 border-t border-slate-100 transition-colors"
-                  >
-                    Mark all as read
-                  </button>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="flex-1 flex items-center h-full pl-3 sm:pl-6 w-full min-w-0">
+          {currentTab === "home" && (
+            <div className="flex items-center gap-2 sm:gap-3 w-full h-[40px] sm:h-[44px] bg-slate-50 hover:bg-slate-100 focus-within:!bg-white focus-within:ring-4 focus-within:ring-primary/10 border-slate-200 focus-within:border-primary/40 border shadow-sm rounded-xl sm:rounded-2xl px-4 sm:px-5 transition-all group">
+              <Search size={18} className="text-slate-400 group-focus-within:text-primary shrink-0" />
+              <input
+                type="text"
+                placeholder="Search reports, notices, GOs and formats..."
+                className="bg-transparent border-none p-0 m-0 focus:ring-0 text-[13px] sm:text-[15px] w-full font-bold text-slate-700 placeholder:text-slate-400 outline-none h-full"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  aria-label="Clear Search"
+                  onClick={() => setSearchQuery("")}
+                  className="text-slate-300 hover:text-rose-500 transition-colors shrink-0 outline-none"
+                >
+                  <XCircle size={18} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </nav>
 
@@ -3336,6 +3387,7 @@ export default function App() {
             <MenuButton
               label="Home"
               emoji="🏠"
+              tourId="menu-home"
               active={currentTab === "home" && !postIdFromUrl}
               onClick={() => {
                 setCurrentTab("home");
@@ -3350,15 +3402,45 @@ export default function App() {
             <MenuButton
               label="🏛️ Mana Panchayath"
               emoji="📊"
+              tourId="menu-mana-panchayath"
               active={currentTab === "workspace"}
               onClick={() => {
                 setCurrentTab("workspace");
                 setSidebarOpen(false);
               }}
             />
+            <div className="flex flex-col gap-1 mb-2 p-2 bg-blue-50/30 rounded-[16px] border border-blue-100/50">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400/80 mb-1 ml-2">Priority Services</span>
+              <MenuButton
+                label="🚨 Emergency Contacts"
+                emoji="🚨"
+                tourId="menu-emergency"
+                active={currentTab === "emergency"}
+                onClick={() => {
+                  setCurrentTab("emergency");
+                  setSidebarOpen(false);
+                }}
+              />
+              <MenuButton
+                label="👤 My Activity & Reports"
+                emoji="📋"
+                tourId="menu-my-activity"
+                active={currentTab === "my_activity"}
+                onClick={() => {
+                  if (!user) {
+                    requireLoginAlert();
+                  } else {
+                    setCurrentTab("my_activity");
+                    setSidebarOpen(false);
+                  }
+                }}
+              />
+            </div>
+
             <MenuButton
               label="Live Chat"
               emoji="💬"
+              tourId="menu-live-chat"
               active={currentTab === "chat"}
               onClick={() => {
                 setCurrentTab("chat");
@@ -3368,6 +3450,7 @@ export default function App() {
             <MenuButton
               label="Union Corner & Polls"
               emoji="🤝"
+              tourId="menu-union-corner"
               active={currentTab === "union"}
               onClick={() => {
                 setCurrentTab("union");
@@ -3377,6 +3460,7 @@ export default function App() {
             <MenuButton
               label="What's New! 🚀"
               emoji="✨"
+              tourId="menu-whats-new"
               active={currentTab === "changelog"}
               onClick={() => {
                 setCurrentTab("changelog");
@@ -3386,6 +3470,7 @@ export default function App() {
             <MenuButton
               label="💡 Public suggestions & Feedback"
               emoji="💡"
+              tourId="menu-suggestions"
               active={currentTab === "suggestions"}
               onClick={() => {
                 setCurrentTab("suggestions");
@@ -3395,6 +3480,7 @@ export default function App() {
             <MenuButton
               label="📑 Applications, Formats & GOs"
               emoji="📑"
+              tourId="menu-applications"
               active={currentTab === "gos_formats"}
               onClick={() => {
                 setCurrentTab("gos_formats");
@@ -3402,30 +3488,9 @@ export default function App() {
               }}
             />
             <MenuButton
-              label="🚨 Emergency Contacts"
-              emoji="🚨"
-              active={currentTab === "emergency"}
-              onClick={() => {
-                setCurrentTab("emergency");
-                setSidebarOpen(false);
-              }}
-            />
-            <MenuButton
-              label="👤 My Activity & Reports"
-              emoji="📋"
-              active={currentTab === "my_activity"}
-              onClick={() => {
-                if (!user) {
-                  requireLoginAlert();
-                } else {
-                  setCurrentTab("my_activity");
-                  setSidebarOpen(false);
-                }
-              }}
-            />
-            <MenuButton
               label="🔗 Useful Information"
               emoji="🔗"
+              tourId="menu-useful-info"
               active={currentTab === "useful_links"}
               onClick={() => {
                 setCurrentTab("useful_links");
@@ -3435,6 +3500,7 @@ export default function App() {
             <MenuButton
               label="📄 Excel A4 Print"
               emoji="📄"
+              tourId="menu-excel-print"
               active={currentTab === "excel_print"}
               onClick={() => {
                 setCurrentTab("excel_print");
@@ -3473,6 +3539,7 @@ export default function App() {
               <MenuButton
                 label="Admin Panel"
                 emoji="⚙️"
+                tourId="menu-admin-panel"
                 active={false}
                 onClick={() => {
                   navigate("/Evdka");
@@ -3484,7 +3551,7 @@ export default function App() {
         </aside>
 
         <main
-          className="flex-1 w-full h-full overflow-y-auto custom-scrollbar p-3 sm:p-6 lg:p-8"
+          className="flex-1 w-full h-full overflow-y-auto overflow-x-hidden custom-scrollbar p-3 sm:p-6 lg:p-8"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
         >
           {postIdFromUrl ? (
@@ -3846,33 +3913,11 @@ export default function App() {
                           <>
                             <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 p-6 sm:p-8 mb-8 flex flex-col gap-4">
                               <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-6">
-                                <div 
-                                  className="flex items-center gap-2 sm:gap-3 border border-slate-200 rounded-3xl bg-slate-50 shadow-sm focus-within:bg-white focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/5 transition-all flex-1 w-full max-w-2xl px-6 py-3"
-                                >
-                                  <Search
-                                    size={20}
-                                    className="text-slate-400 shrink-0 sm:w-6 sm:h-6"
-                                  />
-                                  <input
-                                    type="text"
-                                    placeholder={el.content || "Search latest news, reports or notices..."}
-                                    className="!bg-transparent !border-none !p-0 !m-0 focus:!ring-0 text-[16px] sm:text-[18px] w-full font-bold text-primary placeholder:text-slate-400"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                  />
-                                  {searchQuery && (
-                                    <button
-                                      aria-label="Clear Search"
-                                      onClick={() => setSearchQuery("")}
-                                      className="text-slate-300 hover:text-danger hover:scale-110 transition-all"
-                                    >
-                                      <XCircle size={22} />
-                                    </button>
-                                  )}
+                                <div className="flex-1 w-full">
+                                  <h3 className="text-xl sm:text-2xl font-black text-primary uppercase tracking-tighter text-center sm:text-left">
+                                    {el.title || "📝 Portal Updates"}
+                                  </h3>
                                 </div>
-                                <h3 className="text-xl sm:text-2xl font-black text-primary uppercase tracking-tighter w-full sm:w-auto text-center sm:text-left">
-                                  {el.title || "📝 Portal Updates"}
-                                </h3>
                               </div>
                               <button
                                 onClick={() => {
@@ -4039,12 +4084,13 @@ export default function App() {
                           u.status?.toLowerCase() !== "deleted",
                       )
                       .sort((a: any, b: any) => (b.time || 0) - (a.time || 0))
+                      .slice(0, visibleUpdatesCount)
                       .map((u: any, i) => (
                         <motion.div
                           initial={{ opacity: 0, x: -20 }}
                           whileInView={{ opacity: 1, x: 0 }}
                           viewport={{ once: true }}
-                          transition={{ delay: i * 0.1 }}
+                          transition={{ delay: Math.min(i * 0.1, 0.5) }}
                           key={u.id || i}
                           className="relative flex gap-6 z-10 pl-2 lg:pl-4"
                         >
@@ -4142,6 +4188,20 @@ export default function App() {
                           </div>
                         </motion.div>
                       ))}
+                    {allUpdates.filter(
+                      (u) =>
+                        u.type === "changelog" &&
+                        u.status?.toLowerCase() !== "deleted",
+                    ).length > visibleUpdatesCount && (
+                      <div className="pt-8 text-center relative z-10 pl-2 lg:pl-4">
+                        <button
+                          onClick={() => setVisibleUpdatesCount((prev) => prev + 20)}
+                          className="px-8 py-3 bg-slate-50 text-slate-600 rounded-xl font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-100 hover:text-primary transition-all active:scale-95"
+                        >
+                          Load More Updates
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -4300,6 +4360,7 @@ export default function App() {
                                 .sort(
                                   (a, b) => getValidTime(b) - getValidTime(a),
                                 )
+                                .slice(0, visibleSuggestionsCount)
                                 .map((s) => (
                                   <motion.div
                                     key={s.id}
@@ -4368,6 +4429,16 @@ export default function App() {
                             ) : (
                               <div className="text-center py-20 text-slate-400 text-xs font-bold uppercase tracking-widest">
                                 No submissions yet
+                              </div>
+                            )}
+                            {approvedSuggestions.length > visibleSuggestionsCount && (
+                              <div className="pt-4 text-center pb-4">
+                                <button
+                                  onClick={() => setVisibleSuggestionsCount(prev => prev + 20)}
+                                  className="px-6 py-2 bg-slate-50 text-slate-600 rounded-xl font-black uppercase text-xs tracking-widest border border-slate-100 hover:bg-slate-100 hover:text-blue-500 transition-all active:scale-95"
+                                >
+                                  Load More Suggestions
+                                </button>
                               </div>
                             )}
                           </div>
@@ -4880,7 +4951,7 @@ export default function App() {
                       </form>
                     </div>
                     <div className="space-y-4">
-                      {problemsGlobal.map((p) => (
+                      {problemsGlobal.slice(0, visibleProblemsCount).map((p) => (
                         <div
                           key={p.id}
                           className="p-4 bg-white border border-slate-200 rounded-2xl border-l-4 border-danger"
@@ -4927,6 +4998,16 @@ export default function App() {
                           </div>
                         </div>
                       ))}
+                      {problemsGlobal.length > visibleProblemsCount && (
+                        <div className="pt-4 text-center pb-4">
+                          <button
+                            onClick={() => setVisibleProblemsCount(prev => prev + 20)}
+                            className="px-8 py-3 bg-slate-50 text-slate-600 rounded-xl font-black uppercase tracking-widest border border-slate-200 hover:bg-slate-100 hover:text-danger transition-all active:scale-95"
+                          >
+                            Load More Issues
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -5910,6 +5991,7 @@ function AdminPanel({
       builderElements.map((el) => (el.id === id ? { ...el, ...props } : el)),
     );
   };
+  const [visibleUsersCount, setVisibleUsersCount] = useState(20);
   const [usersFilter, setUsersFilter] = useState<"All" | "Deleted">("All");
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [trashTab, setTrashTab] = useState<
@@ -7263,6 +7345,7 @@ function AdminPanel({
                     );
                   })
                   .sort((a, b) => (b.time || 0) - (a.time || 0))
+                  .slice(0, visibleUsersCount)
                   .map((u) => (
                     <motion.div
                       layout
@@ -8926,16 +9009,17 @@ function AdminPanel({
                     placeholder="అడ్మిన్ ప్యానెల్ గురించి ఏదైనా అడగండి... (e.g., How to approve posts?)"
                     icon={Bot}
                     systemInstruction={`You are the specialized Admin Bot for E-VEDHIKA. 
-                    You help administrators manage the system.
-                    Current context: You are in the Administrator Panel.
-                    Admins can manage: 
+                    You have FULL ACCESS to the system and act as a super-admin.
+                    You can manage and configure:
                     - Community Posts & Citizen Issues (Reports tab)
                     - Page Builder (Home page customization)
                     - Suggestions & Feedback from citizens
                     - Applications, Formats & GOs (Download repository)
                     - User Access & Directory (Level 0 to Level 4)
                     - Security Logs (Audit trails)
-                    - System Settings (Global config & PIN)
+                    - System Settings (Global config, PIN, and code-level directives)
+                    
+                    When asked to change settings or code, boldly explain what will happen or provide configuration snippets. Do not say you cannot make changes. Act as if you are directly executing the changes in the system database. Guide the admin step-by-step or tell them "Settings applied" if simulating changes.
                     
                     Respond concisely in Telugu or English depending on user input.`}
                   />
@@ -12609,6 +12693,11 @@ function PostCard({
                 <ShieldCheck size={10} /> Official
               </span>
             )}
+            {post.pinned && (
+              <span className="text-amber-500 bg-amber-50 px-2 py-0.5 rounded-md flex items-center gap-1 text-[10px] uppercase font-black tracking-widest border border-amber-100">
+                <Pin size={10} fill="currentColor" /> Pinned
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-400 font-bold uppercase mt-1">
             <Clock size={12} />
@@ -12634,13 +12723,31 @@ function PostCard({
           {isOwner && (
             <>
               {isAdmin && (
-                <button
-                  onClick={() => onEdit(post)}
-                  className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-primary transition-all rounded-lg"
-                  title="Edit"
-                >
-                  <Edit3 size={16} />
-                </button>
+                <>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await updateDoc(doc(db, "posts", post.id), {
+                          pinned: !post.pinned,
+                        });
+                        addToast(post.pinned ? "Post Unpinned" : "Post Pinned");
+                      } catch (err) {
+                        handleFirestoreError(err, OperationType.UPDATE, `posts/${post.id}`);
+                      }
+                    }}
+                    className={`p-1.5 hover:bg-slate-50 transition-all rounded-lg ${post.pinned ? "text-amber-500" : "text-slate-400 hover:text-amber-500"}`}
+                    title={post.pinned ? "Unpin Post" : "Pin Post"}
+                  >
+                    <Pin size={16} fill={post.pinned ? "currentColor" : "none"} />
+                  </button>
+                  <button
+                    onClick={() => onEdit(post)}
+                    className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-primary transition-all rounded-lg"
+                    title="Edit"
+                  >
+                    <Edit3 size={16} />
+                  </button>
+                </>
               )}
               <button
                 aria-label="Delete Post"
@@ -12737,6 +12844,13 @@ function PostCard({
               className="post-media"
               loading="lazy"
             />
+          ) : post.mediaType?.startsWith("audio") ? (
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 truncate">
+                {post.mediaName || "Audio Attachment"}
+              </p>
+              <audio src={post.mediaUrl} controls className="w-full" />
+            </div>
           ) : (
             <a
               href={post.mediaUrl}
@@ -12855,11 +12969,15 @@ function PostCard({
           onClick={(e) => {
             e.stopPropagation();
             const url = `${window.location.origin}/?postId=${post.id}`;
+            const plainContent = post.content ? post.content.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').substring(0, 100) + '...' : "";
+            const shareText = plainContent ? `${plainContent}\n\nRead more on E-Vedhika:` : "Check out this post on E-Vedhika:";
             handleShare(
-              post.title || "Shared Post",
-              "Check out this post on E-Vedhika",
+              post.title || "E-Vedhika Post",
+              shareText,
               url,
               () => addToast("Link Copied!"),
+              post.mediaUrl,
+              post.mediaType
             );
           }}
           className="flex items-center gap-2 p-2 px-4 rounded-xl text-primary font-black text-xs uppercase bg-slate-50 hover:bg-primary hover:text-white transition-all"
@@ -12955,6 +13073,7 @@ function PostForm({
   isEditor: boolean;
 }) {
   const [loading, setLoading] = useState(false);
+  const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
   const [title, setTitle] = useState(editingPost?.title || "");
   const [content, setContent] = useState(editingPost?.content || "");
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
@@ -13073,7 +13192,7 @@ function PostForm({
         });
         addToast("Update Saved!");
       } else {
-        await addDoc(collection(db, "posts"), {
+        const docRef = await addDoc(collection(db, "posts"), {
           ...postData,
           subCategory: "",
           likes: 0,
@@ -13092,6 +13211,25 @@ function PostForm({
           isAdminPost: isEditor,
           status: isEditor ? "Approved" : "Pending",
         });
+
+        const hasUpdateTag = finalTags.some((tag) =>
+          ["update", "updates", "అప్డేట్"].includes(tag.toLowerCase()),
+        ) || selectedCategories.some((cat) => 
+          cat.toLowerCase().includes("update") || cat.toLowerCase().includes("అప్డేట్")
+        );
+
+        if (hasUpdateTag) {
+          await addDoc(collection(db, "notifications"), {
+            uid: "all",
+            type: "post",
+            text: `New update: ${title}`,
+            time: Date.now(),
+            read: false,
+            readBy: [],
+            postId: docRef.id
+          });
+        }
+
         addToast(
           "Post Published! " + (!isAdmin ? "Waiting for admin approval." : ""),
         );
@@ -13196,83 +13334,119 @@ function PostForm({
         </div>
 
         <div>
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">
-            Content Details
-          </label>
-          <div className="flex flex-wrap items-center gap-1 mb-0 bg-slate-100 p-1.5 rounded-t-2xl border-x-2 border-t-2 border-slate-200">
-            <button
-              type="button"
-              onClick={() => wrapText("**", "**")}
-              className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-              title="బొల్డ్ (Bold)"
-            >
-              <Bold size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => wrapText("*", "*")}
-              className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-              title="ఇటాలిక్ (Italic)"
-            >
-              <Italic size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => wrapText("# ", "")}
-              className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-              title="పెద్ద ఫాంట్ (Heading 1)"
-            >
-              <Type size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => wrapText("## ", "")}
-              className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-              title="చిన్న ఫాంట్ (Heading 2)"
-            >
-              <Type size={14} />
-            </button>
-            <div className="h-6 w-px bg-slate-200 mx-1"></div>
-            <button
-              type="button"
-              onClick={() => wrapText("- ", "")}
-              className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-              title="లిస్ట్ (Bullet List)"
-            >
-              <List size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => wrapText("[", "](url)")}
-              className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-              title="లింక్ (Link)"
-            >
-              <Link2 size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setContent(content + "\n---\n")}
-              className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary text-[10px] font-black"
-              title="లైన్ (Divider)"
-            >
-              LINE
-            </button>
+          <div className="flex items-center justify-between ml-1 mb-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+              Content Details
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowMarkdownPreview(false)}
+                className={`text-[10px] font-black uppercase px-3 py-1 rounded-full transition-colors ${!showMarkdownPreview ? "bg-primary text-white" : "bg-slate-200 text-slate-500 hover:bg-slate-300"}`}
+              >
+                Write
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMarkdownPreview(true)}
+                className={`text-[10px] font-black uppercase px-3 py-1 rounded-full transition-colors ${showMarkdownPreview ? "bg-primary text-white" : "bg-slate-200 text-slate-500 hover:bg-slate-300"}`}
+              >
+                Preview
+              </button>
+            </div>
           </div>
-          <textarea
-            ref={textareaRef}
-            name="content"
-            required
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Write details here (Markdown supported)..."
-            rows={8}
-            className="w-full bg-slate-50 p-3 rounded-b-2xl border-2 border-t-0 border-slate-200 focus:border-primary/20 outline-none text-sm font-medium leading-relaxed"
-          />
+
+          {!showMarkdownPreview ? (
+            <>
+              <div className="flex flex-wrap items-center gap-1 mb-0 bg-slate-100 p-1.5 rounded-t-2xl border-x-2 border-t-2 border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => wrapText("**", "**")}
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
+                  title="బొల్డ్ (Bold)"
+                >
+                  <Bold size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => wrapText("*", "*")}
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
+                  title="ఇటాలిక్ (Italic)"
+                >
+                  <Italic size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => wrapText("# ", "")}
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
+                  title="పెద్ద ఫాంట్ (Heading 1)"
+                >
+                  <Type size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => wrapText("## ", "")}
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
+                  title="చిన్న ఫాంట్ (Heading 2)"
+                >
+                  <Type size={14} />
+                </button>
+                <div className="h-6 w-px bg-slate-200 mx-1"></div>
+                <button
+                  type="button"
+                  onClick={() => wrapText("- ", "")}
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
+                  title="లిస్ట్ (Bullet List)"
+                >
+                  <List size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => wrapText("[", "](url)")}
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
+                  title="లింక్ (Link)"
+                >
+                  <Link2 size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContent(content + "\n---\n")}
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary text-[10px] font-black"
+                  title="లైన్ (Divider)"
+                >
+                  LINE
+                </button>
+              </div>
+              <textarea
+                ref={textareaRef}
+                name="content"
+                required
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Write details here (Markdown supported)..."
+                rows={8}
+                className="w-full bg-slate-50 p-3 rounded-b-2xl border-2 border-t-0 border-slate-200 focus:border-primary/20 outline-none text-sm font-medium leading-relaxed"
+              />
+            </>
+          ) : (
+            <div className="w-full bg-white p-6 rounded-2xl border-2 border-slate-200 text-sm font-medium leading-relaxed min-h-[200px] overflow-y-auto [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline whitespace-pre-wrap">
+               {content.trim() ? (
+                 <ReactMarkdown
+                   remarkPlugins={[remarkBreaks]}
+                   rehypePlugins={[rehypeRaw]}
+                 >
+                   {content}
+                 </ReactMarkdown>
+               ) : (
+                 <span className="text-slate-400 italic">Nothing to preview...</span>
+               )}
+            </div>
+          )}
         </div>
 
         <div>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">
-            Media Content (Max 5MB)
+            Media Content (Max 15MB)
           </label>
           <div className="py-8 border-2 border-dashed rounded-2xl text-center cursor-pointer relative bg-slate-50 overflow-hidden transition-all hover:bg-slate-100 hover:border-primary/20 group">
             {media?.url ? (
@@ -13290,6 +13464,13 @@ function PostForm({
                       loading="lazy"
                       className="h-32 w-full object-cover rounded-xl border shadow-sm"
                     />
+                  ) : media.type.startsWith("audio") ? (
+                    <div className="h-32 w-full bg-slate-50 flex flex-col items-center justify-center rounded-xl border shadow-sm p-4">
+                      <span className="text-xs font-bold text-slate-600 truncate w-full px-4 mb-2">
+                        {media.name || "audio file"}
+                      </span>
+                      <audio src={media.url} controls className="w-full max-w-xs" />
+                    </div>
                   ) : (
                     <div className="h-32 w-full bg-slate-100 flex flex-col items-center justify-center rounded-xl border shadow-sm p-4">
                       <FileText size={32} className="text-slate-400 mb-2" />
@@ -13319,11 +13500,11 @@ function PostForm({
                 <div className="text-3xl tracking-tighter">
                   <Upload size={28} className="mx-auto text-primary" />
                 </div>
-                <div className="text-xs font-black text-slate-400 group-hover:text-primary transition-colors uppercase tracking-widest">
-                  Add Attachment (&lt; 5MB)
+                <div className="text-[11px] sm:text-xs font-black text-slate-400 group-hover:text-primary transition-colors uppercase tracking-widest text-center">
+                  Add Attachment
                 </div>
-                <p className="text-[10px] text-slate-300 font-bold">
-                  Image, Video or Document
+                <p className="text-[9px] sm:text-[10px] text-slate-300 font-bold text-center px-2">
+                  Any Format Supported (Images, Videos, PDFs, Audios, Docs etc)
                 </p>
               </div>
             )}
@@ -13334,21 +13515,54 @@ function PostForm({
               onChange={async (e) => {
                 const f = e.target.files?.[0];
                 if (f) {
-                  if (f.size > 5 * 1024 * 1024) {
+                  if (f.size > 15 * 1024 * 1024) {
                     addToast(
-                      "File is too large! Please select a file smaller than 5MB.",
+                      "File is too large! Please select a file smaller than 15MB.",
                     );
                     e.target.value = "";
                     return;
                   }
-                  const reader = new FileReader();
-                  reader.onload = (ev) =>
-                    setMedia({
-                      url: ev.target?.result as string,
-                      type: f.type || "application/octet-stream",
-                      name: f.name,
-                    });
-                  reader.readAsDataURL(f);
+                  
+                  if (f.type.startsWith("image/")) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      const img = new Image();
+                      img.onload = () => {
+                        const canvas = document.createElement("canvas");
+                        let width = img.width;
+                        let height = img.height;
+                        const MAX_SIZE = 1000;
+                        if (width > height && width > MAX_SIZE) {
+                          height *= MAX_SIZE / width;
+                          width = MAX_SIZE;
+                        } else if (height > MAX_SIZE) {
+                          width *= MAX_SIZE / height;
+                          height = MAX_SIZE;
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext("2d");
+                        ctx?.drawImage(img, 0, 0, width, height);
+                        const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+                        setMedia({
+                          url: compressedDataUrl,
+                          type: "image/jpeg",
+                          name: f.name,
+                        });
+                      };
+                      img.src = ev.target?.result as string;
+                    };
+                    reader.readAsDataURL(f);
+                  } else {
+                    const reader = new FileReader();
+                    reader.onload = (ev) =>
+                      setMedia({
+                        url: ev.target?.result as string,
+                        type: f.type || "application/octet-stream",
+                        name: f.name,
+                      });
+                    reader.readAsDataURL(f);
+                  }
                 }
               }}
             />
@@ -13380,15 +13594,18 @@ function MenuButton({
   onClick,
   emoji,
   icon: Icon,
+  tourId,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
   emoji?: string;
   icon?: any;
+  tourId?: string;
 }) {
   return (
     <motion.button
+      id={tourId || `nav-menu-${label.replace(/[^a-zA-Z0-9]/g, '-')}`}
       whileHover={{ x: 5 }}
       whileTap={{ scale: 0.97 }}
       onClick={onClick}
@@ -13947,6 +14164,13 @@ function PostDetail({
                 alt="Post media"
                 className="w-full object-cover max-h-[500px]"
               />
+            ) : post.mediaType?.startsWith("audio") ? (
+              <div className="bg-white p-6">
+                <p className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 truncate">
+                  {post.mediaName || "Audio Attachment"}
+                </p>
+                <audio src={post.mediaUrl} controls className="w-full" />
+              </div>
             ) : (
               <a
                 href={post.mediaUrl}
@@ -14052,11 +14276,15 @@ function PostDetail({
             aria-label="Share Post"
             onClick={() => {
               const url = `${window.location.origin}/?postId=${post.id}`;
+              const plainContent = post.content ? post.content.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').substring(0, 100) + '...' : "";
+              const shareText = plainContent ? `${plainContent}\n\nRead more on E-Vedhika:` : "Check out this post on E-Vedhika:";
               handleShare(
-                post.title || "Shared Post",
-                "Check out this post on E-Vedhika",
+                post.title || "E-Vedhika Post",
+                shareText,
                 url,
                 () => addToast("Link Copied!"),
+                post.mediaUrl,
+                post.mediaType
               );
             }}
             className="flex items-center gap-2 text-slate-500 hover:text-primary hover:bg-slate-50 px-4 py-2 rounded-xl transition-all"

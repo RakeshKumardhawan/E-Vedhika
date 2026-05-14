@@ -40,6 +40,37 @@ async function startServer() {
     app.use(express.static(distPath, { index: false })); // Disable index.html auto-serving so we can intercept it
   }
 
+  // Image server endpoint
+  app.get('/api/image/:collection/:id', async (req, res) => {
+    const { collection, id } = req.params;
+    try {
+      const fbConfig = JSON.parse(await fs.readFile(path.resolve(__dirname, 'firebase-applet-config.json'), 'utf-8'));
+      const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${fbConfig.projectId}/databases/(default)/documents/${collection}/${id}?key=${fbConfig.apiKey}`;
+      const response = await fetch(firestoreUrl);
+      if (response.ok) {
+        const data = await response.json();
+        const mediaUrl = data.fields?.mediaUrl?.stringValue || data.fields?.imageUrl?.stringValue;
+        if (mediaUrl && mediaUrl.startsWith('data:')) {
+          const matches = mediaUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+          if (matches && matches.length === 3) {
+            const contentType = matches[1];
+            const base64Data = matches[2];
+            const buffer = Buffer.from(base64Data, 'base64');
+            res.set('Content-Type', contentType);
+            // Optional caching
+            res.set('Cache-Control', 'public, max-age=86400');
+            res.send(buffer);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error serving image", e);
+    }
+    // Fallback placeholder
+    res.redirect('https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika');
+  });
+
   // Fallback to index.html for SPA routing and inject dynamic Open Graph tags
   app.get('*', async (req, res) => {
     try {
@@ -86,10 +117,13 @@ async function startServer() {
               }
 
               // Image extraction
-              if (data.fields.mediaUrl?.stringValue && !data.fields.mediaUrl.stringValue.startsWith('data:')) {
-                ogImage = data.fields.mediaUrl.stringValue;
-              } else if (data.fields.imageUrl?.stringValue && !data.fields.imageUrl.stringValue.startsWith('data:')) {
-                ogImage = data.fields.imageUrl.stringValue;
+              if (data.fields.mediaUrl?.stringValue || data.fields.imageUrl?.stringValue) {
+                const img = data.fields.mediaUrl?.stringValue || data.fields.imageUrl?.stringValue;
+                if (img.startsWith('data:')) {
+                  ogImage = `${protocol}://${req.get('host')}/api/image/${targetCollection}/${targetId}`;
+                } else {
+                  ogImage = img;
+                }
               } else {
                 ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
               }

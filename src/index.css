@@ -223,7 +223,7 @@ header {
   align-items: center;
   border-bottom: 1px solid #cbd5e1;
   position: sticky;
-  top: 0;
+  top: calc(var(--header-h) + env(safe-area-inset-top));
   z-index: 1000;
 }
 @media (min-width: 640px) {
