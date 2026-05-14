@@ -8,18 +8,40 @@ import { registerSW } from 'virtual:pwa-register';
 
 // Automatically check for updates and update the service worker
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (let registration of registrations) {
-      registration.update();
+  let refreshing = false;
+  
+  // When the service worker updates and takes control, reload the page instantly
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
     }
   });
+
+  // Check for updates proactively when the app is resumed (opened again)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      navigator.serviceWorker.ready.then((registration) => {
+        registration.update();
+      });
+    }
+  });
+
+  // Also check for updates every 5 minutes automatically in the background
+  setInterval(() => {
+    navigator.serviceWorker.ready.then((registration) => {
+      if (registration) {
+        registration.update();
+      }
+    });
+  }, 5 * 60 * 1000); // 5 minutes
 
   registerSW({
     immediate: true,
     onNeedRefresh() {
-      if (confirm('E-Vedhika కొత్త అప్‌డేట్ మరియు కొత్త లోగో వచ్చింది! యాప్ ను రీస్టార్ట్ చేయమంటారా? (New update available, refresh now?)')) {
-        window.location.reload();
-      }
+      // Auto skip waiting and refresh - no confirmation needed
+      // With registerType: 'autoUpdate', this is usually handled automatically, 
+      // but if it ever triggers, we force a silent reload to ensure they get the update.
     }
   });
 }

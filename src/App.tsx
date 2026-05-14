@@ -96,6 +96,7 @@ import {
   Mic,
   ExternalLink,
   Target,
+  HardDrive,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
@@ -12851,12 +12852,33 @@ function PostCard({
               </p>
               <audio src={post.mediaUrl} controls className="w-full" />
             </div>
+          ) : post.mediaType === "link" ? (
+            <a
+              href={post.mediaUrl.startsWith("http") ? post.mediaUrl : `https://${post.mediaUrl}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center p-4 bg-blue-50/50 border border-blue-100 rounded-2xl hover:bg-blue-50 transition-colors w-full group"
+            >
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex flex-shrink-0 items-center justify-center mr-4 group-hover:scale-110 transition-transform">
+                <Link2 size={24} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h5 className="font-bold text-slate-800 text-sm truncate">
+                  {post.mediaName || "External Link"}
+                </h5>
+                <p className="text-xs text-slate-500 truncate mt-0.5" dir="ltr">
+                  {post.mediaUrl}
+                </p>
+              </div>
+            </a>
           ) : (
             <a
               href={post.mediaUrl}
               download={post.mediaName || "Document"}
               target="_blank"
               rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
               className="flex items-center p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:bg-slate-100 hover:border-primary/30 transition-colors w-full group"
             >
               <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex flex-shrink-0 items-center justify-center mr-4 group-hover:scale-110 transition-transform">
@@ -13124,22 +13146,16 @@ function PostForm({
   const CATEGORIES = [
     "📌 General",
     "📊 Daily Reports",
-    "📢 Updates",
     "🗳️ Election",
     "🏛️ Mana Panchayath",
-    "💬 Live Chat",
-    "🤝 Union Corner",
-    "✨ Platform Updates",
     "💡 Suggestions & Feedback",
     "📑 Applications & GOs",
-    "🚨 Emergency Contacts",
     "🔗 Useful Information",
-    "🏠 ePanchayat Home Issue",
+    "🏠 ePanchayat Issue",
     "💰 Online Tax Collection Issue",
-    "📂 UBD Portal Issue",
-    "📉 UBD MIS Status Issue",
-    "🗳️ TSEC Poll Login Issue",
-    "🛠️ eGramSwaraj Issue",
+    "📂 Ubd Portal Issue",
+    "🗳️ TSEC Poll Issue",
+    "🛠️ eGramSwaraj doubts",
   ];
 
   const toggleCategory = (cat: string) => {
@@ -13429,28 +13445,120 @@ function PostForm({
               />
             </>
           ) : (
-            <div className="w-full bg-white p-6 rounded-2xl border-2 border-slate-200 text-sm font-medium leading-relaxed min-h-[200px] overflow-y-auto [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline whitespace-pre-wrap">
-               {content.trim() ? (
-                 <ReactMarkdown
-                   remarkPlugins={[remarkBreaks]}
-                   rehypePlugins={[rehypeRaw]}
-                 >
-                   {content}
-                 </ReactMarkdown>
-               ) : (
-                 <span className="text-slate-400 italic">Nothing to preview...</span>
-               )}
+            <div className="w-full bg-white p-6 rounded-2xl border-2 border-slate-200 min-h-[300px] overflow-y-auto">
+              {/* Full Post Preview */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  {currentUserProfile?.photoURL ? (
+                    <img src={currentUserProfile.photoURL} alt="Author" className="w-10 h-10 rounded-full object-cover border-2 border-slate-100 shadow-sm" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-blue-500 flex items-center justify-center text-white font-bold shadow-sm">
+                      {currentUserProfile?.displayName?.charAt(0) || "U"}
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm">{currentUserProfile?.displayName || "You"}</h3>
+                    <p className="text-[10px] sm:text-xs text-slate-500 font-medium">Just now (Preview)</p>
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-full bg-primary/10 text-primary whitespace-nowrap">
+                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                    <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider">{selectedCategories[0] || "General"}</span>
+                  </span>
+                </div>
+              </div>
+
+              <h4 className="post-title !mt-0 whitespace-pre-wrap">
+                {formatPostTitle(title) || "Post Title Preview"}
+              </h4>
+
+              {tags && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {tags.split(",").map((tag, i) => tag.trim() && (
+                    <span key={i} className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-1 border border-slate-200/50">
+                      <Hash size={10} strokeWidth={3} /> {tag.trim()}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="post-body mb-4 whitespace-pre-wrap [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline">
+                {content.trim() ? (
+                  <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>
+                    {content}
+                  </ReactMarkdown>
+                ) : (
+                  <span className="text-slate-400 italic">No content to preview...</span>
+                )}
+              </div>
+
+              {websiteName && (
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between mb-4 group">
+                  <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-wider">
+                    <div className="w-6 h-6 bg-primary text-white rounded-lg flex items-center justify-center">
+                      <ExternalLink size={12} strokeWidth={3} />
+                    </div>
+                    {websiteName}
+                  </div>
+                </div>
+              )}
+
+              {media?.url && (
+                <div className="mb-4">
+                  {media.type?.startsWith("video") ? (
+                    <video src={media.url} controls className="post-media" />
+                  ) : media.type?.startsWith("image") ? (
+                    <img src={media.url} alt="Media preview" className="post-media" loading="lazy" />
+                  ) : media.type?.startsWith("audio") ? (
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 truncate">
+                        {media.name || "Audio Attachment"}
+                      </p>
+                      <audio src={media.url} controls className="w-full" />
+                    </div>
+                  ) : media.type === "link" ? (
+                    <div className="flex items-center p-4 bg-blue-50/50 border border-blue-100 rounded-2xl w-full">
+                      <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex flex-shrink-0 items-center justify-center mr-4">
+                        <Link2 size={24} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-bold text-slate-800 truncate mb-1">
+                          {media.name || "External Link"}
+                        </h4>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">
+                          {media.url}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center p-4 bg-slate-50 border border-slate-200 rounded-2xl w-full">
+                      <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex flex-shrink-0 items-center justify-center mr-4">
+                        <FileText size={24} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-bold text-slate-800 truncate mb-1">
+                          {media.name || "Document Attached"}
+                        </h4>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          Document Upload
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
 
         <div>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">
-            Media Content (Max 15MB)
+            Media Content
           </label>
-          <div className="py-8 border-2 border-dashed rounded-2xl text-center cursor-pointer relative bg-slate-50 overflow-hidden transition-all hover:bg-slate-100 hover:border-primary/20 group">
+          <div className="p-4 border-2 border-dashed rounded-2xl relative bg-slate-50 transition-all hover:bg-slate-100 hover:border-primary/20">
             {media?.url ? (
-              <div className="space-y-3 px-4">
+              <div className="space-y-3 px-4 py-4 text-center">
                 <div className="relative inline-block w-full max-w-sm">
                   {media.type.startsWith("video") ? (
                     <video
@@ -13496,76 +13604,104 @@ function PostForm({
                 </p>
               </div>
             ) : (
-              <div className="space-y-2 py-4">
-                <div className="text-3xl tracking-tighter">
-                  <Upload size={28} className="mx-auto text-primary" />
+              <div className="flex flex-col items-center py-4">
+                <div className="text-[11px] sm:text-xs font-black text-slate-400 uppercase tracking-widest text-center mb-6">
+                  Upload Attachment From
                 </div>
-                <div className="text-[11px] sm:text-xs font-black text-slate-400 group-hover:text-primary transition-colors uppercase tracking-widest text-center">
-                  Add Attachment
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full px-2 max-w-lg">
+                  {/* Local Device */}
+                  <div className="relative group/btn cursor-pointer bg-white border-2 border-slate-200 rounded-xl p-4 hover:border-primary/50 transition-all flex flex-col items-center gap-2">
+                    <HardDrive size={24} className="text-slate-400 group-hover/btn:text-primary transition-colors" />
+                    <span className="text-[10px] font-bold text-slate-500 group-hover/btn:text-primary text-center uppercase tracking-wider">Local Device</span>
+                    <input
+                      type="file"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      accept="*/*"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (f) {
+                          if (f.type.startsWith("image/")) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const img = new Image();
+                              img.onload = () => {
+                                const canvas = document.createElement("canvas");
+                                let width = img.width;
+                                let height = img.height;
+                                const MAX_SIZE = 1000;
+                                if (width > height && width > MAX_SIZE) {
+                                  height *= MAX_SIZE / width;
+                                  width = MAX_SIZE;
+                                } else if (height > MAX_SIZE) {
+                                  width *= MAX_SIZE / height;
+                                  height = MAX_SIZE;
+                                }
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext("2d");
+                                ctx?.drawImage(img, 0, 0, width, height);
+                                const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+                                setMedia({
+                                  url: compressedDataUrl,
+                                  type: "image/jpeg",
+                                  name: f.name,
+                                });
+                              };
+                              img.src = ev.target?.result as string;
+                            };
+                            reader.readAsDataURL(f);
+                          } else {
+                            const reader = new FileReader();
+                            reader.onload = (ev) =>
+                              setMedia({
+                                url: ev.target?.result as string,
+                                type: f.type || "application/octet-stream",
+                                name: f.name,
+                              });
+                            reader.readAsDataURL(f);
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Links */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = prompt("Enter link/URL:");
+                      if (url) {
+                        try {
+                          const u = new URL(url);
+                          const host = u.hostname.toLowerCase();
+                          let linkName = 'External Link';
+                          if (host.includes('youtube.com') || host.includes('youtu.be')) linkName = 'YouTube Video';
+                          else if (host.includes('drive.google.com')) linkName = 'Google Drive File';
+                          else if (host.includes('facebook.com')) linkName = 'Facebook Link';
+                          else if (host.includes('twitter.com') || host.includes('x.com')) linkName = 'X/Twitter Link';
+                          else if (host.includes('instagram.com')) linkName = 'Instagram Link';
+                          else if (host.includes('tsec.gov.in')) linkName = 'TSEC Portal Link';
+                          else if (host.includes('epanchayat.telangana.gov.in')) linkName = 'ePanchayat Link';
+                          else if (host.includes('ubd.telangana.gov.in')) linkName = 'UBD Portal Link';
+                          else if (host.includes('egramswaraj.gov.in')) linkName = 'eGramSwaraj Link';
+                          else linkName = host;
+                          setMedia({ url, type: "link", name: linkName });
+                        } catch(e) {
+                          setMedia({ url, type: "link", name: "External Link" });
+                        }
+                      }
+                    }}
+                    className="group/btn cursor-pointer bg-white border-2 border-slate-200 rounded-xl p-4 hover:border-blue-500/50 transition-all flex flex-col items-center gap-2"
+                  >
+                    <Link2 size={24} className="text-slate-400 group-hover/btn:text-blue-500 transition-colors" />
+                    <span className="text-[10px] font-bold text-slate-500 group-hover/btn:text-blue-500 text-center uppercase tracking-wider">Links</span>
+                  </button>
                 </div>
-                <p className="text-[9px] sm:text-[10px] text-slate-300 font-bold text-center px-2">
-                  Any Format Supported (Images, Videos, PDFs, Audios, Docs etc)
+                <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold text-center mt-6">
+                  Autosized for optimized upload. All formats supported.
                 </p>
               </div>
             )}
-            <input
-              type="file"
-              className="absolute inset-0 opacity-0 cursor-pointer"
-              accept="*/*"
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  if (f.size > 15 * 1024 * 1024) {
-                    addToast(
-                      "File is too large! Please select a file smaller than 15MB.",
-                    );
-                    e.target.value = "";
-                    return;
-                  }
-                  
-                  if (f.type.startsWith("image/")) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                      const img = new Image();
-                      img.onload = () => {
-                        const canvas = document.createElement("canvas");
-                        let width = img.width;
-                        let height = img.height;
-                        const MAX_SIZE = 1000;
-                        if (width > height && width > MAX_SIZE) {
-                          height *= MAX_SIZE / width;
-                          width = MAX_SIZE;
-                        } else if (height > MAX_SIZE) {
-                          width *= MAX_SIZE / height;
-                          height = MAX_SIZE;
-                        }
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext("2d");
-                        ctx?.drawImage(img, 0, 0, width, height);
-                        const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
-                        setMedia({
-                          url: compressedDataUrl,
-                          type: "image/jpeg",
-                          name: f.name,
-                        });
-                      };
-                      img.src = ev.target?.result as string;
-                    };
-                    reader.readAsDataURL(f);
-                  } else {
-                    const reader = new FileReader();
-                    reader.onload = (ev) =>
-                      setMedia({
-                        url: ev.target?.result as string,
-                        type: f.type || "application/octet-stream",
-                        name: f.name,
-                      });
-                    reader.readAsDataURL(f);
-                  }
-                }
-              }}
-            />
           </div>
         </div>
       </div>
@@ -14171,12 +14307,33 @@ function PostDetail({
                 </p>
                 <audio src={post.mediaUrl} controls className="w-full" />
               </div>
+            ) : post.mediaType === "link" ? (
+              <a
+                href={post.mediaUrl.startsWith("http") ? post.mediaUrl : `https://${post.mediaUrl}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center p-6 bg-blue-50/50 hover:bg-blue-50 transition-colors w-full group"
+              >
+                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex flex-shrink-0 items-center justify-center mr-6 group-hover:scale-110 transition-transform">
+                  <Link2 size={32} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h5 className="font-black text-slate-800 text-lg truncate">
+                    {post.mediaName || "External Link"}
+                  </h5>
+                  <p className="text-sm text-slate-500 truncate mt-1 break-all" dir="ltr">
+                    {post.mediaUrl}
+                  </p>
+                </div>
+              </a>
             ) : (
               <a
                 href={post.mediaUrl}
                 download={post.mediaName || "Document"}
                 target="_blank"
                 rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
                 className="flex items-center p-6 bg-slate-50 hover:bg-slate-100 transition-colors w-full group"
               >
                 <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex flex-shrink-0 items-center justify-center mr-6 group-hover:scale-110 transition-transform">
