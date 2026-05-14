@@ -2532,19 +2532,18 @@ export default function App() {
   };
 
   const handleGoogleLogin = async () => {
-    const loginWaitToast =
-      "Google లాగిన్ ప్రాసెస్ అవుతోంది... దయచేసి వేచి ఉండండి.";
-    addToast(loginWaitToast);
+    addToast("Google లాగిన్ కోసం పాపప్ ఓపెన్ అవుతోంది...");
 
     // Warning timeout if it takes too long
     const slowLoginWarning = setTimeout(() => {
       addToast(
-        "లాగిన్ ఆలస్యం అవుతోంది. ఒకవేళ పాపప్ రాకపోతే, యాప్‌ను కొత్త ట్యాబ్‌లో (పైన కుడివైపు అమ్ము గుర్తు) ఓపెన్ చేయండి.",
+        "ఇక్కడ లాగిన్ ఆలస్యం అవుతుంది. దయచేసి యాప్‌ను కొత్త ట్యాబ్‌లో ఓపెన్ చేసి లాగిన్ అవ్వండి (పైన కుడివైపు బాణం గుర్తు ↗). అప్పుడు త్వరగా అవుతుంది.",
       );
-    }, 8000);
+    }, 4000);
 
     try {
       const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
       const result = await signInWithPopup(auth, provider);
       clearTimeout(slowLoginWarning);
 
