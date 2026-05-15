@@ -3328,7 +3328,16 @@ export default function App() {
               <input
                 type="text"
                 placeholder="Search reports, notices, GOs and formats..."
-                className="bg-transparent border-none p-0 m-0 focus:ring-0 text-[13px] sm:text-[15px] w-full font-bold text-slate-700 placeholder:text-slate-400 outline-none h-full"
+                className="bg-transparent border-none focus:ring-0 text-[13px] sm:text-[15px] font-bold text-slate-700 placeholder:text-slate-400 outline-none"
+                style={{
+                  paddingTop: "10px",
+                  paddingBottom: "10px",
+                  marginBottom: "0px",
+                  paddingRight: "0px",
+                  paddingLeft: "0px",
+                  width: "100%",
+                  height: "40.4844px"
+                }}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
