@@ -2831,6 +2831,7 @@ export default function App() {
           <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl custom-scrollbar">
               <PostForm
+                key={editingPost?.id || "new"}
                 addToast={addToast}
                 onCancel={() => {
                   setShowPostForm(false);
@@ -3650,7 +3651,7 @@ export default function App() {
                               <Link to="?tab=reports" className="text-blue-600 font-black text-sm hover:underline">View All</Link>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {posts.slice(0, 4).map((post: any) => (
+                              {filteredPosts.slice(0, 4).map((post: any) => (
                                   <PostCard
                                     key={post.id}
                                     post={post}
@@ -5039,6 +5040,7 @@ export default function App() {
             <div className="fixed inset-0 z-[3000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl custom-scrollbar">
                 <PostForm
+                  key={editingPost?.id || "new"}
                   addToast={addToast}
                   onCancel={() => {
                     setShowPostForm(false);
@@ -6080,7 +6082,7 @@ function AdminPanel({
   const [reportsType, setReportsType] = useState<"issues" | "posts">("posts");
   const [reportsFilter, setReportsFilter] = useState<
     "All" | "Pending" | "Approved" | "Flagged" | "Resolved" | "Deleted"
-  >("Pending");
+  >("All");
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [allProblems, setAllProblems] = useState<ProblemReport[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
@@ -13265,6 +13267,7 @@ function PostForm({
           commentCount: 0,
           comments: [],
           time: Date.now(),
+          createdAt: Date.now(),
           uid: auth.currentUser.uid,
           userEmail: auth.currentUser.email || "",
           userName: isEditor

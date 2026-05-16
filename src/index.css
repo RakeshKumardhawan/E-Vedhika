@@ -282,10 +282,12 @@ header {
   bottom: 20px; 
   left: 0;
   border-radius: 0 20px 20px 0;
+  font-size: 10px;
+  line-height: 10px;
 }
 
 .main-layout.sidebar-open .sidebar {
-  width: 260px;
+  width: 251px;
   border-right: 1px solid #e2e8f0;
   left: 20px;
   border-radius: 20px;
@@ -302,16 +304,16 @@ header {
     z-index: 2000;
   }
   .main-layout.sidebar-open .sidebar { 
-    width: 280px; 
+    width: 251px; 
     left: 0; 
     border-radius: 0; 
   }
 }
 
 .sidebar-inner { 
-  width: 250px; 
+  width: 251px; 
   padding: 15px; 
-  padding-top: calc(15px + env(safe-area-inset-top)); 
+  padding-top: 0px;
   padding-bottom: calc(15px + env(safe-area-inset-bottom));
 }
 
