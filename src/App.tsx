@@ -1462,6 +1462,17 @@ const formatPostTitle = (title: string | undefined | null) => {
 
 export const SYSTEM_UPDATES = [
   {
+    id: `update-v1.5.4`,
+    isSystemElement: true,
+    version: "v1.5.4",
+    title: "16/05/2026: సిస్టమ్ అప్‌డేట్ వెరిఫికేషన్",
+    badge: "LATEST",
+    text: "1. ✅ **అప్‌డేట్ వెరిఫికేషన్**: వెబ్‌సైట్ అప్‌డేట్ అయిన ప్రతిసారీ మీకు తెలియజేయడానికి 'Last Updated' స్టేటస్ జోడించబడింది.\n2. 🕒 **లైవ్ అప్‌డేట్స్**: అడ్మిన్ ప్యానెల్ మరియు సైడ్‌బార్‌లో ఇప్పుడు మీరు అప్లికేషన్ యొక్క తాజా వెర్షన్ మరియు సమయాన్ని చూడవచ్చు.\n3. 🛠️ **బగ్ ఫిక్సెస్**: పోస్ట్ ఫార్మ్ మరియు రిపోర్ట్స్ ఫిల్టర్లలో ఉన్న చిన్న సమస్యలను పరిష్కరించాము.",
+    time: Date.now(),
+    type: "changelog",
+    status: "Approved",
+  },
+  {
     id: `update-v1.5.3`,
     isSystemElement: true,
     version: "v1.5.3",
@@ -3419,7 +3430,24 @@ export default function App() {
                 setSidebarOpen(false);
               }}
             />
-            <div className="flex flex-col gap-1 mb-2 p-2 bg-blue-50/30 rounded-[16px] border border-blue-100/50">
+            <div 
+              className="flex flex-col gap-1 mb-2 p-2 bg-blue-50/30 rounded-[16px] border border-blue-100/50"
+              style={{
+                height: '151.414px',
+                width: '220.996px',
+                fontSize: '1px',
+                lineHeight: '0px',
+                borderWidth: '-6.75px',
+                paddingTop: '10px',
+                paddingLeft: '10px',
+                paddingRight: '0px',
+                paddingBottom: '0px',
+                marginLeft: '0px',
+                marginRight: '5px',
+                marginTop: '5px',
+                marginBottom: '-10px',
+              }}
+            >
               <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400/80 mb-1 ml-2">Priority Services</span>
               <MenuButton
                 label="🚨 Emergency Contacts"
@@ -3545,7 +3573,7 @@ export default function App() {
               </div>
             )}
 
-            {(isAdmin || isEditor) && (
+            {isAdmin || isEditor ? (
               <MenuButton
                 label="Admin Panel"
                 emoji="⚙️"
@@ -3556,7 +3584,21 @@ export default function App() {
                   setSidebarOpen(false);
                 }}
               />
-            )}
+            ) : null}
+
+            <div className="mt-8 pt-8 pb-4 px-4 text-center border-t border-slate-100/50">
+              <div className="inline-flex flex-col items-center gap-1">
+                <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-100 rounded-full shadow-sm">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                    Last Update
+                  </span>
+                </div>
+                <span className="text-[9px] font-bold text-slate-400 mt-1">
+                  Version {SYSTEM_UPDATES[0]?.version} • {new Date(SYSTEM_UPDATES[0]?.time).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {new Date(SYSTEM_UPDATES[0]?.time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            </div>
           </div>
         </aside>
 
@@ -4078,7 +4120,7 @@ export default function App() {
                         className="text-blue-500 animate-bounce"
                       />
                       <span className="text-[11px] font-black text-blue-600 uppercase tracking-widest">
-                        Platform Evolution
+                        Platform Evolution • Latest: {SYSTEM_UPDATES[0]?.version}
                       </span>
                     </div>
                     <h2 className="text-4xl lg:text-6xl font-black text-slate-900 tracking-tighter mb-4">
@@ -4087,6 +4129,9 @@ export default function App() {
                     <p className="text-slate-500 font-bold max-w-lg mx-auto">
                       Tracking the digital transformation and feature
                       deployments of the master portal.
+                    </p>
+                    <p className="text-[10px] text-blue-400 font-black uppercase tracking-[0.3em] mt-4">
+                      Last Update Applied: {new Date(SYSTEM_UPDATES[0]?.time).toLocaleString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} (IST)
                     </p>
                   </div>
 
@@ -6532,7 +6577,7 @@ function AdminPanel({
                 {activeSubTab === "ai" && "🤖 Admin AI Assistant"}
               </h1>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 ml-1">
-                Administration & Monitoring Terminal
+                Administration & Monitoring Terminal • <span className="text-blue-500">v{SYSTEM_UPDATES[0]?.version} • {new Date(SYSTEM_UPDATES[0]?.time).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} • {new Date(SYSTEM_UPDATES[0]?.time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
               </p>
             </div>
           </div>
