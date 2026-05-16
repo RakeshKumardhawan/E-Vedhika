@@ -3430,24 +3430,7 @@ export default function App() {
                 setSidebarOpen(false);
               }}
             />
-            <div 
-              className="flex flex-col gap-1 mb-2 p-2 bg-blue-50/30 rounded-[16px] border border-blue-100/50"
-              style={{
-                height: '151.414px',
-                width: '220.996px',
-                fontSize: '1px',
-                lineHeight: '0px',
-                borderWidth: '-6.75px',
-                paddingTop: '10px',
-                paddingLeft: '10px',
-                paddingRight: '0px',
-                paddingBottom: '0px',
-                marginLeft: '0px',
-                marginRight: '5px',
-                marginTop: '5px',
-                marginBottom: '-10px',
-              }}
-            >
+            <div className="flex flex-col gap-1 mb-2 p-2 bg-blue-50/30 rounded-[16px] border border-blue-100/50">
               <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400/80 mb-1 ml-2">Priority Services</span>
               <MenuButton
                 label="🚨 Emergency Contacts"
