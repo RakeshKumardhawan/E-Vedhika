@@ -96,6 +96,11 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    match /advertisements/{adId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /settings/{settingId} {
       allow read: if true;
       allow write: if settingId == 'site_stats' || isAdmin();

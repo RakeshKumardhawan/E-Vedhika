@@ -82,6 +82,7 @@ import {
   ArrowUpRight,
   Loader2,
   XCircle,
+  ChevronLeft,
   ChevronRight,
   Flag,
   ShieldCheck,
@@ -1984,6 +1985,17 @@ export default function App() {
   const [visitorCount, setVisitorCount] = useState<number | null>(null);
   const tabFromUrl = searchParams.get("tab");
   const [currentTab, setCurrentTab] = useState(tabFromUrl || "home");
+  const [isPriorityOpen, setIsPriorityOpen] = useState(
+    tabFromUrl === "emergency" || tabFromUrl === "my_activity"
+  );
+
+  useEffect(() => {
+    if (currentTab === "emergency" || currentTab === "my_activity") {
+      setIsPriorityOpen(true);
+    } else {
+      setIsPriorityOpen(false);
+    }
+  }, [currentTab]);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "site_settings", "home_page"), (snap) => {
@@ -2006,6 +2018,7 @@ export default function App() {
   );
   const [currentFilter, setCurrentFilter] = useState("All");
   const [posts, setPosts] = useState<Post[]>([]);
+  const [ads, setAds] = useState<Advertisement[]>([]);
 
   // Correct sticky header height coordination
   const headerHeight = "72px";
@@ -2040,6 +2053,7 @@ export default function App() {
   const [isSuggestionsHovered, setIsSuggestionsHovered] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const [showFooterModal, setShowFooterModal] = useState<"privacy" | "about" | "contact" | null>(null);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -2367,11 +2381,22 @@ export default function App() {
       (err) => handleFirestoreError(err, OperationType.LIST, "posts"),
     );
 
+    const unsubAds = onSnapshot(
+      query(collection(db, "advertisements"), where("isActive", "==", true)),
+      (snap) => {
+        const adArr: Advertisement[] = [];
+        snap.forEach((d) => adArr.push({ id: d.id, ...d.data() } as Advertisement));
+        setAds(adArr.sort((a, b) => (a.order || 0) - (b.order || 0)));
+      },
+      (err) => handleFirestoreError(err, OperationType.LIST, "advertisements")
+    );
+
     return () => {
       unsubVisits();
       unsubUpdates();
       unsubSuggestions();
       unsubPosts();
+      unsubAds();
     };
   }, []);
 
@@ -2900,6 +2925,106 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-[#f8fafc] to-slate-100 text-slate-800 flex flex-col font-sans selection:bg-accent/20 selection:text-primary antialiased">
+        {showFooterModal && (
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowFooterModal(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-[40px] shadow-2xl overflow-hidden border border-slate-100"
+            >
+              <div className="p-8 sm:p-12">
+                 <div className="flex justify-between items-start mb-8">
+                    <div>
+                       <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase mb-1">
+                          {showFooterModal === "privacy" && "Privacy Policy"}
+                          {showFooterModal === "about" && "About Us"}
+                          {showFooterModal === "contact" && "Contact Us"}
+                       </h2>
+                    </div>
+                    <button 
+                      onClick={() => setShowFooterModal(null)}
+                      className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-800 transition-colors"
+                    >
+                       <X size={20} />
+                    </button>
+                 </div>
+
+                 <div className="prose prose-slate max-w-none">
+                    {showFooterModal === "privacy" && (
+                      <div className="space-y-6">
+                         <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100 flex gap-4">
+                            <ShieldCheck className="text-blue-500 shrink-0" size={24} />
+                            <p className="text-sm font-bold text-blue-700 leading-relaxed">Please read our data protection policies. Your personal information is completely secure with us.</p>
+                         </div>
+                         <div className="space-y-4 text-slate-600 font-medium">
+                            <p>We are committed to transparency and accountability. The information collected through this portal will only be used for government services and community improvement.</p>
+                            <p className="border-l-4 border-slate-100 pl-4 italic">"Your privacy is our primary responsibility."</p>
+                         </div>
+                      </div>
+                    )}
+
+                    {showFooterModal === "about" && (
+                      <div className="space-y-6">
+                         <div className="p-6 bg-indigo-50 rounded-3xl border border-indigo-100 flex gap-4">
+                            <Info className="text-indigo-500 shrink-0" size={24} />
+                            <p className="text-sm font-bold text-indigo-700 leading-relaxed">This platform acts as a strong digital bridge between citizens and the government.</p>
+                         </div>
+                         <div className="space-y-4 text-slate-600 font-medium">
+                            <p>E-Vedhika is a state-of-the-art digital system designed to increase transparency from the village and ward level to the state level. It helps every citizen to get information directly from the government and resolve their issues.</p>
+                         </div>
+                      </div>
+                    )}
+
+                    {showFooterModal === "contact" && (
+                      <div className="space-y-6">
+                         <div className="p-6 bg-emerald-50 rounded-3xl border border-emerald-100 flex gap-4">
+                            <Mail className="text-emerald-500 shrink-0" size={24} />
+                            <p className="text-sm font-bold text-emerald-700 leading-relaxed">Use the information provided below to contact us.</p>
+                         </div>
+                         <div className="space-y-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                               <a href="https://wa.me/919985402310" target="_blank" rel="noopener noreferrer" className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:bg-green-50 transition-colors border-l-4 border-l-green-500 flex flex-col items-center justify-center gap-2">
+                                  <MessageCircle size={32} className="text-green-500" />
+                                  <span className="font-bold text-slate-800 text-sm">Chat on WhatsApp</span>
+                               </a>
+                               <div className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Office Hours</p>
+                                  <p className="font-bold text-slate-800 text-sm md:text-base">Mon - Sat: 10AM - 5PM</p>
+                               </div>
+                            </div>
+                            <div className="p-5 bg-slate-900 rounded-2xl text-center">
+                               <button 
+                                 onClick={() => { setShowFooterModal(null); setCurrentTab("suggestions"); }}
+                                 className="w-full py-2 bg-emerald-500 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-emerald-600 transition-colors"
+                               >
+                                  Go to Suggestions Panel
+                               </button>
+                            </div>
+                         </div>
+                      </div>
+                    )}
+                 </div>
+
+                 <div className="mt-12 pt-8 border-t border-slate-50 flex justify-center">
+                    <button 
+                      onClick={() => setShowFooterModal(null)}
+                      className="px-10 py-3 bg-slate-900 text-white rounded-[20px] font-black uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-xl shadow-slate-900/20"
+                    >
+                       Close Window
+                    </button>
+                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
       <AnimatePresence>
         {toasts.map((t) => (
           <motion.div
@@ -3384,9 +3509,24 @@ export default function App() {
         <aside
           ref={sidebarRef}
           className={`sidebar ${sidebarOpen ? "z-[1100]" : ""}`}
+          style={{
+            paddingTop: '0px',
+            paddingBottom: '0px',
+            paddingLeft: '0px',
+            paddingRight: '0px',
+            fontSize: '9px',
+            lineHeight: '17px',
+            backgroundColor: '#0f0606',
+            fontWeight: 'bold',
+          }}
         >
           <div
             className="sidebar-inner relative"
+            style={{
+              backgroundColor: '#fffbfb',
+              fontFamily: 'Times New Roman',
+              color: '#000101',
+            }}
             onClick={(e) => {
               if (e.target === e.currentTarget) setSidebarOpen(false);
             }}
@@ -3430,32 +3570,61 @@ export default function App() {
                 setSidebarOpen(false);
               }}
             />
-            <div className="flex flex-col gap-1 mb-2 p-2 bg-blue-50/30 rounded-[16px] border border-blue-100/50">
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400/80 mb-1 ml-2">Priority Services</span>
-              <MenuButton
-                label="🚨 Emergency Contacts"
-                emoji="🚨"
-                tourId="menu-emergency"
-                active={currentTab === "emergency"}
-                onClick={() => {
-                  setCurrentTab("emergency");
-                  setSidebarOpen(false);
-                }}
-              />
-              <MenuButton
-                label="👤 My Activity & Reports"
-                emoji="📋"
-                tourId="menu-my-activity"
-                active={currentTab === "my_activity"}
-                onClick={() => {
-                  if (!user) {
-                    requireLoginAlert();
-                  } else {
-                    setCurrentTab("my_activity");
-                    setSidebarOpen(false);
-                  }
-                }}
-              />
+            <div className="flex flex-col gap-1 mb-2 p-1 bg-blue-50/30 rounded-[20px] border border-blue-100/50 overflow-hidden transition-all duration-300">
+              <button
+                aria-label="Toggle Priority Services"
+                onClick={() => setIsPriorityOpen(!isPriorityOpen)}
+                className="flex items-center justify-between w-full p-3 hover:bg-blue-100/30 transition-colors rounded-[16px] group"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform">
+                    <Target size={16} className="text-white" />
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-[0.1em] text-blue-600">Priority Services</span>
+                </div>
+                {isPriorityOpen ? (
+                  <ChevronUp size={16} className="text-blue-400 group-hover:text-blue-600 transition-colors" />
+                ) : (
+                  <ChevronDown size={16} className="text-blue-400 group-hover:text-blue-600 transition-colors" />
+                )}
+              </button>
+
+              <AnimatePresence>
+                {isPriorityOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="flex flex-col gap-1 px-1 pb-1 overflow-hidden"
+                  >
+                    <MenuButton
+                      label="🚨 Emergency Contacts"
+                      emoji="🚨"
+                      tourId="menu-emergency"
+                      active={currentTab === "emergency"}
+                      onClick={() => {
+                        setCurrentTab("emergency");
+                        setSidebarOpen(false);
+                      }}
+                    />
+                    <MenuButton
+                      label="👤 My Activity & Reports"
+                      emoji="📋"
+                      tourId="menu-my-activity"
+                      active={currentTab === "my_activity"}
+                      onClick={() => {
+                        if (!user) {
+                          requireLoginAlert();
+                        } else {
+                          setCurrentTab("my_activity");
+                          setSidebarOpen(false);
+                        }
+                      }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             <MenuButton
@@ -3569,7 +3738,16 @@ export default function App() {
               />
             ) : null}
 
-            <div className="mt-8 pt-8 pb-4 px-4 text-center border-t border-slate-100/50">
+            <div 
+              className="px-4 text-center border-t border-slate-100/50"
+              style={{
+                marginTop: '31px',
+                paddingTop: '0px',
+                paddingBottom: '14px',
+                paddingLeft: '0px',
+                paddingRight: '6px',
+              }}
+            >
               <div className="inline-flex flex-col items-center gap-1">
                 <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-100 rounded-full shadow-sm">
                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
@@ -3616,6 +3794,11 @@ export default function App() {
                   className="space-y-4 sm:space-y-6"
                 >
                   <div className="space-y-12 pb-20">
+                    {currentTab === "home" && ads.length > 0 && !(siteConfig?.elements && siteConfig.elements.some((el: any) => el.type === "Ads Gallery" && !el.hidden)) && (
+                      <section className="w-full">
+                        <HomeAds ads={ads} />
+                      </section>
+                    )}
                     {(siteConfig?.elements && siteConfig.elements.length > 0 ? siteConfig.elements : DEFAULT_HOME_ELEMENTS).filter((el: any) => !el.hidden).map((el: any) => {
                       let sizeClass = "w-full";
                       if (el.size === "small") sizeClass = "max-w-2xl w-full mx-auto";
@@ -3630,6 +3813,12 @@ export default function App() {
                         viewport={{ once: true }}
                         className={sizeClass}
                       >
+                        {el.type === "Ads Gallery" && (
+                          <div className="w-full">
+                            <HomeAds ads={ads} />
+                          </div>
+                        )}
+
                         {el.type === "Hero Section" && (
                           <div 
                             className={`bg-gradient-to-br from-${el.color || "blue"}-600 to-${el.color || "blue"}-800 rounded-[24px] sm:rounded-[48px] p-8 sm:p-16 text-white relative overflow-hidden shadow-2xl w-full min-h-[300px] flex flex-col justify-center`}
@@ -3944,7 +4133,7 @@ export default function App() {
                         )}
 
                         {/* Fallback for undefined types */}
-                        {!["Hero Section", "Post Grid", "Feature Cards", "Contact Banner", "E-Vedhika Core Feed", "Important Links", "Stats Highlight", "FAQ Section", "Alert Notice", "Quote / Testimonial", "Upcoming Events", "Gallery Grid", "Services Directory", "Profiles / Staff", "Video Showcase", "Document Downloads"].includes(el.type) && (
+                        {!["Ads Gallery", "Hero Section", "Post Grid", "Feature Cards", "Contact Banner", "E-Vedhika Core Feed", "Important Links", "Stats Highlight", "FAQ Section", "Alert Notice", "Quote / Testimonial", "Upcoming Events", "Gallery Grid", "Services Directory", "Profiles / Staff", "Video Showcase", "Document Downloads"].includes(el.type) && (
                           <div className="p-10 bg-white border-2 border-dashed border-slate-200 rounded-[40px] text-center">
                             <h3 className="text-xl font-black text-slate-400">{el.title || el.type}</h3>
                             <p className="text-slate-400 mt-2">{el.content || "Dynamic content section."}</p>
@@ -4036,6 +4225,46 @@ export default function App() {
                         Home page layout is empty.
                       </div>
                     )}
+
+                    {/* Footer Links Section */}
+                    <div className="pt-16 pb-12 mt-12 border-t border-slate-100 flex flex-col items-center gap-8">
+                       <div className="flex flex-wrap justify-center gap-6 sm:gap-12">
+                          <button 
+                            onClick={() => setShowFooterModal("privacy")}
+                            className="text-slate-500 hover:text-primary transition-colors flex flex-col items-center gap-2 group"
+                          >
+                            <span className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-primary/5 transition-colors">
+                              <ShieldCheck size={20} className="group-hover:scale-110 transition-transform" />
+                            </span>
+                            <span className="text-xs font-black uppercase tracking-widest">Privacy Policy</span>
+                          </button>
+
+                          <button 
+                            onClick={() => setShowFooterModal("about")}
+                            className="text-slate-500 hover:text-primary transition-colors flex flex-col items-center gap-2 group"
+                          >
+                            <span className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-primary/5 transition-colors">
+                              <Info size={20} className="group-hover:scale-110 transition-transform" />
+                            </span>
+                            <span className="text-xs font-black uppercase tracking-widest">About Us</span>
+                          </button>
+
+                          <button 
+                            onClick={() => setShowFooterModal("contact")}
+                            className="text-slate-500 hover:text-primary transition-colors flex flex-col items-center gap-2 group"
+                          >
+                            <span className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-primary/5 transition-colors">
+                              <Mail size={20} className="group-hover:scale-110 transition-transform" />
+                            </span>
+                            <span className="text-xs font-black uppercase tracking-widest">Contact Us</span>
+                          </button>
+                       </div>
+                       
+                       <div className="flex flex-col items-center text-center gap-2">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">© 2026 E-Vedhika Digital Ecosystem • All Rights Reserved</p>
+                          <p className="text-[9px] text-slate-300 font-medium">Empowering Citizens Through Digital Governance</p>
+                       </div>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -5968,6 +6197,441 @@ export const DEFAULT_HOME_ELEMENTS = [
   }
 ];
 
+interface Advertisement {
+  id: string;
+  title: string;
+  adType?: "image" | "adsense";
+  imageUrl?: string;
+  linkUrl?: string;
+  adsenseClient?: string;
+  adsenseSlot?: string;
+  isActive: boolean;
+  order: number;
+  time: number;
+}
+
+function AdsenseUnit({ client, slot, className }: { client?: string, slot?: string, className?: string }) {
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
+      }
+    } catch (e) {
+      console.error("AdSense error:", e);
+    }
+  }, []);
+
+  if (!client || !slot) return null;
+
+  return (
+    <div className={`w-full overflow-hidden ${className || ""}`}>
+      <ins className="adsbygoogle"
+           style={{ display: "block" }}
+           data-ad-client={client}
+           data-ad-slot={slot}
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+    </div>
+  );
+}
+
+function HomeAds({ ads }: { ads: Advertisement[] }) {
+  const [index, setIndex] = useState(0);
+  
+  const imageAds = ads.filter(a => !a.adType || a.adType === "image");
+  const adsenseAds = ads.filter(a => a.adType === "adsense");
+
+  useEffect(() => {
+    if (imageAds.length <= 1) return;
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % imageAds.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [imageAds.length]);
+
+  if (ads.length === 0) return null;
+
+  const currentAd = imageAds[index];
+
+  return (
+    <div className="space-y-6">
+      {imageAds.length > 0 && currentAd && (
+        <div className="relative w-full aspect-[21/9] sm:aspect-[24/7] bg-slate-200 rounded-[24px] sm:rounded-[40px] overflow-hidden shadow-2xl border-4 border-white">
+          <AnimatePresence mode="wait">
+            <motion.div
+               key={currentAd.id}
+               initial={{ opacity: 0, x: 20 }}
+               animate={{ opacity: 1, x: 0 }}
+               exit={{ opacity: 0, x: -20 }}
+               transition={{ duration: 0.5, ease: "easeInOut" }}
+               className="absolute inset-0"
+            >
+              {currentAd.linkUrl ? (
+                <a href={currentAd.linkUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+                   <img src={currentAd.imageUrl} alt={currentAd.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                </a>
+              ) : (
+                <div className="w-full h-full">
+                  <img src={currentAd.imageUrl} alt={currentAd.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {imageAds.length > 1 && (
+            <>
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2.5 z-10 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
+                {imageAds.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setIndex(i)}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${i === index ? "bg-white scale-125 shadow-[0_0_8px_rgba(255,255,255,0.8)]" : "bg-white/40 hover:bg-white/60"}`}
+                  />
+                ))}
+              </div>
+              <button
+                onClick={() => setIndex((prev) => (prev - 1 + imageAds.length) % imageAds.length)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/20 opacity-0 group-hover:opacity-100"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button
+                onClick={() => setIndex((prev) => (prev + 1) % imageAds.length)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/20 opacity-0 group-hover:opacity-100"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {adsenseAds.map((ad, i) => (
+        <div key={ad.id} className="w-full bg-slate-50 border border-slate-100 rounded-3xl p-4 overflow-hidden">
+           <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center mb-2">Advertisement</div>
+           <AdsenseUnit client={ad.adsenseClient} slot={ad.adsenseSlot} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AdsManager({ addToast }: { addToast: any }) {
+  const [ads, setAds] = useState<Advertisement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
+
+  const [formData, setFormData] = useState({
+    adType: "image" as "image" | "adsense",
+    title: "",
+    imageUrl: "",
+    linkUrl: "",
+    adsenseClient: "",
+    adsenseSlot: "",
+    isActive: true,
+    order: 0,
+  });
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, "advertisements"),
+      (snap) => {
+        const adArr: Advertisement[] = [];
+        snap.forEach((d) => adArr.push({ id: d.id, ...d.data() } as Advertisement));
+        setAds(adArr.sort((a, b) => (a.order || 0) - (b.order || 0)));
+        setLoading(false);
+      },
+      (err) => {
+        handleFirestoreError(err, OperationType.LIST, "advertisements");
+        setLoading(false);
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.adType === "image" && !formData.imageUrl) {
+      addToast("Image URL is required for image ads");
+      return;
+    }
+    if (formData.adType === "adsense" && (!formData.adsenseClient || !formData.adsenseSlot)) {
+      addToast("AdSense Client and Slot IDs are required");
+      return;
+    }
+
+    try {
+      const data = {
+        ...formData,
+        time: Date.now(),
+      };
+
+      if (editingAd) {
+        await updateDoc(doc(db, "advertisements", editingAd.id), data);
+        addToast("Ad updated successfully!");
+      } else {
+        await addDoc(collection(db, "advertisements"), data);
+        addToast("Ad added successfully!");
+      }
+      setShowForm(false);
+      setEditingAd(null);
+      setFormData({ adType: "image", title: "", imageUrl: "", linkUrl: "", adsenseClient: "", adsenseSlot: "", isActive: true, order: 0 });
+    } catch (err) {
+      addToast("Error saving ad");
+    }
+  };
+
+  const deleteAd = async (id: string) => {
+    const res = await Swal.fire({
+      title: "Delete Ad?",
+      text: "This will permanently remove this advertisement.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, delete",
+    });
+    if (res.isConfirmed) {
+      try {
+        await deleteDoc(doc(db, "advertisements", id));
+        addToast("Ad deleted");
+      } catch (err) {
+        addToast("Error deleting ad");
+      }
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-white/50 backdrop-blur-md">
+        <div>
+          <h2 className="text-xl font-black text-slate-800">Homepage Ads Manager</h2>
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Manage promotion banners</p>
+        </div>
+        <button
+          onClick={() => {
+            setEditingAd(null);
+            setFormData({ adType: "image", title: "", imageUrl: "", linkUrl: "", adsenseClient: "", adsenseSlot: "", isActive: true, order: ads.length });
+            setShowForm(true);
+          }}
+          className="bg-primary text-white p-2 sm:px-4 sm:py-2 rounded-xl flex items-center gap-2 font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20"
+          style={{ background: "#0d3b66" }}
+        >
+          <Plus size={18} />
+          <span className="hidden sm:inline">Add New Ad</span>
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="p-6 bg-slate-50 border-b border-slate-100">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex gap-4 mb-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="adType"
+                  checked={formData.adType === "image"}
+                  onChange={() => setFormData({ ...formData, adType: "image" })}
+                  className="w-4 h-4 text-primary focus:ring-primary"
+                />
+                <span className="text-sm font-bold text-slate-700">Image Banner</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="adType"
+                  checked={formData.adType === "adsense"}
+                  onChange={() => setFormData({ ...formData, adType: "adsense" })}
+                  className="w-4 h-4 text-primary focus:ring-primary"
+                />
+                <span className="text-sm font-bold text-slate-700">Google AdSense</span>
+              </label>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Title (Internal Name)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Festival Offer banner"
+                  className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                />
+              </div>
+
+              {formData.adType === "image" ? (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Image URL</label>
+                    <input
+                      type="text"
+                      placeholder="Paste image address here..."
+                      className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
+                      value={formData.imageUrl}
+                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Redirect Link (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="https://..."
+                      className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
+                      value={formData.linkUrl}
+                      onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">AdSense Client ID</label>
+                    <input
+                      type="text"
+                      placeholder="ca-pub-0000000000000000"
+                      className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
+                      value={formData.adsenseClient}
+                      onChange={(e) => setFormData({ ...formData, adsenseClient: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Ad Slot ID</label>
+                    <input
+                      type="text"
+                      placeholder="1234567890"
+                      className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
+                      value={formData.adsenseSlot}
+                      onChange={(e) => setFormData({ ...formData, adsenseSlot: e.target.value })}
+                    />
+                  </div>
+                </>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Display Order</label>
+                  <input
+                    type="number"
+                    className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
+                    value={formData.order}
+                    onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                  />
+                  <label htmlFor="isActive" className="text-xs font-bold text-slate-600">Active</label>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="px-6 py-2 rounded-xl text-slate-500 font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-all font-sans"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-8 py-2 bg-primary text-white rounded-xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20"
+                style={{ background: "#0d3b66" }}
+              >
+                {editingAd ? "Update Ad" : "Save Advertisement"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="p-6">
+        {loading ? (
+          <div className="p-10 text-center animate-pulse text-slate-400 font-bold">Loading advertisements...</div>
+        ) : ads.length === 0 ? (
+          <div className="p-10 text-center border-2 border-dashed border-slate-100 rounded-3xl">
+            <Megaphone size={48} className="mx-auto text-slate-200 mb-4" />
+            <p className="text-slate-400 font-bold">No advertisements found. Add your first ad banner to display on homepage.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {ads.map((ad) => (
+              <div key={ad.id} className="group relative bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl transition-all">
+                <div className="aspect-[16/9] bg-slate-200 relative overflow-hidden">
+                  <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  {!ad.isActive && (
+                    <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
+                      <span className="bg-white/10 backdrop-blur-md px-4 py-1 rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/20">Inactive</span>
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2 flex gap-2 translate-y-[-40px] group-hover:translate-y-0 transition-transform">
+                    <button
+                      onClick={() => {
+                        setEditingAd(ad);
+                        setFormData({
+                          adType: ad.adType || "image",
+                          title: ad.title || "",
+                          imageUrl: ad.imageUrl || "",
+                          linkUrl: ad.linkUrl || "",
+                          adsenseClient: ad.adsenseClient || "",
+                          adsenseSlot: ad.adsenseSlot || "",
+                          isActive: ad.isActive,
+                          order: ad.order || 0,
+                        });
+                        setShowForm(true);
+                      }}
+                      className="w-8 h-8 bg-white text-slate-800 rounded-lg flex items-center justify-center shadow-lg hover:bg-slate-100 z-10"
+                    >
+                      <Edit3 size={16} />
+                    </button>
+                    <button
+                      onClick={() => deleteAd(ad.id)}
+                      className="w-8 h-8 bg-white text-rose-500 rounded-lg flex items-center justify-center shadow-lg hover:bg-rose-50 z-10"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  
+                  {(!ad.adType || ad.adType === "image") ? (
+                    <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full absolute inset-0 flex flex-col items-center justify-center bg-slate-100 p-4 text-center z-0">
+                       <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-2 text-primary">
+                          <Megaphone size={24} />
+                       </div>
+                       <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Google AdSense</p>
+                       <p className="text-[10px] text-slate-400 mt-1 truncate w-full">Client: {ad.adsenseClient}</p>
+                       <p className="text-[10px] text-slate-400 truncate w-full">Slot: {ad.adsenseSlot}</p>
+                    </div>
+                  )}
+
+                  {!ad.isActive && (
+                    <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center z-20">
+                      <span className="bg-white/10 backdrop-blur-md px-4 py-1 rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/20">Inactive</span>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4 bg-white relative z-10 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Order: {ad.order}</span>
+                    {ad.linkUrl && <Link2 size={12} className="text-blue-500" />}
+                  </div>
+                  <h3 className="font-bold text-slate-800 truncate">{ad.title || "Untitled Ad"}</h3>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AdminPanel({
   addToast,
   posts,
@@ -6406,6 +7070,11 @@ function AdminPanel({
                   icon: <Layers size={18} />,
                 },
                 {
+                  id: "ads",
+                  label: "Homepage Ads",
+                  icon: <Megaphone size={18} />,
+                },
+                {
                   id: "suggestions",
                   label: "Suggestions & Feedback",
                   icon: <PlusCircle size={18} />,
@@ -6459,6 +7128,7 @@ function AdminPanel({
                       "dash",
                       "reports",
                       "builder",
+                      "ads",
                       "suggestions",
                       "trash",
                       "updates",
@@ -7794,6 +8464,7 @@ function AdminPanel({
                   </h4>
                   <div className="space-y-2">
                     {[
+                      "Ads Gallery",
                       "E-Vedhika Core Feed",
                       "Hero Section",
                       "Post Grid",
@@ -7984,6 +8655,17 @@ function AdminPanel({
 
                         return (
                         <div key={el.id} className={`relative ${sizeClass} w-full`}>
+                          {el.type === "Ads Gallery" && (
+                            <div className="w-full relative opacity-50 bg-slate-200 rounded-[24px] aspect-[21/9] flex flex-col justify-center items-center">
+                               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none gap-2">
+                                  <div className="bg-slate-900/80 backdrop-blur-sm text-white px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                                     <Megaphone size={16} /> Ads Gallery Banner
+                                  </div>
+                                  <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">Global Ad Network</p>
+                               </div>
+                            </div>
+                          )}
+
                           {el.type === "Hero Section" && (
                             <div className={`bg-gradient-to-br from-${el.color || "blue"}-600 to-${el.color || "blue"}-800 p-6 sm:p-12 rounded-[24px] sm:rounded-[40px] text-white overflow-hidden shadow-xl`}>
                               <div className="relative z-10 space-y-4">
@@ -8220,7 +8902,7 @@ function AdminPanel({
                           )}
 
                           {/* Fallback for form builder or anything else */}
-                          {!["Hero Section", "Post Grid", "Feature Cards", "Contact Banner", "E-Vedhika Core Feed", "Important Links", "Stats Highlight", "FAQ Section", "Alert Notice", "Quote / Testimonial", "Upcoming Events", "Gallery Grid", "Services Directory", "Profiles / Staff", "Video Showcase", "Document Downloads"].includes(el.type) && (
+                          {!["Ads Gallery", "Hero Section", "Post Grid", "Feature Cards", "Contact Banner", "E-Vedhika Core Feed", "Important Links", "Stats Highlight", "FAQ Section", "Alert Notice", "Quote / Testimonial", "Upcoming Events", "Gallery Grid", "Services Directory", "Profiles / Staff", "Video Showcase", "Document Downloads"].includes(el.type) && (
                             <div className="p-8 bg-white border-2 border-dashed border-slate-200 rounded-[32px] text-center">
                               <h3 className="text-base font-black text-slate-400">{el.title || el.type}</h3>
                               <p className="text-slate-400 mt-2 text-xs">{el.content || "Dynamic layout element."}</p>
@@ -8258,6 +8940,8 @@ function AdminPanel({
             </div>
           </div>
       )}
+
+        {activeSubTab === "ads" && <AdsManager addToast={addToast} />}
 
         {activeSubTab === "trash" && (
           <div className="space-y-8 pb-20">
