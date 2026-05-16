@@ -3574,6 +3574,10 @@ export default function App() {
               addToast={addToast}
               userProfile={userProfile}
               allUsers={allUsers}
+              onEdit={(p) => {
+                setEditingPost(p);
+                setShowPostForm(true);
+              }}
             />
           ) : (
             <AnimatePresence mode="wait">
@@ -3647,16 +3651,19 @@ export default function App() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               {posts.slice(0, 4).map((post: any) => (
-                                <PostCard
-                                  key={post.id}
-                                  post={post}
-                                  isExpanded={false}
-                                  toggleExpansion={() => {}}
-                                  addToast={addToast}
-                                  isAdmin={false}
-                                  onEdit={() => {}}
-                                  allUsers={allUsers}
-                                />
+                                  <PostCard
+                                    key={post.id}
+                                    post={post}
+                                    isExpanded={false}
+                                    toggleExpansion={() => {}}
+                                    addToast={addToast}
+                                    isAdmin={isEditor}
+                                    onEdit={(p) => {
+                                      setEditingPost(p);
+                                      setShowPostForm(true);
+                                    }}
+                                    allUsers={allUsers}
+                                  />
                               ))}
                             </div>
                           </div>
@@ -3924,7 +3931,7 @@ export default function App() {
                               <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-6">
                                 <div className="flex-1 w-full">
                                   <h3 className="text-xl sm:text-2xl font-black text-primary uppercase tracking-tighter text-center sm:text-left">
-                                    {el.title || "📝 Portal Updates"}
+                                    {el.title || "📝 Updates"}
                                   </h3>
                                 </div>
                               </div>
@@ -4876,6 +4883,8 @@ export default function App() {
                               status: "pending",
                               time: Date.now(),
                               uid: user.uid,
+                              userEmail: user.email || "",
+                              userName: userProfile?.name || user.displayName || "Portal User",
                               isAnonymous: problemIsAnonymous,
                               wantsWhatsAppUpdates: problemWantsWhatsApp,
                             });
@@ -5892,7 +5901,7 @@ export const DEFAULT_HOME_ELEMENTS = [
   {
     id: 1,
     type: "E-Vedhika Core Feed",
-    title: "📝 Portal Updates",
+    title: "📝 Updates",
     content: "Search latest news, reports or notices...",
     color: "blue",
     hidden: false,
@@ -6923,6 +6932,10 @@ function AdminPanel({
                                   loading="lazy"
                                   referrerPolicy="no-referrer"
                                 />
+                              ) : item.isAdminPost || item.userName === "Admin" ? (
+                                <div className="w-full h-full bg-primary/10 flex items-center justify-center text-primary">
+                                  <ShieldCheck size={20} />
+                                </div>
                               ) : (
                                 <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-300">
                                   <User size={18} />
@@ -6935,9 +6948,14 @@ function AdminPanel({
                               </h5>
                               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none flex items-center gap-2">
                                 <Mail size={10} />{" "}
-                                {item.userEmail ||
+                                {item.isAdminPost || item.userName === "Admin" ? (
+                                  item.userEmail || "Portal Admin"
+                                ) : (
+                                  item.userEmail ||
                                   item.userId ||
-                                  "Citizen Entry"}
+                                  item.uid ||
+                                  "Citizen Entry"
+                                )}
                               </p>
                             </div>
                           </div>
@@ -7009,12 +7027,22 @@ function AdminPanel({
                               >
                                 {item.status || "Processing"}
                               </span>
-                              <span className="text-[10px] font-black text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full uppercase tracking-widest flex items-center gap-1.5">
-                                <Hash size={12} />{" "}
-                                {item.category ||
+                              <span className="text-[10px] font-black text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full uppercase tracking-widest flex items-center gap-1.5 flex-wrap max-w-xs">
+                                <Hash size={12} className="flex-shrink-0" />{" "}
+                                {item.categories && item.categories.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {item.categories.map((c: string, i: number) => (
+                                      <span key={i} className={i > 0 ? "before:content-[','] before:mr-1" : ""}>
+                                        {c}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  item.category ||
                                   (activeSubTab === "suggestions"
                                     ? "SUUCHANA (SUGGESTION)"
-                                    : "GENERAL")}
+                                    : "GENERAL")
+                                )}
                               </span>
                             </div>
                             <div className="flex items-center gap-2.5 text-slate-400 pl-2">
@@ -12731,8 +12759,7 @@ function PostCard({
         <div className="flex gap-2">
           {isOwner && (
             <>
-              {isAdmin && (
-                <>
+                {isAdmin && (
                   <button
                     onClick={async () => {
                       try {
@@ -12749,15 +12776,14 @@ function PostCard({
                   >
                     <Pin size={16} fill={post.pinned ? "currentColor" : "none"} />
                   </button>
-                  <button
-                    onClick={() => onEdit(post)}
-                    className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-primary transition-all rounded-lg"
-                    title="Edit"
-                  >
-                    <Edit3 size={16} />
-                  </button>
-                </>
-              )}
+                )}
+                <button
+                  onClick={() => onEdit(post)}
+                  className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-primary transition-all rounded-lg"
+                  title="Edit"
+                >
+                  <Edit3 size={16} />
+                </button>
               <button
                 aria-label="Delete Post"
                 onClick={async () => {
@@ -13106,13 +13132,18 @@ function PostForm({
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
   const [title, setTitle] = useState(editingPost?.title || "");
   const [content, setContent] = useState(editingPost?.content || "");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    editingPost?.categories
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() => {
+    const raw = editingPost?.categories
       ? editingPost.categories
       : editingPost?.category
         ? [editingPost.category]
-        : ["📌 General"],
-  );
+        : ["📌 General"];
+    // Map old names to new names for consistency in UI selection
+    return raw.map(cat => {
+      if (cat === "🚀 Portal Update") return "🚀 Updates";
+      return cat;
+    });
+  });
   const [tags, setTags] = useState(editingPost?.tags?.join(", ") || "");
   const [websiteName, setWebsiteName] = useState(
     editingPost?.websiteName || "",
@@ -13153,6 +13184,7 @@ function PostForm({
 
   const CATEGORIES = [
     "📌 General",
+    "🚀 Updates",
     "📊 Daily Reports",
     "🗳️ Election",
     "🏛️ Mana Panchayath",
@@ -13170,10 +13202,10 @@ function PostForm({
     if (selectedCategories.includes(cat)) {
       setSelectedCategories(selectedCategories.filter((c) => c !== cat));
     } else {
-      if (selectedCategories.length < 3) {
+      if (selectedCategories.length < 5) {
         setSelectedCategories([...selectedCategories, cat]);
       } else {
-        addToast("You can select up to 3 categories only.");
+        addToast("You can select up to 5 categories only.");
       }
     }
   };
@@ -13209,6 +13241,14 @@ function PostForm({
         mediaName: media?.name || "",
       };
 
+      // Firestore document size limit check (1MB)
+      const estimatedSize = JSON.stringify(postData).length;
+      if (estimatedSize > 950000) { // Safety margin
+        addToast("Post content or media is too large for the portal. Please reduce image size or text content.");
+        setLoading(false);
+        return;
+      }
+
       if (editingPost) {
         await updateDoc(doc(db, "posts", editingPost.id), {
           ...postData,
@@ -13226,6 +13266,7 @@ function PostForm({
           comments: [],
           time: Date.now(),
           uid: auth.currentUser.uid,
+          userEmail: auth.currentUser.email || "",
           userName: isEditor
             ? "Admin"
             : currentUserProfile?.username ||
@@ -13311,7 +13352,7 @@ function PostForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="col-span-full">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">
-              Categories (Select up to 3)
+              Categories (Select up to 5)
             </label>
             <div className="flex flex-wrap gap-2 mb-2">
               {CATEGORIES.map((cat) => (
@@ -13387,7 +13428,7 @@ function PostForm({
                   type="button"
                   onClick={() => wrapText("**", "**")}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-                  title="బొల్డ్ (Bold)"
+                  title="Bold"
                 >
                   <Bold size={16} />
                 </button>
@@ -13395,7 +13436,7 @@ function PostForm({
                   type="button"
                   onClick={() => wrapText("*", "*")}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-                  title="ఇటాలిక్ (Italic)"
+                  title="Italic"
                 >
                   <Italic size={16} />
                 </button>
@@ -13403,7 +13444,7 @@ function PostForm({
                   type="button"
                   onClick={() => wrapText("# ", "")}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-                  title="పెద్ద ఫాంట్ (Heading 1)"
+                  title="Heading 1"
                 >
                   <Type size={16} />
                 </button>
@@ -13411,7 +13452,7 @@ function PostForm({
                   type="button"
                   onClick={() => wrapText("## ", "")}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-                  title="చిన్న ఫాంట్ (Heading 2)"
+                  title="Heading 2"
                 >
                   <Type size={14} />
                 </button>
@@ -13420,7 +13461,7 @@ function PostForm({
                   type="button"
                   onClick={() => wrapText("- ", "")}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-                  title="లిస్ట్ (Bullet List)"
+                  title="Bullet List"
                 >
                   <List size={16} />
                 </button>
@@ -13428,7 +13469,7 @@ function PostForm({
                   type="button"
                   onClick={() => wrapText("[", "](url)")}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary"
-                  title="లింక్ (Link)"
+                  title="Link"
                 >
                   <Link2 size={16} />
                 </button>
@@ -13436,7 +13477,7 @@ function PostForm({
                   type="button"
                   onClick={() => setContent(content + "\n---\n")}
                   className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 hover:text-primary text-[10px] font-black"
-                  title="లైన్ (Divider)"
+                  title="Divider"
                 >
                   LINE
                 </button>
@@ -13461,11 +13502,11 @@ function PostForm({
                     <img src={currentUserProfile.photoURL} alt="Author" className="w-10 h-10 rounded-full object-cover border-2 border-slate-100 shadow-sm" />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-blue-500 flex items-center justify-center text-white font-bold shadow-sm">
-                      {currentUserProfile?.displayName?.charAt(0) || "U"}
+                      {currentUserProfile?.name?.charAt(0) || currentUserProfile?.username?.charAt(0) || "U"}
                     </div>
                   )}
                   <div>
-                    <h3 className="font-bold text-slate-800 text-sm">{currentUserProfile?.displayName || "You"}</h3>
+                    <h3 className="font-bold text-slate-800 text-sm">{currentUserProfile?.name || currentUserProfile?.username || "You"}</h3>
                     <p className="text-[10px] sm:text-xs text-slate-500 font-medium">Just now (Preview)</p>
                   </div>
                 </div>
@@ -13636,7 +13677,7 @@ function PostForm({
                                 const canvas = document.createElement("canvas");
                                 let width = img.width;
                                 let height = img.height;
-                                const MAX_SIZE = 1000;
+                                const MAX_SIZE = 800; // Reduced max dimension
                                 if (width > height && width > MAX_SIZE) {
                                   height *= MAX_SIZE / width;
                                   width = MAX_SIZE;
@@ -13648,7 +13689,14 @@ function PostForm({
                                 canvas.height = height;
                                 const ctx = canvas.getContext("2d");
                                 ctx?.drawImage(img, 0, 0, width, height);
-                                const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+                                // Lowered quality to 0.5 to stay well under Firestore limits
+                                const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.5);
+                                
+                                if (compressedDataUrl.length > 800000) {
+                                  addToast("Image is still too large after compression. Please use a smaller photo.");
+                                  return;
+                                }
+
                                 setMedia({
                                   url: compressedDataUrl,
                                   type: "image/jpeg",
@@ -13659,13 +13707,24 @@ function PostForm({
                             };
                             reader.readAsDataURL(f);
                           } else {
+                            // Non-image files (videos, docs, etc)
+                            if (f.size > 700 * 1024) {
+                              addToast("Non-image files must be under 700KB for direct portal storage.");
+                              return;
+                            }
                             const reader = new FileReader();
-                            reader.onload = (ev) =>
+                            reader.onload = (ev) => {
+                              const dataUrl = ev.target?.result as string;
+                              if (dataUrl.length > 900000) {
+                                addToast("Encoded file is too large for the portal.");
+                                return;
+                              }
                               setMedia({
-                                url: ev.target?.result as string,
+                                url: dataUrl,
                                 type: f.type || "application/octet-stream",
                                 name: f.name,
                               });
+                            };
                             reader.readAsDataURL(f);
                           }
                         }
@@ -14146,6 +14205,7 @@ function PostDetail({
   addToast,
   userProfile,
   allUsers,
+  onEdit,
 }: {
   postId: string;
   onBack: () => void;
@@ -14153,11 +14213,16 @@ function PostDetail({
   addToast: (s: string) => void;
   userProfile: UserProfile | null;
   allUsers: UserProfile[];
+  onEdit: (p: Post) => void;
 }) {
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLikesModal, setShowLikesModal] = useState(false);
   const [showViewsModal, setShowViewsModal] = useState(false);
+  const isOwner = Boolean(
+    (auth.currentUser && post?.uid && auth.currentUser.uid === post.uid) ||
+    isAdmin,
+  );
 
   useEffect(() => {
     let isInitial = true;
@@ -14234,26 +14299,50 @@ function PostDetail({
       animate={{ opacity: 1, y: 0 }}
       className="bg-white p-6 md:p-10 rounded-[32px] shadow-sm border space-y-8"
     >
-      <button
-        aria-label="Back to Feed"
-        onClick={onBack}
-        className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-slate-500 hover:text-primary transition-colors font-bold text-sm w-fit group"
-      >
-        <ArrowLeft
-          size={16}
-          className="group-hover:-translate-x-1 transition-transform"
-        />{" "}
-        Back to Feed
-      </button>
+      <div className="flex items-center justify-between gap-4">
+        <button
+          aria-label="Back to Feed"
+          onClick={onBack}
+          className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-slate-500 hover:text-primary transition-colors font-bold text-sm w-fit group"
+        >
+          <ArrowLeft
+            size={16}
+            className="group-hover:-translate-x-1 transition-transform"
+          />{" "}
+          Back to Feed
+        </button>
+
+        {isOwner && (
+          <button
+            aria-label="Edit Post"
+            onClick={() => onEdit(post)}
+            className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-4 py-2 rounded-xl text-blue-600 hover:bg-blue-100 transition-colors font-bold text-sm group"
+          >
+            <Edit3 size={16} className="group-hover:scale-110 transition-transform" />
+            Edit Update
+          </button>
+        )}
+      </div>
 
       <div className="space-y-6">
         <div className="flex items-center justify-between border-b pb-6">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="cat-tag bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
-              {post.category || "Update"}
-            </span>
+            {post.categories && post.categories.length > 0 ? (
+              post.categories.map((cat, idx) => (
+                <span
+                  key={idx}
+                  className="cat-tag bg-primary/10 text-primary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider"
+                >
+                  {cat}
+                </span>
+              ))
+            ) : (
+              <span className="cat-tag bg-primary/10 text-primary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
+                {post.category || "Update"}
+              </span>
+            )}
             {post.subCategory && (
-              <span className="cat-tag sub-cat-tag bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
+              <span className="cat-tag sub-cat-tag bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
                 {post.subCategory}
               </span>
             )}
@@ -14273,6 +14362,19 @@ function PostDetail({
         <h1 className="text-3xl md:text-5xl font-black text-primary leading-tight tracking-tight whitespace-pre-wrap">
           {formatPostTitle(post.title)}
         </h1>
+
+        {post.tags && post.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {post.tags.map((tag, i) => (
+              <span
+                key={i}
+                className="px-2.5 py-1 bg-slate-50 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-100 flex items-center gap-1.5"
+              >
+                <Hash size={12} className="text-primary/50" /> {tag}
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center gap-3 text-sm font-bold text-slate-600">
           <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white border-2 border-white shadow-sm ring-2 ring-slate-50 overflow-hidden">
@@ -15462,6 +15564,8 @@ function SuggestionForm({
     try {
       await addDoc(collection(db, "suggestions"), {
         name,
+        userEmail: auth.currentUser?.email || "",
+        userId: auth.currentUser?.uid || "",
         village: village || "Not specified",
         mobile: mobile || "Not specified",
         category,
