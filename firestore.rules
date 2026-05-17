@@ -17,6 +17,7 @@ service cloud.firestore {
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
+    function isOwner(field) { return incoming()[field] == request.auth.uid; }
 
     // COLLECTIONS
     // -------------------------------------------------------------------------
@@ -34,17 +35,17 @@ service cloud.firestore {
     match /suggestions/{suggestionId} {
       allow read: if true;
       allow create: if true; 
-      allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid && (!('status' in incoming()) || incoming().status == existing().status));
     }
 
     match /posts/{postId} {
       allow read: if true;
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && (isOwner('uid') || isOwner('authorId'));
       allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
       
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if isSignedIn();
+        allow create: if isSignedIn() && isOwner('uid');
         allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
       }
     }
@@ -57,25 +58,25 @@ service cloud.firestore {
 
     match /chat/{msgId} {
       allow read: if true;
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && isOwner('uid');
       allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
     }
 
     match /problems/{problemId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow create: if isSignedIn() && (isOwner('uid') || isOwner('userId') || isOwner('authorId') || !('uid' in incoming())); 
+      allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid && (!('status' in incoming()) || incoming().status == existing().status));
     }
 
     match /requests/{requestId} {
       allow read: if true;
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && isOwner('uid');
       allow update, delete: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
     }
 
     match /gos_formats/{docId} {
       allow read: if true;
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && isOwner('uploadedBy');
       allow update, delete: if isAdmin() || (isSignedIn() && existing().uploadedBy == request.auth.uid);
     }
 
@@ -87,7 +88,7 @@ service cloud.firestore {
 
     match /notifications/{notifId} {
       allow read: if isSignedIn() && (existing().uid == request.auth.uid || isAdmin());
-      allow create: if isAdmin();
+      allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && (existing().uid == request.auth.uid || isAdmin());
     }
 
@@ -96,14 +97,15 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
-    match /advertisements/{adId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if settingId == 'site_stats' || isAdmin();
+      allow update: if settingId == 'site_stats' || isAdmin();
+      allow create, delete: if isAdmin();
+    }
+
+    match /app_errors/{docId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
     }
 
     match /security_logs/{logId} {
@@ -112,8 +114,13 @@ service cloud.firestore {
 
     match /polls/{pollId} {
       allow read: if true;
-      allow create, update: if isSignedIn();
+      allow create, update: if isAdmin() || isSignedIn();
       allow delete: if isAdmin();
+    }
+
+    match /home_sections/{sectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // Default deny (fallback)

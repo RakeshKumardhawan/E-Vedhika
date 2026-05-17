@@ -65,6 +65,8 @@ import {
   Lock,
   Shield,
   Pin,
+  Paperclip,
+  Wrench,
   Bold,
   Italic,
   Type,
@@ -98,8 +100,10 @@ import {
   ExternalLink,
   Target,
   HardDrive,
+  ArrowDown,
 } from "lucide-react";
 import Swal from "sweetalert2";
+import imageCompression from "browser-image-compression";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
@@ -153,40 +157,25 @@ import {
   updateDoc,
   deleteDoc,
   getDocs,
+  getDoc,
+  getDocFromServer,
+  query,
+  where,
+  limit,
+  orderBy,
   increment,
   arrayUnion,
   arrayRemove,
-  query,
-  orderBy,
-  limit,
   setDoc,
-  getDoc,
-  where,
-  getDocFromServer,
 } from "firebase/firestore";
 import {
   ref,
-  uploadBytesResumable,
+  uploadBytes,
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
 import { auth, db, storage } from "../firebase";
 import { GoogleGenAI } from "@google/genai";
-
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, "test", "connection"));
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes("the client is offline")
-    ) {
-      console.error("Firebase connection check: Client is offline");
-      // We don't want to spam alerts on every page load, but we can log it.
-    }
-  }
-}
-testConnection();
 
 enum OperationType {
   CREATE = "create",
@@ -260,7 +249,7 @@ export function getFriendlyError(err: any): string {
   } catch (e) {
     // Not a JSON string
   }
-  
+
   if (msg.includes("Missing or insufficient permissions")) {
     return "మీకు ఈ యాక్షన్‌ని చేయడానికి పర్మిషన్ లేదు / You don't have permission to perform this action.";
   }
@@ -276,7 +265,69 @@ export function getFriendlyError(err: any): string {
   if (msg.includes("popup-closed-by-user") || msg.includes("cancelled-popup-request")) {
     return "లాగిన్ విండో మూసివేయబడింది. దయచేసి మళ్ళీ ప్రయత్నించండి / The login popup was closed before completion.";
   }
+  
   return msg;
+}
+
+export async function sendCommentNotifications(
+  postId: string,
+  commentText: string,
+  authorUid: string,
+  authorName: string
+) {
+  try {
+    const time = Date.now();
+    
+    // 1. Mentions
+    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+    const mentions = [...commentText.matchAll(mentionRegex)].map((m) => m[1].toLowerCase());
+    const uniqueMentions = [...new Set(mentions)];
+    
+    for (const username of uniqueMentions) {
+       try {
+          const userDoc = await getDoc(doc(db, "usernames", username));
+          if (userDoc.exists()) {
+             const targetUid = userDoc.data().uid;
+             if (targetUid && targetUid !== authorUid) {
+                await addDoc(collection(db, "notifications"), {
+                   uid: targetUid,
+                   title: "కొత్త మెన్షన్ (New Mention)",
+                   message: `${authorName} మిమ్మల్ని ఒక కామెంట్‌లో మెన్షన్ చేశారు.`,
+                   type: "mention",
+                   read: false,
+                   time: time,
+                });
+             }
+          }
+       } catch (err) { console.error(err); }
+    }
+
+    // 2. Notify other commenters
+    const commentsSnap = await getDocs(collection(db, "posts", postId, "comments"));
+    const uids = new Set<string>();
+    commentsSnap.forEach((d) => {
+       const data = d.data();
+       if (data.uid) uids.add(data.uid);
+    });
+    
+    // Remove the author
+    uids.delete(authorUid);
+    
+    for (const targetUid of Array.from(uids)) {
+       try {
+          await addDoc(collection(db, "notifications"), {
+             uid: targetUid,
+             title: "కొత్త కామెంట్ (New Comment)",
+             message: `${authorName} మీరు కామెంట్ చేసిన పోస్టులో కొత్త కామెంట్ చేశారు.`,
+             type: "comment",
+             read: false,
+             time: time,
+          });
+       } catch(err) { console.error(err); }
+    }
+  } catch (err) {
+    console.error("Error sending notifications", err);
+  }
 }
 
 const logUserActivity = async (actionDesc: string) => {
@@ -399,6 +450,9 @@ interface Post {
   status?: string;
   pinned?: boolean;
   isAdminPost?: boolean;
+  version?: string;
+  attachments?: { name: string; url: string }[];
+  downloadStyle?: "classic" | "techspot";
 }
 
 interface Comment {
@@ -2381,22 +2435,11 @@ export default function App() {
       (err) => handleFirestoreError(err, OperationType.LIST, "posts"),
     );
 
-    const unsubAds = onSnapshot(
-      query(collection(db, "advertisements"), where("isActive", "==", true)),
-      (snap) => {
-        const adArr: Advertisement[] = [];
-        snap.forEach((d) => adArr.push({ id: d.id, ...d.data() } as Advertisement));
-        setAds(adArr.sort((a, b) => (a.order || 0) - (b.order || 0)));
-      },
-      (err) => handleFirestoreError(err, OperationType.LIST, "advertisements")
-    );
-
     return () => {
       unsubVisits();
       unsubUpdates();
       unsubSuggestions();
       unsubPosts();
-      unsubAds();
     };
   }, []);
 
@@ -3794,11 +3837,6 @@ export default function App() {
                   className="space-y-4 sm:space-y-6"
                 >
                   <div className="space-y-12 pb-20">
-                    {currentTab === "home" && ads.length > 0 && !(siteConfig?.elements && siteConfig.elements.some((el: any) => el.type === "Ads Gallery" && !el.hidden)) && (
-                      <section className="w-full">
-                        <HomeAds ads={ads} />
-                      </section>
-                    )}
                     {(siteConfig?.elements && siteConfig.elements.length > 0 ? siteConfig.elements : DEFAULT_HOME_ELEMENTS).filter((el: any) => !el.hidden).map((el: any) => {
                       let sizeClass = "w-full";
                       if (el.size === "small") sizeClass = "max-w-2xl w-full mx-auto";
@@ -3813,12 +3851,6 @@ export default function App() {
                         viewport={{ once: true }}
                         className={sizeClass}
                       >
-                        {el.type === "Ads Gallery" && (
-                          <div className="w-full">
-                            <HomeAds ads={ads} />
-                          </div>
-                        )}
-
                         {el.type === "Hero Section" && (
                           <div 
                             className={`bg-gradient-to-br from-${el.color || "blue"}-600 to-${el.color || "blue"}-800 rounded-[24px] sm:rounded-[48px] p-8 sm:p-16 text-white relative overflow-hidden shadow-2xl w-full min-h-[300px] flex flex-col justify-center`}
@@ -4447,10 +4479,73 @@ export default function App() {
                                           {u.badge}
                                         </kbd>
                                       )}
-                                      <span className="text-sm text-slate-600 leading-relaxed break-words whitespace-pre-wrap flex-1">
-                                        {u.text}
-                                      </span>
+                                      <div className="text-sm text-slate-600 leading-relaxed overflow-hidden flex-1">
+                                        <ReactMarkdown 
+                                          remarkPlugins={[remarkBreaks]} 
+                                          rehypePlugins={[rehypeRaw]}
+                                          components={{
+                                            h3: ({ node, children, ...props }) => {
+                                              const text = String(children);
+                                              if (text.includes("🚀 What's New")) {
+                                                return (
+                                                  <h3 className="flex items-center gap-2 text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest mt-2 mb-1 border border-blue-100 shadow-sm" {...props}>
+                                                    {children}
+                                                  </h3>
+                                                );
+                                              }
+                                              if (text.includes("🛠️ Bug Fixes")) {
+                                                return (
+                                                  <h3 className="flex items-center gap-2 text-rose-700 bg-rose-50 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest mt-2 mb-1 border border-rose-100 shadow-sm" {...props}>
+                                                    {children}
+                                                  </h3>
+                                                );
+                                              }
+                                              if (text.includes("⚡ Improvements")) {
+                                                return (
+                                                  <h3 className="flex items-center gap-2 text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest mt-2 mb-1 border border-amber-100 shadow-sm" {...props}>
+                                                    {children}
+                                                  </h3>
+                                                );
+                                              }
+                                              return <h3 className="text-sm font-black text-primary mt-2 mb-1" {...props}>{children}</h3>;
+                                            },
+                                            ul: ({ node, children, ...props }) => (
+                                              <ul className="space-y-1 ml-2 mb-2" {...props}>{children}</ul>
+                                            ),
+                                            li: ({ node, children, ...props }) => (
+                                              <li className="flex items-start gap-2 text-slate-700 font-medium text-[13px] leading-relaxed" {...props}>
+                                                <span className="text-primary mt-1.5 w-1 h-1 rounded-full bg-primary shrink-0" />
+                                                <span>{children}</span>
+                                              </li>
+                                            )
+                                          }}
+                                        >
+                                          {u.text || ""}
+                                        </ReactMarkdown>
+                                      </div>
                                     </div>
+                                    {u.attachments && u.attachments.length > 0 && (
+                                       <div className="mt-4 pt-4 border-t border-slate-50 space-y-2">
+                                          <div className="flex items-center gap-2 mb-1">
+                                             <Paperclip size={10} className="text-slate-300" />
+                                             <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Attachments & Docs</span>
+                                          </div>
+                                          <div className="flex flex-wrap gap-2">
+                                             {u.attachments.map((att: any, idx: number) => (
+                                               <a
+                                                 key={idx}
+                                                 href={att.url}
+                                                 target="_blank"
+                                                 rel="noopener noreferrer"
+                                                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-blue-50 border border-slate-100 rounded-lg transition-all text-[10px] font-bold text-slate-600 hover:text-blue-600"
+                                               >
+                                                 <FileText size={12} />
+                                                 {att.name}
+                                               </a>
+                                             ))}
+                                          </div>
+                                       </div>
+                                    )}
                                   </div>
                                 </div>
                               ) : (
@@ -6203,6 +6298,8 @@ interface Advertisement {
   adType?: "image" | "adsense";
   imageUrl?: string;
   linkUrl?: string;
+  description?: string;
+  showTextOverlay?: boolean;
   adsenseClient?: string;
   adsenseSlot?: string;
   isActive: boolean;
@@ -6267,14 +6364,26 @@ function HomeAds({ ads }: { ads: Advertisement[] }) {
                className="absolute inset-0"
             >
               {currentAd.linkUrl ? (
-                <a href={currentAd.linkUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-                   <img src={currentAd.imageUrl} alt={currentAd.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                <a href={currentAd.linkUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative group">
+                   <img src={currentAd.imageUrl} alt={currentAd.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" referrerPolicy="no-referrer" />
+                   <div className={`absolute inset-0 bg-gradient-to-t ${currentAd.showTextOverlay ? 'from-slate-900/80 via-slate-900/20' : 'from-black/40 via-transparent'} to-transparent pointer-events-none transition-opacity duration-300`} />
+                   {currentAd.showTextOverlay && (
+                      <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10 flex flex-col justify-end pointer-events-none">
+                        <h3 className="text-xl sm:text-3xl font-black text-white drop-shadow-md mb-2 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">{currentAd.title}</h3>
+                        {currentAd.description && <p className="text-sm sm:text-base font-medium text-slate-200 drop-shadow max-w-2xl translate-y-2 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 delay-75">{currentAd.description}</p>}
+                      </div>
+                   )}
                 </a>
               ) : (
-                <div className="w-full h-full">
+                <div className="w-full h-full relative">
                   <img src={currentAd.imageUrl} alt={currentAd.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
+                  <div className={`absolute inset-0 bg-gradient-to-t ${currentAd.showTextOverlay ? 'from-slate-900/80 via-slate-900/20' : 'from-black/20 via-transparent'} to-transparent pointer-events-none`} />
+                  {currentAd.showTextOverlay && (
+                      <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10 flex flex-col justify-end pointer-events-none">
+                        <h3 className="text-xl sm:text-3xl font-black text-white drop-shadow-md mb-2">{currentAd.title}</h3>
+                        {currentAd.description && <p className="text-sm sm:text-base font-medium text-slate-200 drop-shadow max-w-2xl">{currentAd.description}</p>}
+                      </div>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -6318,319 +6427,6 @@ function HomeAds({ ads }: { ads: Advertisement[] }) {
   );
 }
 
-function AdsManager({ addToast }: { addToast: any }) {
-  const [ads, setAds] = useState<Advertisement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingAd, setEditingAd] = useState<Advertisement | null>(null);
-
-  const [formData, setFormData] = useState({
-    adType: "image" as "image" | "adsense",
-    title: "",
-    imageUrl: "",
-    linkUrl: "",
-    adsenseClient: "",
-    adsenseSlot: "",
-    isActive: true,
-    order: 0,
-  });
-
-  useEffect(() => {
-    const unsub = onSnapshot(
-      collection(db, "advertisements"),
-      (snap) => {
-        const adArr: Advertisement[] = [];
-        snap.forEach((d) => adArr.push({ id: d.id, ...d.data() } as Advertisement));
-        setAds(adArr.sort((a, b) => (a.order || 0) - (b.order || 0)));
-        setLoading(false);
-      },
-      (err) => {
-        handleFirestoreError(err, OperationType.LIST, "advertisements");
-        setLoading(false);
-      }
-    );
-    return () => unsub();
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.adType === "image" && !formData.imageUrl) {
-      addToast("Image URL is required for image ads");
-      return;
-    }
-    if (formData.adType === "adsense" && (!formData.adsenseClient || !formData.adsenseSlot)) {
-      addToast("AdSense Client and Slot IDs are required");
-      return;
-    }
-
-    try {
-      const data = {
-        ...formData,
-        time: Date.now(),
-      };
-
-      if (editingAd) {
-        await updateDoc(doc(db, "advertisements", editingAd.id), data);
-        addToast("Ad updated successfully!");
-      } else {
-        await addDoc(collection(db, "advertisements"), data);
-        addToast("Ad added successfully!");
-      }
-      setShowForm(false);
-      setEditingAd(null);
-      setFormData({ adType: "image", title: "", imageUrl: "", linkUrl: "", adsenseClient: "", adsenseSlot: "", isActive: true, order: 0 });
-    } catch (err) {
-      addToast("Error saving ad");
-    }
-  };
-
-  const deleteAd = async (id: string) => {
-    const res = await Swal.fire({
-      title: "Delete Ad?",
-      text: "This will permanently remove this advertisement.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, delete",
-    });
-    if (res.isConfirmed) {
-      try {
-        await deleteDoc(doc(db, "advertisements", id));
-        addToast("Ad deleted");
-      } catch (err) {
-        addToast("Error deleting ad");
-      }
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-white/50 backdrop-blur-md">
-        <div>
-          <h2 className="text-xl font-black text-slate-800">Homepage Ads Manager</h2>
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Manage promotion banners</p>
-        </div>
-        <button
-          onClick={() => {
-            setEditingAd(null);
-            setFormData({ adType: "image", title: "", imageUrl: "", linkUrl: "", adsenseClient: "", adsenseSlot: "", isActive: true, order: ads.length });
-            setShowForm(true);
-          }}
-          className="bg-primary text-white p-2 sm:px-4 sm:py-2 rounded-xl flex items-center gap-2 font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20"
-          style={{ background: "#0d3b66" }}
-        >
-          <Plus size={18} />
-          <span className="hidden sm:inline">Add New Ad</span>
-        </button>
-      </div>
-
-      {showForm && (
-        <div className="p-6 bg-slate-50 border-b border-slate-100">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex gap-4 mb-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="adType"
-                  checked={formData.adType === "image"}
-                  onChange={() => setFormData({ ...formData, adType: "image" })}
-                  className="w-4 h-4 text-primary focus:ring-primary"
-                />
-                <span className="text-sm font-bold text-slate-700">Image Banner</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="adType"
-                  checked={formData.adType === "adsense"}
-                  onChange={() => setFormData({ ...formData, adType: "adsense" })}
-                  className="w-4 h-4 text-primary focus:ring-primary"
-                />
-                <span className="text-sm font-bold text-slate-700">Google AdSense</span>
-              </label>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Title (Internal Name)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Festival Offer banner"
-                  className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                />
-              </div>
-
-              {formData.adType === "image" ? (
-                <>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Image URL</label>
-                    <input
-                      type="text"
-                      placeholder="Paste image address here..."
-                      className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
-                      value={formData.imageUrl}
-                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Redirect Link (Optional)</label>
-                    <input
-                      type="text"
-                      placeholder="https://..."
-                      className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
-                      value={formData.linkUrl}
-                      onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">AdSense Client ID</label>
-                    <input
-                      type="text"
-                      placeholder="ca-pub-0000000000000000"
-                      className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
-                      value={formData.adsenseClient}
-                      onChange={(e) => setFormData({ ...formData, adsenseClient: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Ad Slot ID</label>
-                    <input
-                      type="text"
-                      placeholder="1234567890"
-                      className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
-                      value={formData.adsenseSlot}
-                      onChange={(e) => setFormData({ ...formData, adsenseSlot: e.target.value })}
-                    />
-                  </div>
-                </>
-              )}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Display Order</label>
-                  <input
-                    type="number"
-                    className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none focus:border-primary transition-all font-bold text-sm"
-                    value={formData.order}
-                    onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-6">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
-                  />
-                  <label htmlFor="isActive" className="text-xs font-bold text-slate-600">Active</label>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="px-6 py-2 rounded-xl text-slate-500 font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition-all font-sans"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-8 py-2 bg-primary text-white rounded-xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20"
-                style={{ background: "#0d3b66" }}
-              >
-                {editingAd ? "Update Ad" : "Save Advertisement"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      <div className="p-6">
-        {loading ? (
-          <div className="p-10 text-center animate-pulse text-slate-400 font-bold">Loading advertisements...</div>
-        ) : ads.length === 0 ? (
-          <div className="p-10 text-center border-2 border-dashed border-slate-100 rounded-3xl">
-            <Megaphone size={48} className="mx-auto text-slate-200 mb-4" />
-            <p className="text-slate-400 font-bold">No advertisements found. Add your first ad banner to display on homepage.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {ads.map((ad) => (
-              <div key={ad.id} className="group relative bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl transition-all">
-                <div className="aspect-[16/9] bg-slate-200 relative overflow-hidden">
-                  <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  {!ad.isActive && (
-                    <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
-                      <span className="bg-white/10 backdrop-blur-md px-4 py-1 rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/20">Inactive</span>
-                    </div>
-                  )}
-                  <div className="absolute top-2 right-2 flex gap-2 translate-y-[-40px] group-hover:translate-y-0 transition-transform">
-                    <button
-                      onClick={() => {
-                        setEditingAd(ad);
-                        setFormData({
-                          adType: ad.adType || "image",
-                          title: ad.title || "",
-                          imageUrl: ad.imageUrl || "",
-                          linkUrl: ad.linkUrl || "",
-                          adsenseClient: ad.adsenseClient || "",
-                          adsenseSlot: ad.adsenseSlot || "",
-                          isActive: ad.isActive,
-                          order: ad.order || 0,
-                        });
-                        setShowForm(true);
-                      }}
-                      className="w-8 h-8 bg-white text-slate-800 rounded-lg flex items-center justify-center shadow-lg hover:bg-slate-100 z-10"
-                    >
-                      <Edit3 size={16} />
-                    </button>
-                    <button
-                      onClick={() => deleteAd(ad.id)}
-                      className="w-8 h-8 bg-white text-rose-500 rounded-lg flex items-center justify-center shadow-lg hover:bg-rose-50 z-10"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                  
-                  {(!ad.adType || ad.adType === "image") ? (
-                    <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : (
-                    <div className="w-full h-full absolute inset-0 flex flex-col items-center justify-center bg-slate-100 p-4 text-center z-0">
-                       <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-2 text-primary">
-                          <Megaphone size={24} />
-                       </div>
-                       <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Google AdSense</p>
-                       <p className="text-[10px] text-slate-400 mt-1 truncate w-full">Client: {ad.adsenseClient}</p>
-                       <p className="text-[10px] text-slate-400 truncate w-full">Slot: {ad.adsenseSlot}</p>
-                    </div>
-                  )}
-
-                  {!ad.isActive && (
-                    <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center z-20">
-                      <span className="bg-white/10 backdrop-blur-md px-4 py-1 rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/20">Inactive</span>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4 bg-white relative z-10 border-t border-slate-100">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Order: {ad.order}</span>
-                    {ad.linkUrl && <Link2 size={12} className="text-blue-500" />}
-                  </div>
-                  <h3 className="font-bold text-slate-800 truncate">{ad.title || "Untitled Ad"}</h3>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function AdminPanel({
   addToast,
@@ -7070,11 +6866,6 @@ function AdminPanel({
                   icon: <Layers size={18} />,
                 },
                 {
-                  id: "ads",
-                  label: "Homepage Ads",
-                  icon: <Megaphone size={18} />,
-                },
-                {
                   id: "suggestions",
                   label: "Suggestions & Feedback",
                   icon: <PlusCircle size={18} />,
@@ -7128,7 +6919,6 @@ function AdminPanel({
                       "dash",
                       "reports",
                       "builder",
-                      "ads",
                       "suggestions",
                       "trash",
                       "updates",
@@ -8941,7 +8731,6 @@ function AdminPanel({
           </div>
       )}
 
-        {activeSubTab === "ads" && <AdsManager addToast={addToast} />}
 
         {activeSubTab === "trash" && (
           <div className="space-y-8 pb-20">
@@ -9558,16 +9347,98 @@ function AdminPanel({
                                     {upd.badge}
                                   </kbd>
                                 )}
-                                <span className="text-sm font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
-                                  {upd.text}
-                                </span>
+                                <div className="text-sm font-medium text-slate-700 leading-relaxed flex-1 overflow-hidden">
+                                  <ReactMarkdown 
+                                    remarkPlugins={[remarkBreaks]} 
+                                    rehypePlugins={[rehypeRaw]}
+                                    components={{
+                                      h3: ({ node, children, ...props }) => {
+                                        const text = String(children);
+                                        if (text.includes("🚀 What's New")) {
+                                          return (
+                                            <h3 className="flex items-center gap-2 text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest mt-3 mb-1.5 border border-blue-100 shadow-sm" {...props}>
+                                              {children}
+                                            </h3>
+                                          );
+                                        }
+                                        if (text.includes("🛠️ Bug Fixes")) {
+                                          return (
+                                            <h3 className="flex items-center gap-2 text-rose-700 bg-rose-50 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest mt-3 mb-1.5 border border-rose-100 shadow-sm" {...props}>
+                                              {children}
+                                            </h3>
+                                          );
+                                        }
+                                        if (text.includes("⚡ Improvements")) {
+                                          return (
+                                            <h3 className="flex items-center gap-2 text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest mt-3 mb-1.5 border border-amber-100 shadow-sm" {...props}>
+                                              {children}
+                                            </h3>
+                                          );
+                                        }
+                                        return <h3 className="text-sm font-black text-primary mt-3 mb-1.5" {...props}>{children}</h3>;
+                                      },
+                                      ul: ({ node, children, ...props }) => (
+                                        <ul className="space-y-1.5 ml-4 mb-3" {...props}>{children}</ul>
+                                      ),
+                                      li: ({ node, children, ...props }) => (
+                                        <li className="flex items-start gap-2 text-slate-700 font-medium text-sm leading-relaxed" {...props}>
+                                          <span className="text-primary mt-1.5 w-1 h-1 rounded-full bg-primary shrink-0" />
+                                          <span>{children}</span>
+                                        </li>
+                                      )
+                                    }}
+                                  >
+                                    {upd.text}
+                                  </ReactMarkdown>
+                                </div>
                               </div>
                             </div>
                           </div>
                         ) : (
-                          <p className="text-sm font-bold text-slate-700 leading-relaxed whitespace-pre-wrap">
-                            {upd.text}
-                          </p>
+                          <div className="text-sm font-bold text-slate-700 leading-relaxed overflow-hidden">
+                            <ReactMarkdown 
+                              remarkPlugins={[remarkBreaks]} 
+                              rehypePlugins={[rehypeRaw]}
+                              components={{
+                                h3: ({ node, children, ...props }) => {
+                                  const text = String(children);
+                                  if (text.includes("🚀 What's New")) {
+                                    return (
+                                      <h3 className="flex items-center gap-2 text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest mt-2 mb-1 border border-blue-100 shadow-sm" {...props}>
+                                        {children}
+                                      </h3>
+                                    );
+                                  }
+                                  if (text.includes("🛠️ Bug Fixes")) {
+                                    return (
+                                      <h3 className="flex items-center gap-2 text-rose-700 bg-rose-50 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest mt-2 mb-1 border border-rose-100 shadow-sm" {...props}>
+                                        {children}
+                                      </h3>
+                                    );
+                                  }
+                                  if (text.includes("⚡ Improvements")) {
+                                    return (
+                                      <h3 className="flex items-center gap-2 text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest mt-2 mb-1 border border-amber-100 shadow-sm" {...props}>
+                                        {children}
+                                      </h3>
+                                    );
+                                  }
+                                  return <h3 className="text-sm font-black text-primary mt-2 mb-1" {...props}>{children}</h3>;
+                                },
+                                ul: ({ node, children, ...props }) => (
+                                  <ul className="space-y-1 ml-2 mb-2" {...props}>{children}</ul>
+                                ),
+                                li: ({ node, children, ...props }) => (
+                                  <li className="flex items-start gap-2 text-slate-700 font-medium text-[13px] leading-relaxed" {...props}>
+                                    <span className="text-primary mt-1.5 w-1 h-1 rounded-full bg-primary shrink-0" />
+                                    <span>{children}</span>
+                                  </li>
+                                )
+                              }}
+                            >
+                              {upd.text}
+                            </ReactMarkdown>
+                          </div>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
@@ -13529,9 +13400,14 @@ function PostCard({
         </div>
       </div>
 
-      <h4 className="post-title !mt-0 whitespace-pre-wrap">
-        {formatPostTitle(post.title) || "Platform Update"}
-      </h4>
+            <h4 className="post-title !mt-0 whitespace-pre-wrap flex items-center gap-2">
+              {formatPostTitle(post.title) || "Platform Update"}
+              {post.version && (
+                <span className="bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-md font-black tracking-widest uppercase">
+                   {post.version}
+                </span>
+              )}
+            </h4>
 
       {post.tags && post.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -13546,16 +13422,220 @@ function PostCard({
         </div>
       )}
 
-      <div
-        className={`post-body mb-4 whitespace-pre-wrap ${isExpanded ? "" : "line-clamp-4"} [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline`}
-      >
-        <ReactMarkdown
-          remarkPlugins={[remarkBreaks]}
-          rehypePlugins={[rehypeRaw]}
-        >
-          {post.content || ""}
-        </ReactMarkdown>
-      </div>
+      {post.attachments && (post.downloadStyle === "techspot" || (!post.downloadStyle && post.attachments.length >= 2)) ? (
+         <div className="flex flex-col md:flex-row gap-8 mt-4">
+            <div className="flex-1 min-w-0">
+               <div
+                 className={`post-body mb-4 whitespace-pre-wrap ${isExpanded ? "" : "line-clamp-4"} [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline`}
+               >
+                 <ReactMarkdown
+                   remarkPlugins={[remarkBreaks]}
+                   rehypePlugins={[rehypeRaw]}
+                   components={{
+                     h3: ({ node, children, ...props }) => {
+                       const text = String(children);
+                       if (text.includes("🚀 What's New")) {
+                         return <h3 className="flex items-center gap-2 text-blue-700 bg-blue-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-4 mb-2 border border-blue-100 shadow-sm" {...props}>{children}</h3>;
+                       }
+                       if (text.includes("🛠️ Bug Fixes")) {
+                         return <h3 className="flex items-center gap-2 text-rose-700 bg-rose-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-4 mb-2 border border-rose-100 shadow-sm" {...props}>{children}</h3>;
+                       }
+                       if (text.includes("⚡ Improvements")) {
+                         return <h3 className="flex items-center gap-2 text-amber-700 bg-amber-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-4 mb-2 border border-amber-100 shadow-sm" {...props}>{children}</h3>;
+                       }
+                       return <h3 className="text-lg font-black text-primary mt-4 mb-2" {...props}>{children}</h3>;
+                     },
+                     ul: ({ node, children, ...props }) => <ul className="space-y-1.5 ml-4 mb-4" {...props}>{children}</ul>,
+                     li: ({ node, children, ...props }) => (
+                       <li className="flex items-start gap-2 text-slate-700 font-medium text-sm leading-relaxed" {...props}>
+                         <span className="text-primary mt-1.5 w-1 h-1 rounded-full bg-primary shrink-0" />
+                         <span>{children}</span>
+                       </li>
+                     )
+                   }}
+                 >
+                   {post.content || ""}
+                 </ReactMarkdown>
+               </div>
+               
+               {post.attachments.filter(att => /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")).length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-4">
+                     {post.attachments.filter(att => /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")).map((att, idx) => (
+                           <div key={idx} className="relative group overflow-hidden rounded-xl border border-slate-100 shadow-sm transition-all hover:border-primary/20">
+                             <img
+                               src={att.url}
+                               alt={att.name}
+                               loading="lazy"
+                               className="w-full h-40 object-cover transition-transform group-hover:scale-105"
+                             />
+                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                <a
+                                  href={att.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-2 bg-white rounded-full text-primary hover:scale-110 transition-transform"
+                                >
+                                  <ExternalLink size={16} />
+                                </a>
+                             </div>
+                             <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
+                                <p className="text-white text-[10px] font-bold truncate px-1">{att.name}</p>
+                             </div>
+                           </div>
+                     ))}
+                  </div>
+               )}
+            </div>
+
+            <div className="w-full md:w-[280px] lg:w-[320px] shrink-0 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-8 flex flex-col">
+               <div className="mb-5">
+                    <div className="text-[#333333] text-[13px] mb-4 leading-relaxed font-sans">
+                       Fast servers and clean downloads.<br/>
+                       Serving tech enthusiasts <span className="border-b-2 border-orange-500 pb-[1px]">for over 25 years.</span><br/>
+                       Tested on TechSpot Labs.
+                    </div>
+                    <a
+                      href={post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0]?.url || post.attachments[0].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-4 text-white rounded shadow-sm transition-colors border border-[#0d47a1] overflow-hidden group w-[900px]"
+                      style={{ background: 'linear-gradient(to bottom, #2b88d8 0%, #1565c0 100%)', paddingTop: '10px', paddingLeft: '10px', paddingRight: '0px', height: '54.6667px' }}
+                    >
+                      <div className="bg-black/15 p-2.5 flex items-center justify-center border-r border-black/10">
+                        <ArrowDown size={28} color="white" strokeWidth={3} className="drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform" />
+                      </div>
+                      <span className="text-[20px] font-semibold pr-6 tracking-wide drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">Download Now</span>
+                    </a>
+               </div>
+
+               <div className="text-[13px] text-gray-800 mb-2 font-sans">
+                  Download options:
+               </div>
+               <div className="flex flex-col gap-2 w-[900px]">
+                  {post.attachments.map((att, idx) => (
+                     <a
+                       key={idx}
+                       href={att.url}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="flex items-center gap-2.5 px-3 py-2 bg-white border border-[#cccccc] hover:bg-[#f5f5f5] text-[#0055aa] cursor-pointer transition-colors"
+                       style={{ width: '900px', fontSize: '10px', lineHeight: '14px', height: '80.9688px' }}
+                     >
+                        <ArrowDown size={14} className="text-[#666666] shrink-0" strokeWidth={3} />
+                        <span className="font-sans truncate inline-block text-[10px] leading-[14px]">{att.name}</span>
+                     </a>
+                  ))}
+               </div>
+            </div>
+         </div>
+      ) : (
+         <>
+            <div
+              className={`post-body mb-4 whitespace-pre-wrap ${isExpanded ? "" : "line-clamp-4"} [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline`}
+            >
+              <ReactMarkdown
+                remarkPlugins={[remarkBreaks]}
+                rehypePlugins={[rehypeRaw]}
+                components={{
+                  h3: ({ node, children, ...props }) => {
+                    const text = String(children);
+                    if (text.includes("🚀 What's New")) {
+                      return (
+                        <h3 className="flex items-center gap-2 text-blue-700 bg-blue-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-4 mb-2 border border-blue-100 shadow-sm" {...props}>
+                          {children}
+                        </h3>
+                      );
+                    }
+                    if (text.includes("🛠️ Bug Fixes")) {
+                      return (
+                        <h3 className="flex items-center gap-2 text-rose-700 bg-rose-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-4 mb-2 border border-rose-100 shadow-sm" {...props}>
+                          {children}
+                        </h3>
+                      );
+                    }
+                    if (text.includes("⚡ Improvements")) {
+                      return (
+                        <h3 className="flex items-center gap-2 text-amber-700 bg-amber-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-4 mb-2 border border-amber-100 shadow-sm" {...props}>
+                          {children}
+                        </h3>
+                      );
+                    }
+                    return <h3 className="text-lg font-black text-primary mt-4 mb-2" {...props}>{children}</h3>;
+                  },
+                  ul: ({ node, children, ...props }) => (
+                    <ul className="space-y-1.5 ml-4 mb-4" {...props}>{children}</ul>
+                  ),
+                  li: ({ node, children, ...props }) => (
+                    <li className="flex items-start gap-2 text-slate-700 font-medium text-sm leading-relaxed" {...props}>
+                      <span className="text-primary mt-1.5 w-1 h-1 rounded-full bg-primary shrink-0" />
+                      <span>{children}</span>
+                    </li>
+                  )
+                }}
+              >
+                {post.content || ""}
+              </ReactMarkdown>
+            </div>
+
+            {post.attachments && post.attachments.length > 0 && (
+               <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                  <div className="flex items-center gap-2 mb-2 px-1">
+                     <Paperclip size={12} className="text-slate-400" />
+                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        Attached Files
+                     </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                     {post.attachments.map((att, idx) => {
+                       const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image");
+                       return (
+                         <div key={idx} className="flex flex-col gap-2">
+                           {isImage ? (
+                             <div className="relative group overflow-hidden rounded-xl border border-slate-100 shadow-sm transition-all hover:border-primary/20">
+                               <img
+                                 src={att.url}
+                                 alt={att.name}
+                                 loading="lazy"
+                                 className="w-full h-40 object-cover transition-transform group-hover:scale-105"
+                               />
+                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                  <a
+                                    href={att.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-2 bg-white rounded-full text-primary hover:scale-110 transition-transform"
+                                  >
+                                    <ExternalLink size={16} />
+                                  </a>
+                               </div>
+                               <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
+                                  <p className="text-white text-[10px] font-bold truncate px-1">{att.name}</p>
+                               </div>
+                             </div>
+                           ) : (
+                             <a
+                               href={att.url}
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               className="flex items-center gap-3 p-2.5 bg-slate-50 hover:bg-blue-50 border border-slate-100 hover:border-blue-100 rounded-xl transition-all group"
+                             >
+                               <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center border border-slate-100 group-hover:border-blue-100 shrink-0 shadow-sm">
+                                  <FileText size={16} className="text-blue-500" />
+                               </div>
+                               <div className="flex flex-col min-w-0">
+                                  <span className="text-[11px] font-bold text-slate-700 truncate group-hover:text-blue-700">{att.name}</span>
+                                  <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Download • {att.url.split('.').pop()?.split('?')[0].toUpperCase() || 'FILE'}</span>
+                               </div>
+                             </a>
+                           )}
+                         </div>
+                       );
+                     })}
+                  </div>
+               </div>
+            )}
+         </>
+      )}
 
       {post.content && post.content.length > 200 && !isExpanded && (
         <button
@@ -13785,15 +13865,19 @@ function PostCard({
               onClick={async () => {
                 if (!newComment.trim() || requireLoginAlert()) return;
                 try {
+                  const authorName = auth.currentUser!.displayName || auth.currentUser!.email?.split("@")[0] || "User";
                   await addDoc(collection(db, "posts", post.id, "comments"), {
                     text: newComment,
                     time: Date.now(),
                     uid: auth.currentUser!.uid,
-                    userName: auth.currentUser!.displayName || "User",
+                    userName: authorName,
                   });
                   await updateDoc(doc(db, "posts", post.id), {
                     commentCount: increment(1),
                   });
+                  // Notifying users
+                  sendCommentNotifications(post.id, newComment, auth.currentUser!.uid, authorName);
+                  
                   setNewComment("");
                 } catch (e: any) {
                   addToast("Error: " + e.message);
@@ -13846,6 +13930,135 @@ function PostForm({
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
   const [title, setTitle] = useState(editingPost?.title || "");
   const [content, setContent] = useState(editingPost?.content || "");
+  const [version, setVersion] = useState(editingPost?.version || "");
+  const [attachments, setAttachments] = useState<{ name: string; url: string }[]>(
+    editingPost?.attachments || [],
+  );
+  const [downloadStyle, setDownloadStyle] = useState<"classic" | "techspot">(
+    editingPost?.downloadStyle || "techspot"
+  );
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (!auth.currentUser) {
+      addToast("దయచేసి ముందుగా లాగిన్ అవ్వండి! (Please login first)");
+      return;
+    }
+
+    const paramsFiles = Array.from(files);
+
+    setUploadingFile(true);
+    setUploadProgress(0);
+
+    const uploadFile = async (currentFile: File) => {
+      let file = currentFile;
+      if (file.type.startsWith('image/')) {
+         addToast(`${file.name} (సైజు: ${(file.size / 1024 / 1024).toFixed(2)}MB) కంప్రెస్ అవుతోంది...`);
+         try {
+             const options = {
+                 maxSizeMB: 1, 
+                 maxWidthOrHeight: 1920,
+                 useWebWorker: true,
+                 initialQuality: 0.8
+             };
+             const compressedBlob = await imageCompression(file, options);
+             file = new File([compressedBlob], file.name, {
+                 type: file.type,
+                 lastModified: Date.now()
+             });
+             addToast(`కంప్రెస్ పూర్తయింది! సర్వర్‌కు అప్‌లోడ్ అవుతోంది...`);
+         } catch (error) {
+             console.error("Compression error:", error);
+         }
+      } else {
+         addToast(`సర్వర్ ద్వారా అప్‌లోడ్ అవుతోంది...`);
+      }
+
+      console.log(`Starting local server upload for ${file.name}`);
+      
+      return new Promise<{ name: string; url: string }>((resolve, reject) => {
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", "/api/upload", true);
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const progress = (event.loaded / event.total) * 100;
+              setUploadProgress(progress);
+            }
+          };
+
+          xhr.onload = () => {
+             if (xhr.status === 200) {
+               try {
+                 const response = JSON.parse(xhr.responseText);
+                 setUploadProgress(100);
+                 resolve({ name: file.name, url: response.url });
+               } catch (e) {
+                 reject(new Error("Invalid response from server"));
+               }
+             } else if (xhr.status === 413) {
+                 reject(new Error("ఫైల్ సైజు చాలా పెద్దగా ఉంది (File too large). దయచేసి చిన్న ఫైల్ ఎంచుకోండి. (Max 1MB allowed usually)"));
+             } else {
+                 let errMsg = `Server error: ${xhr.statusText}`;
+                 try {
+                     const response = JSON.parse(xhr.responseText);
+                     if (response.error) errMsg = response.error;
+                 } catch (e) {}
+                 reject(new Error(errMsg));
+             }
+          };
+
+          xhr.onerror = () => {
+             reject(new Error("Network Error: ఫైల్ సైజు చాలా పెద్దదిగా ఉండవచ్చు లేదా నెట్‌వర్క్ సమస్య. (File size might be too large or connection dropped)"));
+          };
+
+          xhr.send(formData);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    };
+
+    try {
+      for (let i = 0; i < paramsFiles.length; i++) {
+        const file = paramsFiles[i];
+        addToast(`${i + 1}/${paramsFiles.length} ఫైల్ అప్‌లోడ్ అవుతోంది: ${file.name}...`);
+        const result = await uploadFile(file);
+        setAttachments((prev) => [...prev, result]);
+        addToast(`${file.name} విజయవంతంగా అప్‌లోడ్ చేయబడింది!`);
+      }
+
+      addToast("అన్ని ఫైల్స్ అప్‌లోడ్ పూర్తయ్యాయి!");
+    } catch (err: any) {
+      console.error("handleFileUpload complex error:", err);
+      let errorMsg = "ఫైల్ అప్‌లోడ్ విఫలమైంది! (File upload failed)";
+      
+      if (err.message) {
+        errorMsg = `లోపం జరిగింది: ${err.message}`;
+      }
+      
+      addToast(errorMsg);
+      Swal.fire({
+        icon: 'error',
+        title: 'అప్‌లోడ్ విఫలమైంది (Upload Failed)',
+        text: errorMsg,
+        confirmButtonText: 'సరే'
+      });
+    } finally {
+      setUploadingFile(false);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
   const [selectedCategories, setSelectedCategories] = useState<string[]>(() => {
     const raw = editingPost?.categories
       ? editingPost.categories
@@ -13853,10 +14066,23 @@ function PostForm({
         ? [editingPost.category]
         : ["📌 General"];
     // Map old names to new names for consistency in UI selection
-    return raw.map(cat => {
-      if (cat === "🚀 Portal Update") return "🚀 Updates";
-      return cat;
-    });
+    const mapping: Record<string, string> = {
+      "📌 General": "📌 General (సాధారణం)",
+      "🚀 Updates": "🚀 Updates (అప్‌డేట్స్)",
+      "🚀 Portal Update": "🚀 Updates (అప్‌డేట్స్)",
+      "📊 Daily Reports": "📊 Progress Reports (నివేదికలు)",
+      "🗳️ Election": "🗳️ Election News (ఎన్నికలు)",
+      "🗳️ TSEC Poll Issue": "🗳️ Election News (ఎన్నికలు)",
+      "🏛️ Mana Panchayath": "🏛️ Gram Panchayat (పంచాయతీ)",
+      "💡 Suggestions & Feedback": "💡 Ideas & Feedback (సూచనలు)",
+      "📑 Applications & GOs": "📑 GOs & Circulars (జీవోలు)",
+      "🔗 Useful Information": "🔗 Useful Links (ముఖ్యమైన లింకులు)",
+      "🏠 ePanchayat Issue": "🛠️ Technical Support (సహాయం)",
+      "💰 Online Tax Collection Issue": "💰 Taxes & Finance (పన్నులు)",
+      "📂 Ubd Portal Issue": "🛠️ Technical Support (సాంకేతిక సహాయం)",
+      "🛠️ eGramSwaraj doubts": "🛠️ Technical Support (సహాయం)"
+    };
+    return raw.map(cat => mapping[cat] || cat);
   });
   const [tags, setTags] = useState(editingPost?.tags?.join(", ") || "");
   const [websiteName, setWebsiteName] = useState(
@@ -13897,19 +14123,18 @@ function PostForm({
   };
 
   const CATEGORIES = [
-    "📌 General",
-    "🚀 Updates",
-    "📊 Daily Reports",
-    "🗳️ Election",
-    "🏛️ Mana Panchayath",
-    "💡 Suggestions & Feedback",
-    "📑 Applications & GOs",
-    "🔗 Useful Information",
-    "🏠 ePanchayat Issue",
-    "💰 Online Tax Collection Issue",
-    "📂 Ubd Portal Issue",
-    "🗳️ TSEC Poll Issue",
-    "🛠️ eGramSwaraj doubts",
+    "📌 General (సాధారణం)",
+    "🚀 Updates (అప్‌డేట్స్)",
+    "📊 Progress Reports (నివేదికలు)",
+    "🗳️ Election News (ఎన్నికలు)",
+    "🏛️ Gram Panchayat (పంచాయతీ)",
+    "📑 GOs & Circulars (జీవోలు)",
+    "💰 Taxes & Finance (పన్నులు)",
+    "🏠 Housing & Layouts (ఇళ్లు/లేఅవుట్లు)",
+    "🛠️ Technical Support (సహాయం)",
+    "💡 Ideas & Feedback (సూచనలు)",
+    "📑 Applications (దరఖాస్తులు)",
+    "🔗 Useful Links (ముఖ్యమైన లింకులు)",
   ];
 
   const toggleCategory = (cat: string) => {
@@ -13953,6 +14178,9 @@ function PostForm({
         mediaUrl: media?.url || "",
         mediaType: media?.type || "",
         mediaName: media?.name || "",
+        version: version.trim(),
+        attachments: attachments,
+        downloadStyle: downloadStyle,
       };
 
       // Firestore document size limit check (1MB)
@@ -14196,6 +14424,64 @@ function PostForm({
                 >
                   LINE
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    Swal.fire({
+                      title: 'Attach File Link',
+                      html: `
+                        <div class="text-left mb-1 text-xs font-bold text-slate-500 uppercase">File Display Name</div>
+                        <input id="swal-file-name" class="swal2-input mt-0 mb-4" placeholder="e.g. Update Document, GO Copy">
+                        <div class="text-left mb-1 text-xs font-bold text-slate-500 uppercase">File URL</div>
+                        <input id="swal-file-url" class="swal2-input mt-0" placeholder="https://example.com/file.pdf">
+                      `,
+                      showCancelButton: true,
+                      confirmButtonText: 'Add Link',
+                      preConfirm: () => {
+                        const name = (document.getElementById('swal-file-name') as HTMLInputElement).value;
+                        const url = (document.getElementById('swal-file-url') as HTMLInputElement).value;
+                        if (!url) {
+                          Swal.showValidationMessage('URL is required');
+                          return null;
+                        }
+                        return { name: name || '📁 Download File', url };
+                      }
+                    }).then((result) => {
+                      if (result.isConfirmed && result.value) {
+                         wrapText(`[${result.value.name}](${result.value.url})`, "");
+                      }
+                    });
+                  }}
+                  className="p-1.5 hover:bg-white hover:shadow-sm rounded-lg transition-all text-blue-600 hover:text-primary"
+                  title="Attach File Link"
+                >
+                  <FileText size={16} />
+                </button>
+                <div className="h-6 w-px bg-slate-200 mx-1"></div>
+                <button
+                  type="button"
+                  onClick={() => wrapText("### 🚀 What's New\n- ", "\n")}
+                  className="px-2 py-1 hover:bg-blue-600 hover:text-white rounded-lg transition-all text-blue-600 border border-blue-100 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest"
+                  title="Insert Whats New Section"
+                >
+                  🚀 New
+                </button>
+                <button
+                  type="button"
+                  onClick={() => wrapText("### 🛠️ Bug Fixes\n- ", "\n")}
+                  className="px-2 py-1 hover:bg-rose-600 hover:text-white rounded-lg transition-all text-rose-600 border border-rose-100 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest"
+                  title="Insert Bug Fixes Section"
+                >
+                  🛠️ Fixes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => wrapText("### ⚡ Improvements\n- ", "\n")}
+                  className="px-2 py-1 hover:bg-amber-600 hover:text-white rounded-lg transition-all text-amber-600 border border-amber-100 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest"
+                  title="Insert Improvements Section"
+                >
+                  ⚡ Improv
+                </button>
               </div>
               <textarea
                 ref={textareaRef}
@@ -14233,8 +14519,13 @@ function PostForm({
                 </div>
               </div>
 
-              <h4 className="post-title !mt-0 whitespace-pre-wrap">
+              <h4 className="post-title !mt-0 whitespace-pre-wrap flex items-center gap-2">
                 {formatPostTitle(title) || "Post Title Preview"}
+                {version && (
+                   <span className="bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-md font-black tracking-widest uppercase">
+                      {version}
+                   </span>
+                )}
               </h4>
 
               {tags && (
@@ -14249,11 +14540,72 @@ function PostForm({
 
               <div className="post-body mb-4 whitespace-pre-wrap [&_pre]:bg-slate-800 [&_pre]:text-slate-100 [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:overflow-x-auto [&_code]:bg-slate-100 [&_code]:text-rose-500 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:px-0 [&_pre_code]:py-0 [&_p]:mb-2 [&_a]:text-blue-600 [&_a]:underline">
                 {content.trim() ? (
-                  <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkBreaks]} 
+                    rehypePlugins={[rehypeRaw]}
+                    components={{
+                      h3: ({ node, children, ...props }) => {
+                        const text = String(children);
+                        if (text.includes("🚀 What's New")) {
+                          return (
+                            <h3 className="flex items-center gap-2 text-blue-700 bg-blue-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-4 mb-2 border border-blue-100 shadow-sm" {...props}>
+                              {children}
+                            </h3>
+                          );
+                        }
+                        if (text.includes("🛠️ Bug Fixes")) {
+                          return (
+                            <h3 className="flex items-center gap-2 text-rose-700 bg-rose-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-4 mb-2 border border-rose-100 shadow-sm" {...props}>
+                              {children}
+                            </h3>
+                          );
+                        }
+                        if (text.includes("⚡ Improvements")) {
+                          return (
+                            <h3 className="flex items-center gap-2 text-amber-700 bg-amber-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-4 mb-2 border border-amber-100 shadow-sm" {...props}>
+                              {children}
+                            </h3>
+                          );
+                        }
+                        return <h3 className="text-lg font-black text-primary mt-4 mb-2" {...props}>{children}</h3>;
+                      },
+                      ul: ({ node, children, ...props }) => (
+                        <ul className="space-y-1.5 ml-4 mb-4" {...props}>{children}</ul>
+                      ),
+                      li: ({ node, children, ...props }) => (
+                        <li className="flex items-start gap-2 text-slate-700 font-medium text-sm leading-relaxed" {...props}>
+                          <span className="text-primary mt-1.5 w-1 h-1 rounded-full bg-primary shrink-0" />
+                          <span>{children}</span>
+                        </li>
+                      )
+                    }}
+                  >
                     {content}
                   </ReactMarkdown>
                 ) : (
                   <span className="text-slate-400 italic">No content to preview...</span>
+                )}
+
+                {attachments.length > 0 && (
+                   <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                      <div className="flex items-center gap-2 mb-1 px-1">
+                         <Paperclip size={12} className="text-slate-400" />
+                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Attached Files (Preview)</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                         {attachments.map((att, idx) => (
+                           <div key={idx} className="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-100 rounded-xl">
+                             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center border border-slate-100 shrink-0 shadow-sm">
+                                <FileText size={16} className="text-blue-500" />
+                             </div>
+                             <div className="flex flex-col min-w-0">
+                                <span className="text-[11px] font-bold text-slate-700 truncate">{att.name}</span>
+                                <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Link Provided</span>
+                             </div>
+                           </div>
+                         ))}
+                      </div>
+                   </div>
                 )}
               </div>
 
@@ -14485,6 +14837,233 @@ function PostForm({
               </div>
             )}
           </div>
+
+          {/* VERSION & ATTACHMENTS SECTION */}
+          <div className="mt-6 pt-4 border-t-2 border-dashed border-slate-100 space-y-5">
+             <div className="flex items-center gap-2 mb-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">రిలీజ్ వివరాలు & ఫైల్స్ (Release details)</h3>
+             </div>
+
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               {/* Version Number Input */}
+               <div className="space-y-1.5">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                    వెర్షన్ నెంబర్ (Version)
+                  </label>
+                  <div className="relative group">
+                    <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
+                    <input
+                      type="text"
+                      value={version}
+                      onChange={(e) => setVersion(e.target.value)}
+                      placeholder="e.g. V1.5.0"
+                      className="w-full bg-white border-2 border-slate-100 rounded-xl py-2.5 pl-10 pr-4 text-sm font-bold text-slate-700 outline-none focus:border-primary/30 focus:shadow-sm transition-all shadow-sm"
+                    />
+                  </div>
+               </div>
+
+               {/* File Upload Section */}
+               <div className="space-y-1.5">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 text-right">
+                    రిలీజ్ ఫైల్స్ అప్‌లోడ్ (Upload Files)
+                  </label>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    multiple
+                    accept="*/*"
+                    className="hidden"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={uploadingFile}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 transition-all uppercase tracking-wider shadow-md shadow-blue-200 active:scale-95 disabled:opacity-50"
+                    >
+                      {uploadingFile ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Upload size={16} />
+                      )}
+                      {uploadingFile
+                        ? `అప్‌లోడ్ అవుతోంది ${Math.round(uploadProgress)}%`
+                        : "ఫైల్ అప్‌లోడ్ చేయండి"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        Swal.fire({
+                          title: 'Add New File Attachment',
+                          html: `
+                              <div class="text-left mb-1 text-xs font-bold text-slate-500 uppercase">Label Name</div>
+                              <input id="swal-file-name" class="swal2-input mt-0 mb-4" placeholder="e.g. Detailed Report, Govt Order">
+                              <div class="text-left mb-1 text-xs font-bold text-slate-500 uppercase">Download URL</div>
+                              <input id="swal-file-url" class="swal2-input mt-0" placeholder="https://example.com/file.pdf">
+                            `,
+                          showCancelButton: true,
+                          confirmButtonText: 'Confirm & Add',
+                          confirmButtonColor: '#2563eb',
+                          preConfirm: () => {
+                            const name = (document.getElementById('swal-file-name') as HTMLInputElement).value;
+                            const url = (document.getElementById('swal-file-url') as HTMLInputElement).value;
+                            if (!url) {
+                              Swal.showValidationMessage('File URL is required');
+                              return null;
+                            }
+                            return { name: name || '📁 File Attachment', url };
+                          }
+                        }).then((result) => {
+                          if (result.isConfirmed && result.value) {
+                            setAttachments(prev => [...prev, result.value]);
+                          }
+                        });
+                      }}
+                      className="p-2.5 bg-white border-2 border-slate-100 rounded-xl text-blue-600 hover:bg-blue-50 transition-all shadow-sm"
+                      title="Add by Link"
+                    >
+                      <Plus size={18} />
+                    </button>
+                  </div>
+                  {uploadingFile && (
+                    <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                       <div 
+                         className="h-full bg-blue-500 transition-all duration-300" 
+                         style={{ width: `${uploadProgress}%` }}
+                       />
+                    </div>
+                  )}
+                  <p className="text-[9px] text-slate-400 font-bold px-1 mt-1 animate-pulse">
+                    గమనిక: నెట్ స్లోగా ఉంటే లేదా ఫైల్ పెద్దగా ఉంటే అప్‌లోడ్ అవ్వడానికి సమయం పడుతుంది.
+                  </p>
+               </div>
+             </div>
+
+             {/* Attachment List Preview (The "Box" below) */}
+             {attachments.length > 0 && (
+                <div className="bg-slate-50/50 border-2 border-slate-100 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-blue-600">
+                      అటాచ్ చేసిన ఫైల్స్ (Attached Files - {attachments.length})
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {attachments.map((att, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3 bg-white border-2 border-slate-100 rounded-xl shadow-sm group hover:border-blue-200 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
+                            <FileText size={18} className="text-blue-500" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[11px] font-bold text-slate-800 truncate">
+                              {att.name}
+                            </span>
+                            <span className="text-[9px] font-medium text-slate-400 truncate max-w-[150px]">
+                              {att.url}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                          className="hover:bg-rose-50 text-slate-300 hover:text-danger p-1.5 rounded-lg transition-all"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Download Style Setup */}
+            {attachments.length > 0 && (
+              <div className="flex flex-col gap-2 mt-4 p-4 border-2 border-indigo-100 bg-indigo-50/30 rounded-2xl">
+                 <label className="text-xs font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                   <Settings size={14} className="text-indigo-600" />
+                   డౌన్‌లోడ్ లేఅవుట్ (Download Layout)
+                 </label>
+                 <div className="flex flex-col sm:flex-row gap-3 mt-2">
+                   <label className={`flex items-start gap-3 cursor-pointer bg-white px-4 py-3 rounded-xl border-2 transition-all flex-1 ${downloadStyle === "classic" ? "border-indigo-500 shadow-sm" : "border-slate-100 hover:border-indigo-200"}`}>
+                     <input 
+                       type="radio" 
+                       name="downloadStyle" 
+                       value="classic" 
+                       checked={downloadStyle === "classic"}
+                       onChange={() => setDownloadStyle("classic")}
+                       className="mt-0.5 w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                     />
+                     <div className="flex flex-col">
+                       <span className="text-sm font-bold text-slate-800">Classic (Grid)</span>
+                       <span className="text-[11px] text-slate-500 font-medium leading-tight mt-1">Standard grid with small cards.</span>
+                     </div>
+                   </label>
+                   <label className={`flex items-start gap-3 cursor-pointer bg-white px-4 py-3 rounded-xl border-2 transition-all flex-1 ${downloadStyle === "techspot" ? "border-indigo-500 shadow-sm" : "border-slate-100 hover:border-indigo-200"}`}>
+                     <input 
+                       type="radio" 
+                       name="downloadStyle" 
+                       value="techspot" 
+                       checked={downloadStyle === "techspot"}
+                       onChange={() => setDownloadStyle("techspot")}
+                       className="mt-0.5 w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                     />
+                     <div className="flex flex-col">
+                       <span className="text-sm font-bold text-slate-800">Advanced (TechSpot)</span>
+                       <span className="text-[11px] text-slate-500 font-medium leading-tight mt-1">Large format with highlighted "Download Now" box. Minimum 2 attachments expected.</span>
+                     </div>
+                   </label>
+                 </div>
+              </div>
+            )}
+
+             {/* Content Helper Buttons */}
+             <div className="space-y-1.5">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Quick Content Templates (Insert)
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      wrapText("### 🚀 What's New\n- ", "\n");
+                      addToast("Section added to Content editor");
+                    }}
+                    className="flex flex-col items-center justify-center p-3 bg-blue-50 border-2 border-blue-100 rounded-xl hover:bg-blue-100 transition-all text-blue-600 gap-1.5 group"
+                  >
+                    <Rocket size={18} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Update Fixes</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      wrapText("### 🛠️ Bug Fixes\n- ", "\n");
+                      addToast("Section added to Content editor");
+                    }}
+                    className="flex flex-col items-center justify-center p-3 bg-rose-50 border-2 border-rose-100 rounded-xl hover:bg-rose-100 transition-all text-rose-600 gap-1.5 group"
+                  >
+                    <Wrench size={18} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Add BugFix</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      wrapText("### ⚡ Improvements\n- ", "\n");
+                      addToast("Section added to Content editor");
+                    }}
+                    className="flex flex-col items-center justify-center p-3 bg-amber-50 border-2 border-amber-100 rounded-xl hover:bg-amber-100 transition-all text-amber-600 gap-1.5 group"
+                  >
+                    <Zap size={18} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Add Improv</span>
+                  </button>
+                </div>
+             </div>
+          </div>
+
         </div>
       </div>
 
@@ -15074,8 +15653,13 @@ function PostDetail({
           </div>
         </div>
 
-        <h1 className="text-3xl md:text-5xl font-black text-primary leading-tight tracking-tight whitespace-pre-wrap">
+        <h1 className="text-3xl md:text-5xl font-black text-primary leading-tight tracking-tight whitespace-pre-wrap flex items-center gap-3">
           {formatPostTitle(post.title)}
+          {post.version && (
+             <span className="bg-slate-800 text-white text-[11px] px-3 py-1 rounded-lg font-black tracking-widest uppercase">
+                {post.version}
+             </span>
+          )}
         </h1>
 
         {post.tags && post.tags.length > 0 && (
@@ -15180,14 +15764,232 @@ function PostDetail({
           </div>
         )}
 
-        <div className="prose prose-slate prose-lg md:prose-xl max-w-none pt-4 text-slate-700 leading-relaxed font-serif whitespace-pre-wrap">
-          <ReactMarkdown
-            remarkPlugins={[remarkBreaks]}
-            rehypePlugins={[rehypeRaw]}
-          >
-            {post.content}
-          </ReactMarkdown>
-        </div>
+      {post.attachments && (post.downloadStyle === "techspot" || (!post.downloadStyle && post.attachments.length >= 2)) ? (
+         <div className="flex flex-col md:flex-row gap-8 mt-4">
+            <div className="flex-1 min-w-0">
+               <div className="prose prose-slate prose-lg md:prose-xl max-w-none text-slate-700 leading-relaxed font-serif whitespace-pre-wrap">
+                 <ReactMarkdown
+                   remarkPlugins={[remarkBreaks]}
+                   rehypePlugins={[rehypeRaw]}
+                   components={{
+                     h3: ({ node, children, ...props }) => {
+                       const text = String(children);
+                       if (text.includes("🚀 What's New")) {
+                         return <h3 className="flex items-center gap-2 text-blue-700 bg-blue-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-6 mb-3 border border-blue-100 shadow-sm" {...props}>{children}</h3>;
+                       }
+                       if (text.includes("🛠️ Bug Fixes")) {
+                         return <h3 className="flex items-center gap-2 text-rose-700 bg-rose-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-6 mb-3 border border-rose-100 shadow-sm" {...props}>{children}</h3>;
+                       }
+                       if (text.includes("⚡ Improvements")) {
+                         return <h3 className="flex items-center gap-2 text-amber-700 bg-amber-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-6 mb-3 border border-amber-100 shadow-sm" {...props}>{children}</h3>;
+                       }
+                       return <h3 className="text-xl font-black text-primary mt-6 mb-3" {...props}>{children}</h3>;
+                     },
+                     ul: ({ node, children, ...props }) => <ul className="space-y-2 ml-4 mb-6" {...props}>{children}</ul>,
+                     li: ({ node, children, ...props }) => (
+                       <li className="flex items-start gap-3 text-slate-700 font-medium text-base leading-relaxed" {...props}>
+                         <span className="text-primary mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                         <span>{children}</span>
+                       </li>
+                     )
+                   }}
+                 >
+                   {post.content}
+                 </ReactMarkdown>
+               </div>
+               
+               {post.attachments.filter(att => /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")).length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+                     {post.attachments.filter(att => /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")).map((att, idx) => (
+                           <div key={idx} className="relative group overflow-hidden rounded-2xl border-2 border-slate-50 shadow-sm transition-all hover:border-blue-100 hover:shadow-md">
+                             <img
+                               src={att.url}
+                               alt={att.name}
+                               loading="lazy"
+                               className="w-full h-48 object-cover transition-transform group-hover:scale-105"
+                             />
+                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                <a
+                                  href={att.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-3 bg-white rounded-full text-blue-600 hover:scale-110 transition-transform shadow-lg"
+                                >
+                                  <ExternalLink size={20} />
+                                </a>
+                                <a
+                                  href={att.url}
+                                  download={att.name}
+                                  className="p-3 bg-white rounded-full text-green-600 hover:scale-110 transition-transform shadow-lg"
+                                >
+                                  <Download size={20} />
+                                </a>
+                             </div>
+                             <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                                <p className="text-white text-[12px] font-bold truncate px-1">{att.name}</p>
+                             </div>
+                           </div>
+                     ))}
+                  </div>
+               )}
+            </div>
+
+            <div className="w-full md:w-[320px] lg:w-[360px] shrink-0 border-t md:border-t-0 md:border-l border-gray-100 pt-6 md:pt-0 md:pl-10 flex flex-col">
+               <div className="mb-5">
+                    <div className="text-[#333333] text-[13px] mb-4 leading-relaxed font-sans">
+                       Fast servers and clean downloads.<br/>
+                       Serving tech enthusiasts <span className="border-b-2 border-orange-500 pb-[1px]">for over 25 years.</span><br/>
+                       Tested on TechSpot Labs.
+                    </div>
+                    <a
+                      href={post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0]?.url || post.attachments[0].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-4 text-white rounded shadow-sm transition-colors border border-[#0d47a1] overflow-hidden group w-[900px]"
+                      style={{ background: 'linear-gradient(to bottom, #2b88d8 0%, #1565c0 100%)', paddingTop: '10px', paddingLeft: '10px', paddingRight: '0px', height: '54.6667px' }}
+                    >
+                      <div className="bg-black/15 p-2.5 flex items-center justify-center border-r border-black/10">
+                        <ArrowDown size={28} color="white" strokeWidth={3} className="drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform" />
+                      </div>
+                      <span className="text-[20px] font-semibold pr-6 tracking-wide drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">Download Now</span>
+                    </a>
+               </div>
+
+               <div className="text-[13px] text-gray-800 mb-2 font-sans">
+                  Download options:
+               </div>
+               <div className="flex flex-col gap-2 w-[900px]">
+                  {post.attachments.map((att, idx) => (
+                     <a
+                       key={idx}
+                       href={att.url}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="flex items-center gap-2.5 px-3 py-2 bg-white border border-[#cccccc] hover:bg-[#f5f5f5] text-[#0055aa] cursor-pointer transition-colors"
+                       style={{ width: '900px', fontSize: '10px', lineHeight: '14px', height: '80.9688px' }}
+                     >
+                        <ArrowDown size={14} className="text-[#666666] shrink-0" strokeWidth={3} />
+                        <span className="font-sans truncate inline-block text-[10px] leading-[14px]">{att.name}</span>
+                     </a>
+                  ))}
+               </div>
+            </div>
+         </div>
+      ) : (
+         <>
+            <div className="prose prose-slate prose-lg md:prose-xl max-w-none pt-4 text-slate-700 leading-relaxed font-serif whitespace-pre-wrap">
+              <ReactMarkdown
+                remarkPlugins={[remarkBreaks]}
+                rehypePlugins={[rehypeRaw]}
+                components={{
+                  h3: ({ node, children, ...props }) => {
+                    const text = String(children);
+                    if (text.includes("🚀 What's New")) {
+                      return (
+                        <h3 className="flex items-center gap-2 text-blue-700 bg-blue-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-6 mb-3 border border-blue-100 shadow-sm" {...props}>
+                          {children}
+                        </h3>
+                      );
+                    }
+                    if (text.includes("🛠️ Bug Fixes")) {
+                      return (
+                        <h3 className="flex items-center gap-2 text-rose-700 bg-rose-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-6 mb-3 border border-rose-100 shadow-sm" {...props}>
+                          {children}
+                        </h3>
+                      );
+                    }
+                    if (text.includes("⚡ Improvements")) {
+                      return (
+                        <h3 className="flex items-center gap-2 text-amber-700 bg-amber-50 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest mt-6 mb-3 border border-amber-100 shadow-sm" {...props}>
+                          {children}
+                        </h3>
+                      );
+                    }
+                    return <h3 className="text-xl font-black text-primary mt-6 mb-3" {...props}>{children}</h3>;
+                  },
+                  ul: ({ node, children, ...props }) => (
+                    <ul className="space-y-2 ml-4 mb-6" {...props}>{children}</ul>
+                  ),
+                  li: ({ node, children, ...props }) => (
+                    <li className="flex items-start gap-3 text-slate-700 font-medium text-base leading-relaxed" {...props}>
+                      <span className="text-primary mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                      <span>{children}</span>
+                    </li>
+                  )
+                }}
+              >
+                {post.content}
+              </ReactMarkdown>
+            </div>
+
+            {post.attachments && post.attachments.length > 0 && (
+               <div className="mt-8 pt-8 space-y-4">
+                  <div className="flex items-center gap-2 mb-4 px-1">
+                     <Paperclip size={16} className="text-slate-400" />
+                     <span className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                        Release Documents & File Attachments
+                     </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                     {post.attachments.map((att, idx) => {
+                       const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image");
+                       return (
+                         <div key={idx}>
+                           {isImage ? (
+                             <div className="relative group overflow-hidden rounded-2xl border-2 border-slate-50 shadow-sm transition-all hover:border-blue-100 hover:shadow-md">
+                               <img
+                                 src={att.url}
+                                 alt={att.name}
+                                 className="w-full h-48 object-cover transition-transform group-hover:scale-105"
+                               />
+                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                  <a
+                                    href={att.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-3 bg-white rounded-full text-blue-600 hover:scale-110 transition-transform shadow-lg"
+                                    title="View Full Image"
+                                  >
+                                    <ExternalLink size={20} />
+                                  </a>
+                                  <a
+                                    href={att.url}
+                                    download={att.name}
+                                    className="p-3 bg-white rounded-full text-green-600 hover:scale-110 transition-transform shadow-lg"
+                                    title="Download Image"
+                                  >
+                                    <Download size={20} />
+                                  </a>
+                               </div>
+                               <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                                  <p className="text-white text-xs font-black truncate">{att.name}</p>
+                                  <p className="text-white/60 text-[9px] font-bold uppercase tracking-widest">Image File</p>
+                               </div>
+                             </div>
+                           ) : (
+                             <a
+                               href={att.url}
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-blue-50 border-2 border-slate-100 hover:border-blue-200 rounded-2xl transition-all group h-full"
+                             >
+                               <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center border-2 border-slate-100 group-hover:border-blue-100 shrink-0 shadow-sm transition-transform group-hover:scale-105">
+                                  <FileText size={20} className="text-blue-500" />
+                               </div>
+                               <div className="flex flex-col min-w-0">
+                                  <span className="text-sm font-black text-slate-800 truncate group-hover:text-blue-800">{att.name}</span>
+                                  <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Download File • {att.url.split('.').pop()?.split('?')[0].toUpperCase() || 'FILE'}</span>
+                               </div>
+                             </a>
+                           )}
+                         </div>
+                       );
+                     })}
+                  </div>
+               </div>
+            )}
+         </>
+      )}
 
         <div className="flex justify-between items-center sm:mt-12 mt-8 pt-8 border-t-2 border-dashed border-slate-100">
           <div className="flex gap-6">
@@ -15366,15 +16168,17 @@ function PostComments({
 
     setSubmittingComment(true);
     try {
+      const authorName = isAdmin
+          ? "Admin"
+          : auth.currentUser!.displayName ||
+            auth.currentUser!.email?.split("@")[0] ||
+            "User";
+            
       await addDoc(collection(db, "posts", post.id, "comments"), {
         text: newComment,
         time: Date.now(),
         uid: auth.currentUser!.uid,
-        userName: isAdmin
-          ? "Admin"
-          : auth.currentUser!.displayName ||
-            auth.currentUser!.email?.split("@")[0] ||
-            "User",
+        userName: authorName,
         isAdminComment: isAdmin,
         likes: [],
         edited: false,
@@ -15384,6 +16188,10 @@ function PostComments({
       await updateDoc(doc(db, "posts", post.id), {
         commentCount: increment(1),
       });
+      
+      // Notify users
+      sendCommentNotifications(post.id, newComment, auth.currentUser!.uid, authorName);
+      
     } catch (e: any) {
       console.error(e);
       addToast("Error: " + (e.message || String(e)));

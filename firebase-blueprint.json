@@ -98,29 +98,9 @@
       "properties": {
         "uid": { "type": "string" }
       }
-    },
-    "Advertisement": {
-      "title": "Advertisement",
-      "description": "Dynamic ads displayed on the home page.",
-      "type": "object",
-      "properties": {
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "imageUrl": { "type": "string" },
-        "linkUrl": { "type": "string" },
-        "isActive": { "type": "boolean" },
-        "order": { "type": "integer" },
-        "time": { "type": "integer" },
-        "uploadedBy": { "type": "string" }
-      },
-      "required": ["imageUrl", "isActive", "time"]
     }
   },
   "firestore": {
-    "/advertisements/{adId}": {
-      "schema": "Advertisement",
-      "description": "Dynamic homepage advertisements."
-    },
     "/gos_formats/{docId}": {
       "schema": "GosFormat",
       "description": "GOs and Application documents."

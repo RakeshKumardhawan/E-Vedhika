@@ -1,179 +1,79 @@
-
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs/promises';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import express from "express";
+import path from "path";
+import multer from "multer";
+import fs from "fs";
+import cors from "cors";
+import { createServer as createViteServer } from "vite";
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
-  
-  // API routes can go here if needed in the future
-  app.post('/api/admin/restart', (req, res) => {
-    res.json({ success: true, message: 'Server is restarting...' });
-    setTimeout(() => {
-      console.log('Restarting server as requested via Admin Panel...');
-      process.exit(0);
-    }, 1000);
-  });
+  const PORT = 3000;
 
-  // Intercept for Google site verification
-  app.get('/google46d0fa093843f771.html', (req, res) => {
-    res.send('google-site-verification: google46d0fa093843f771.html');
-  });
+  // Use CORS in case of cross-origin requests
+  app.use(cors());
 
-  const isProduction = process.env.NODE_ENV === 'production';
-  let vite: any;
-
-  if (!isProduction) {
-    const { createServer: createViteServer } = await import('vite');
-    vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'custom',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.resolve(__dirname, '.dist');
-    app.use(express.static(distPath, { index: false })); // Disable index.html auto-serving so we can intercept it
+  // Ensure uploads directory exists
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
   }
 
-  // Image server endpoint
-  app.get('/api/image/:collection/:id', async (req, res) => {
-    const { collection, id } = req.params;
-    try {
-      const fbConfig = JSON.parse(await fs.readFile(path.resolve(__dirname, 'firebase-applet-config.json'), 'utf-8'));
-      const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${fbConfig.projectId}/databases/(default)/documents/${collection}/${id}?key=${fbConfig.apiKey}`;
-      const response = await fetch(firestoreUrl);
-      if (response.ok) {
-        const data = await response.json();
-        const mediaUrl = data.fields?.mediaUrl?.stringValue || data.fields?.imageUrl?.stringValue;
-        if (mediaUrl && mediaUrl.startsWith('data:')) {
-          const matches = mediaUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-          if (matches && matches.length === 3) {
-            const contentType = matches[1];
-            const base64Data = matches[2];
-            const buffer = Buffer.from(base64Data, 'base64');
-            res.set('Content-Type', contentType);
-            // Optional caching
-            res.set('Cache-Control', 'public, max-age=86400');
-            res.send(buffer);
-            return;
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Error serving image", e);
-    }
-    // Fallback placeholder
-    res.redirect('https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika');
-  });
-
-  // Fallback to index.html for SPA routing and inject dynamic Open Graph tags
-  app.get('*', async (req, res) => {
-    try {
-      let template = '';
-      if (!isProduction) {
-        // Read index.html from source and apply Vite transforms
-        template = await fs.readFile(path.resolve(__dirname, 'index.html'), 'utf-8');
-        template = await vite.transformIndexHtml(req.originalUrl, template);
-      } else {
-        template = await fs.readFile(path.resolve(__dirname, '.dist', 'index.html'), 'utf-8');
-      }
-
-      const postId = req.query.postId as string;
-      const problemId = req.query.problemId as string;
-      const suggestionId = req.query.suggestionId as string;
-      const requestId = req.query.requestId as string;
-
-      const targetId = postId || problemId || suggestionId || requestId;
-      const targetCollection = postId ? 'posts' : problemId ? 'problems' : suggestionId ? 'suggestions' : requestId ? 'requests' : null;
-
-      const protocol = req.get('x-forwarded-proto') || req.protocol;
-      let ogTitle = "E-Vedhika Portal";
-      let ogDescription = "E-Vedhika All problems one solution";
-      let ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
-
-      if (targetId && targetCollection) {
-        try {
-          const fbConfig = JSON.parse(await fs.readFile(path.resolve(__dirname, 'firebase-applet-config.json'), 'utf-8'));
-          const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${fbConfig.projectId}/databases/(default)/documents/${targetCollection}/${targetId}?key=${fbConfig.apiKey}`;
-          
-          const response = await fetch(firestoreUrl);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.fields) {
-              // Title extraction
-              const titleField = data.fields.title?.stringValue || data.fields.subject?.stringValue || data.fields.name?.stringValue || (postId ? 'Community Post' : targetCollection === 'problems' ? 'Problem Report' : 'Portal Update');
-              ogTitle = titleField.replace(/[\r\n]+/g, ' ').replace(/ +/g, ' ').trim();
-              
-              // Description extraction
-              const contentField = data.fields.content?.stringValue || data.fields.message?.stringValue || data.fields.text?.stringValue || data.fields.desc?.stringValue || data.fields.msg?.stringValue || data.fields.description?.stringValue;
-              if (contentField) {
-                const plainText = contentField.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').replace(/[\r\n]+/g, ' ').replace(/ +/g, ' ').substring(0, 160).trim();
-                ogDescription = plainText + (contentField.length > 160 ? '...' : '');
-              }
-
-              // Image extraction
-              if (data.fields.mediaUrl?.stringValue || data.fields.imageUrl?.stringValue) {
-                const img = data.fields.mediaUrl?.stringValue || data.fields.imageUrl?.stringValue;
-                if (img.startsWith('data:')) {
-                  ogImage = `${protocol}://${req.get('host')}/api/image/${targetCollection}/${targetId}`;
-                } else {
-                  ogImage = img;
-                }
-              } else {
-                ogImage = "https://placehold.co/1200x630/0d3b66/ffffff/png?text=E-Vedhika";
-              }
-            }
-          }
-        } catch (e) {
-          console.error("Error fetching data for Open Graph tags:", e);
-        }
-      }
-
-      // Prepare tags
-      const sanitizedTitle = ogTitle.replace(/"/g, '&quot;');
-      const sanitizedDesc = ogDescription.replace(/"/g, '&quot;');
-      
-      const ogTags = `
-        <title>${sanitizedTitle}</title>
-        <meta name="description" content="${sanitizedDesc}" />
-        <meta property="og:site_name" content="E-Vedhika" />
-        <meta property="og:title" content="${sanitizedTitle}" />
-        <meta property="og:description" content="${sanitizedDesc}" />
-        <meta property="og:image" content="${ogImage}" />
-        <meta property="og:type" content="article" />
-        <meta property="og:url" content="${protocol}://${req.get('host')}${req.originalUrl}" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="${sanitizedTitle}" />
-        <meta name="twitter:description" content="${sanitizedDesc}" />
-        <meta name="twitter:image" content="${ogImage}" />
-      `;
-
-      // Use regex to replace title and description tags if they exist
-      template = template.replace(/<title>.*?<\/title>/gi, '');
-      template = template.replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/gi, '');
-      template = template.replace(/<meta\s+property="og:.*?"\s+content=".*?"\s*\/?>/gi, '');
-      template = template.replace(/<meta\s+name="twitter:.*?"\s+content=".*?"\s*\/?>/gi, '');
-      
-      // Inject tags before </head>
-      template = template.replace('</head>', `${ogTags}\n</head>`);
-
-      res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
-    } catch (e) {
-      if (e instanceof Error) {
-        vite?.ssrFixStacktrace(e);
-        console.error(e.stack);
-        res.status(500).end(e.stack);
-      }
+  // Configure multer
+  const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, uploadsDir)
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+      const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      cb(null, uniqueSuffix + '-' + safeName)
     }
   });
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
+  const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 1024 * 1024 * 1024 } // 1GB limit
+  });
+
+  // API Routes MUST be before vite middleware
+  app.post("/api/upload", (req, res, next) => {
+    upload.single('file')(req, res, (err) => {
+      if (err) {
+        console.error("Multer upload error:", err);
+        return res.status(500).json({ error: err.message || "Upload failed" });
+      }
+      next();
+    });
+  }, (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    // Return the public URL for the file
+    res.json({ url: `/uploads/${req.file.filename}` });
+  });
+
+  // Serve static files from uploads directory
+  app.use('/uploads', express.static(uploadsDir));
+
+  // Vite middleware for development
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    
+    // Pass other requests to Vite
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Custom Server running on http://localhost:${PORT}`);
   });
 }
 
