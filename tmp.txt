@@ -1,0 +1,748 @@
+118:const loadHeavyModules = async () => {
+121:    const j = await import("jspdf");
+125:    const a = await import("jspdf-autotable");
+211:  const errInfo: FirestoreErrorInfo = {
+229:  const lowerErr = errInfo.error.toLowerCase();
+247:    const parsed = JSON.parse(msg);
+279:    const time = Date.now();
+282:    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+283:    const mentions = [...commentText.matchAll(mentionRegex)].map((m) => m[1].toLowerCase());
+284:    const uniqueMentions = [...new Set(mentions)];
+288:          const userDoc = await getDoc(doc(db, "usernames", username));
+290:             const targetUid = userDoc.data().uid;
+306:    const commentsSnap = await getDocs(collection(db, "posts", postId, "comments"));
+307:    const uids = new Set<string>();
+309:       const data = d.data();
+333:const logUserActivity = async (actionDesc: string) => {
+336:    const userDisplay =
+401:  const account = userObj || auth.currentUser;
+415:  const diff = Date.now() - timestamp;
+416:  const seconds = Math.floor(diff / 1000);
+417:  const minutes = Math.floor(seconds / 60);
+418:  const hours = Math.floor(minutes / 60);
+419:  const days = Math.floor(hours / 24);
+487:const DEFAULT_DISTRICTS_DATA: Record<string, string[]> = {
+1205:const APP_STYLES = `
+1426:      const parsed = new Date(obj.date).getTime();
+1433:export const triggerNotification = (title: string, body: string) => {
+1461:export const playNotificationSound = () => {
+1463:    const AudioContextClass =
+1475:    const playNote = (freq: number, startTime: number, duration: number) => {
+1477:      const oscillator = globalAudioContext.createOscillator();
+1478:      const gainNode = globalAudioContext.createGain();
+1513:const formatPostTitle = (title: string | undefined | null) => {
+1518:export const SYSTEM_UPDATES = [
+1862:export const handleShare = async (
+1874:      const response = await fetch(mediaUrl);
+1875:      const blob = await response.blob();
+1876:      const ext = mediaType.split("/")[1] || "jpeg";
+1877:      const file = new File([blob], `shared_media.${ext}`, { type: blob.type || "image/jpeg" });
+1888:      const shareData: any = { title, text, url };
+1907:export const handleForceDownload = async (e: React.MouseEvent, url: string, fileName: string) => {
+1917:    const lowerName = extractedFilename.toLowerCase();
+1918:    const isGenericInfo = (lowerName === "download" || lowerName === "document" || lowerName === "attachment" || lowerName === "download.zip" || lowerName.startsWith("download") || !extractedFilename.includes('.'));
+1922:        const mimeMatch = url.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);/);
+1924:          const mime = mimeMatch[1];
+1925:          const mimeToExt: Record<string, string> = {
+1933:          const ext = mimeToExt[mime.toLowerCase()];
+1938:          const urlObj = new URL(url, window.location.origin);
+1939:          const decodedPath = decodeURIComponent(urlObj.pathname);
+1940:          const parts = decodedPath.split('/');
+1941:          const lastPart = parts[parts.length - 1];
+1949:    const link = document.createElement("a");
+1955:        const proxyUrl = `/api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(extractedFilename)}`;
+1959:        const finalLower = extractedFilename.toLowerCase();
+1970:    const link = document.createElement("a");
+1981:  const navigate = useNavigate();
+1982:  const location = useLocation();
+1983:  const [searchParams, setSearchParams] = useSearchParams();
+1984:  const postIdFromUrl = searchParams.get("postId");
+1985:  const sidebarRef = useRef<HTMLDivElement>(null);
+1987:  const [user, setUser] = useState<any>(null);
+1988:  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+1989:  const [userRole, setUserRole] = useState<"admin" | "editor" | "user">("user");
+1990:  const hasGreetedRef = useRef(false);
+1992:  const isDevEmail =
+1994:  const isAdmin = userRole === "admin" || isDevEmail;
+1995:  const isEditor = userRole === "admin" || userRole === "editor" || isDevEmail;
+2010:    const applyTheme = (themeValue: string | undefined) => {
+2026:    const matcher = window.matchMedia('(prefers-color-scheme: dark)');
+2027:    const listener = () => {
+2040:    const originalError = console.error;
+2041:    const originalWarn = console.warn;
+2044:      const msg = args[0];
+2045:      const isBenignError =
+2056:      const isBenignErrorObject =
+2070:      const msg = args[0];
+2085:    const handleRejection = (event: PromiseRejectionEvent) => {
+2086:      const reason = event.reason;
+2087:      const isBenign =
+2110:  const [siteConfig, setSiteConfig] = useState<any>(null);
+2112:  const [sidebarOpen, setSidebarOpen] = useState(false);
+2113:  const [visitorCount, setVisitorCount] = useState<number | null>(null);
+2114:  const tabFromUrl = searchParams.get("tab");
+2115:  const [currentTab, setCurrentTab] = useState(tabFromUrl || "home");
+2116:  const [isPriorityOpen, setIsPriorityOpen] = useState(
+2129:    const unsub = onSnapshot(doc(db, "site_settings", "home_page"), (snap) => {
+2139:    const tab = searchParams.get("tab");
+2144:  const [activeInternalUrl, setActiveInternalUrl] = useState<string | null>(
+2147:  const [currentFilter, setCurrentFilter] = useState("All");
+2148:  const [posts, setPosts] = useState<Post[]>([]);
+2149:  const [ads, setAds] = useState<Advertisement[]>([]);
+2152:  const headerHeight = "72px";
+2153:  const tickerHeight = "44px";
+2154:  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+2155:  const [updates, setUpdates] = useState<Update[]>([]);
+2156:  const [requests, setRequests] = useState<RequestData[]>([]);
+2157:  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+2158:  const approvedSuggestions = suggestions.filter(
+2161:  const [problemsGlobal, setProblemsGlobal] = useState<ProblemReport[]>([]);
+2162:  const [unreadCount, setUnreadCount] = useState(0);
+2163:  const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
+2164:  const [searchQuery, setSearchQuery] = useState("");
+2165:  const [visiblePostsCount, setVisiblePostsCount] = useState(20);
+2166:  const [visibleUpdatesCount, setVisibleUpdatesCount] = useState(20);
+2167:  const [visibleProblemsCount, setVisibleProblemsCount] = useState(20);
+2168:  const [visibleSuggestionsCount, setVisibleSuggestionsCount] = useState(20);
+2169:  const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
+2170:  const [showPostForm, setShowPostForm] = useState(false);
+2171:  const [showSuggestionForm, setShowSuggestionForm] = useState(false);
+2172:  const [selectedSuggestion, setSelectedSuggestion] =
+2174:  const [problemIsAnonymous, setProblemIsAnonymous] = useState(false);
+2175:  const [problemWantsWhatsApp, setProblemWantsWhatsApp] = useState(true);
+2176:  const [problemMessage, setProblemMessage] = useState("");
+2177:  const [isRecordingProblem, setIsRecordingProblem] = useState(false);
+2178:  const [showProfileModal, setShowProfileModal] = useState(false);
+2179:  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+2180:  const dropdownRef = useRef<HTMLDivElement>(null);
+2181:  const [isSuggestionsHovered, setIsSuggestionsHovered] = useState(false);
+2182:  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+2183:  const [showInstallButton, setShowInstallButton] = useState(false);
+2184:  const [showFooterModal, setShowFooterModal] = useState<"privacy" | "about" | "contact" | null>(null);
+2187:    const handleBeforeInstallPrompt = (e: any) => {
+2196:    const handleAppInstalled = () => {
+2214:  const handleInstallClick = async () => {
+2219:    const { outcome } = await deferredPrompt.userChoice;
+2226:  const suggestionsScrollRef = useRef<HTMLDivElement>(null);
+2228:  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+2229:  const [districtsData, setDistrictsData] = useState<Record<string, string[]>>(
+2234:    const unsub = onSnapshot(doc(db, "settings", "locations"), (snap) => {
+2259:    const unsub = onSnapshot(
+2262:        const uArr: UserProfile[] = [];
+2281:        const box = suggestionsScrollRef.current;
+2299:    const handleClickOutside = (event: MouseEvent) => {
+2310:  const [editingPost, setEditingPost] = useState<Post | null>(null);
+2311:  const allUpdates = useMemo(() => {
+2312:    const merged = new Map<string, any>();
+2315:      const existing = merged.get(u.id);
+2321:  const [notifications, setNotifications] = useState<Notification[]>([]);
+2322:  const [showNotifications, setShowNotifications] = useState(false);
+2323:  const [showAuthModal, setShowAuthModal] = useState(false);
+2324:  const [showForcedProfileSetup, setShowForcedProfileSetup] = useState(false);
+2325:  const [profileLoading, setProfileLoading] = useState(true);
+2327:  const [adminLocked, setAdminLocked] = useState(true);
+2328:  const [adminPinInput, setAdminPinInput] = useState("");
+2329:  const [currentAdminPin, setCurrentAdminPin] = useState("1234");
+2332:    const fetchSettings = async () => {
+2334:        const settingsSnap = await getDoc(doc(db, "settings", "admin_config"));
+2336:          const data = settingsSnap.data();
+2362:        const target = event.target as Element;
+2390:    const styleEl = document.createElement("style");
+2400:    const unsubAuth = onAuthStateChanged(auth, async (u) => {
+2414:    const unsubVisits = onSnapshot(
+2425:      const statsRef = doc(db, "settings", "site_stats");
+2434:    const unsubUpdates = onSnapshot(
+2437:        const uArr: Update[] = [];
+2446:          const addedChanges = snap
+2450:            const newUpdate = addedChanges[0].doc.data() as any;
+2464:    const unsubSuggestions = onSnapshot(
+2467:        const sArr: Suggestion[] = [];
+2477:    const unsubPosts = onSnapshot(
+2480:        const pArr: Post[] = [];
+2482:          const data = d.data() as any;
+2488:            const pinSort = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+2497:          const addedChanges = snap
+2501:            const newPost = addedChanges[0].doc.data() as any;
+2524:    const unsubProfile = onSnapshot(
+2528:          const p = { id: snap.id, ...snap.data() } as UserProfile;
+2539:              const honorific = p.gender === "Female" ? "Madam" : "Sir";
+2560:    const unsubAdminCheck = onSnapshot(
+2563:        const isDevEmail =
+2568:          const data = snap.data();
+2578:    const unsubChat = onSnapshot(
+2581:        const cArr: ChatMessage[] = [];
+2592:    const problemsQuery =
+2597:    const unsubProblems = onSnapshot(
+2600:        const pArr: ProblemReport[] = [];
+2612:    const requestsQuery =
+2617:    const unsubRequests = onSnapshot(
+2620:        const rArr: RequestData[] = [];
+2632:    const unsub1 = onSnapshot(
+2638:        const nArr: Notification[] = [];
+2652:          const addedChanges = snap
+2656:            const newNotif = addedChanges[0].doc.data() as any;
+2679:  const addToast = (msg: string) => {
+2680:    const id = Date.now() + Math.random();
+2687:  const handleGoogleLogin = async () => {
+2691:    const slowLoginWarning = setTimeout(() => {
+2698:      const provider = new GoogleAuthProvider();
+2700:      const result = await signInWithPopup(auth, provider);
+2704:        const docRef = doc(db, "users", result.user.uid);
+2705:        const docSnap = await getDoc(docRef);
+2723:        const isAdminEmail = [
+2753:  const triggerLogin = () => {
+2757:  const togglePostExpansion = async (id: string) => {
+2759:      const next = new Set(prev);
+2766:      const post = posts.find((p) => p.id === id);
+2767:      const userId = auth.currentUser?.uid;
+2781:  const filteredPosts = posts.filter((p) => {
+2785:    const pStatus = (p.status || "").toLowerCase();
+2793:    const q = searchQuery.toLowerCase().trim();
+2794:    const tMatch = (p.title || "").toLowerCase().includes(q);
+2795:    const cMatch = (p.content || "").toLowerCase().includes(q);
+2796:    const searchOk = !q || tMatch || cMatch;
+2931:                    const target = e.target;
+3005:  const handleRecordProblem = () => {
+3006:    const SpeechRecognition =
+3013:    const recognition = new SpeechRecognition();
+3024:      const transcript = event.results[0][0].transcript;
+3358:                          const isUnread =
+3423:                        const unread = notifications.filter((n) => !n.read);
+3549:              const visibleUpdates = updates.filter(
+4272:                                  const renderIndex = index; // Optional: cap stagger delay if needed
+4273:                                  const items = [
+4514:                                  const textToShare = u.title
+4562:                                              const text = String(children);
+4897:                              const res = await Swal.fire({
+4929:                              const target = e.target as any;
+4930:                              const name = target.name.value.trim();
+4931:                              const village = target.village.value.trim();
+4932:                              const mobile = target.mobile
+4935:                              const category = target.category.value;
+4936:                              const suggestion = target.suggestion.value.trim();
+5304:                          const target = e.target as any;
+5305:                          const cat = target.category.value;
+5425:                                const shareText = `Please support this issue in our village app:\nCategory: ${p.category}\nProblem: ${p.msg}`;
+5554:  const [surname, setSurname] = useState(userProfile?.surname || "");
+5555:  const [name, setName] = useState(userProfile?.name || "");
+5556:  const [username, setUsername] = useState(
+5559:  const [gender, setGender] = useState(userProfile?.gender || "");
+5560:  const [state, setState] = useState(userProfile?.state || "Telangana");
+5561:  const [district, setDistrict] = useState(userProfile?.district || "");
+5562:  const [mandal, setMandal] = useState(userProfile?.mandal || "");
+5563:  const [village, setVillage] = useState(userProfile?.village || "");
+5564:  const [mobile, setMobile] = useState(userProfile?.mobile || "");
+5565:  const [email, setEmail] = useState(userProfile?.email || user?.email || "");
+5566:  const [photoURL, setPhotoURL] = useState(
+5569:  const [designation, setDesignation] = useState(
+5572:  const [office, setOffice] = useState(userProfile?.office || "");
+5573:  const [theme, setTheme] = useState<"light" | "dark" | "system">(
+5576:  const [notifications, setNotifications] = useState(
+5579:  const [saving, setSaving] = useState(false);
+5581:  const mandals = district ? districtsData[district] || [] : [];
+5583:  const handleSave = async (e: React.FormEvent) => {
+5594:        const lowerUsername = username.toLowerCase().trim();
+5595:        const usernameDoc = await getDoc(doc(db, "usernames", lowerUsername));
+5969:  const [time, setTime] = useState(new Date());
+5971:    const timer = setInterval(() => setTime(new Date()), 1000);
+6002:  const [expandedDistrict, setExpandedDistrict] = useState<string | null>(null);
+6003:  const [newDistrict, setNewDistrict] = useState("");
+6004:  const [newMandalMap, setNewMandalMap] = useState<Record<string, string>>({});
+6006:  const writeData = async (data: Record<string, string[]>) => {
+6055:              const updated = { ...districtsData, [newDistrict.trim()]: [] };
+6100:                        const updated = { ...districtsData };
+6127:                          const m = newMandalMap[d]?.trim();
+6129:                            const updated = {
+6147:                        const m = newMandalMap[d]?.trim();
+6149:                          const updated = {
+6180:                            const updated = {
+6210:  const [activeTab, setActiveTab] = useState<"problems" | "suggestions">(
+6214:  const myProblems = problems.filter(
+6217:  const mySuggestions = suggestions.filter(
+6329:export const DEFAULT_HOME_ELEMENTS = [
+6411:  const [index, setIndex] = useState(0);
+6413:  const imageAds = ads.filter(a => !a.adType || a.adType === "image");
+6414:  const adsenseAds = ads.filter(a => a.adType === "adsense");
+6418:    const interval = setInterval(() => {
+6426:  const currentAd = imageAds[index];
+6529:  const isAdmin = userRole === "admin" || isDevEmail;
+6530:  const isEditor = userRole === "admin" || userRole === "editor" || isDevEmail;
+6531:  const [activeSubTab, setActiveSubTab] = useState("dash");
+6532:  const [builderElements, setBuilderElements] = useState<any[]>([]);
+6533:  const [isPreviewMode, setIsPreviewMode] = useState(false);
+6534:  const [editingElementId, setEditingElementId] = useState<number | null>(null);
+6538:    const unsub = onSnapshot(doc(db, "site_settings", "home_page"), (snap) => {
+6548:  const handlePublish = async () => {
+6561:  const moveElement = (index: number, direction: "up" | "down") => {
+6562:    const newElements = [...builderElements];
+6563:    const targetIndex = direction === "up" ? index - 1 : index + 1;
+6572:  const updateElementProps = (id: number, props: any) => {
+6577:  const [visibleUsersCount, setVisibleUsersCount] = useState(20);
+6578:  const [usersFilter, setUsersFilter] = useState<"All" | "Deleted">("All");
+6579:  const [userSearchTerm, setUserSearchTerm] = useState("");
+6580:  const [trashTab, setTrashTab] = useState<
+6583:  const [userViewMode, setUserViewMode] = useState<"access" | "directory">(
+6586:  const [showPin, setShowPin] = useState(false);
+6587:  const [logType, setLogType] = useState<"admin" | "public">("admin");
+6588:  const [logActionFilter, setLogActionFilter] = useState("");
+6589:  const [logAdminFilter, setLogAdminFilter] = useState("");
+6590:  const [logSearchTerm, setLogSearchTerm] = useState("");
+6592:  const exportLogsToCSV = () => {
+6593:    const filteredLogs = logs.filter((log) => {
+6594:      const isCorrectType = logType === "admin" ? !!log.admin : !log.admin;
+6595:      const matchesAction =
+6600:      const matchesAdmin =
+6613:    const headers = ["Trace ID", "Subject", "Action", "Time", "Status"];
+6614:    const rows = filteredLogs.map((log) => [
+6635:    const encodedUri = encodeURI(csvContent);
+6636:    const link = document.createElement("a");
+6645:  const [reportsType, setReportsType] = useState<"issues" | "posts">("posts");
+6646:  const [reportsFilter, setReportsFilter] = useState<
+6649:  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+6650:  const [allProblems, setAllProblems] = useState<ProblemReport[]>([]);
+6651:  const [logs, setLogs] = useState<any[]>([]);
+6652:  const [permissionError, setPermissionError] = useState<string | null>(null);
+6653:  const [logsError, setLogsError] = useState(false);
+6654:  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+6655:  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+6657:  const handleBulkApprove = async () => {
+6680:  const handleRestartServer = async () => {
+6683:        const cacheNames = await caches.keys();
+6687:        const regs = await navigator.serviceWorker.getRegistrations();
+6692:      const res = await fetch("/api/admin/restart", { method: "POST" });
+6708:  const handleBulkDelete = async () => {
+6715:    const res = await Swal.fire({
+6739:    const unsubProblems = onSnapshot(
+6742:        const pList: ProblemReport[] = [];
+6758:          const lList: any[] = [];
+6776:  const deleteUser = async (id: string) => {
+6777:    const res = await Swal.fire({
+6793:  const resolveProblem = async (problem: ProblemReport) => {
+6841:                const target = e.target as HTMLInputElement;
+7213:                            const d = curr.district || "Unknown";
+7265:                              const s = curr.status || "pending";
+7285:                              const s = curr.status || "pending";
+7345:                    const isPosts =
+7349:                    const ds =
+7355:                    const exportData = ds.map((item: any) => ({
+7368:                    const ws = XLSX.utils.json_to_sheet(exportData);
+7369:                    const wb = XLSX.utils.book_new();
+7394:                      const res = await Swal.fire({
+7403:                        const col =
+7409:                        const list =
+7415:                        const deletedItems = list.filter(
+7635:                                  const col =
+7683:                                      const col =
+7689:                                      const field = item.msg
+7716:                                      const col =
+7739:                                    const res = await Swal.fire({
+7750:                                        const col =
+7773:                                  const res = await Swal.fire({
+7783:                                      const col =
+7854:                        const exportData = users.map((u: any) => ({
+7869:                        const ws = XLSX.utils.json_to_sheet(exportData);
+7870:                        const wb = XLSX.utils.book_new();
+7898:                          const res = await Swal.fire({
+7907:                            const deletedUsers = users.filter(
+7935:                    const isMatchFilter =
+7941:                    const term = userSearchTerm.toLowerCase();
+7982:                                const res = await Swal.fire({
+8015:                                  const nextRole =
+8354:                          const newEl = {
+8911:                                  const res = await Swal.fire({
+9002:                                           const col =
+9035:                                      const res = await Swal.fire({
+9100:                  const f = e.target as any;
+9101:                  const text = f.text.value;
+9193:                              const nextStatus =
+9295:                      const version = (
+9300:                      const title = (
+9305:                      const badge = (
+9310:                      const text = (
+9315:                      const visibility = (
+9431:                                        const text = String(children);
+9479:                                  const text = String(children);
+9544:                                const text = (
+9549:                                const visibility = (
+9554:                                const version = (
+9559:                                const title = (
+9564:                                const badge = (
+9585:                                const newVals = result.value;
+9956:                    const pin = (
+10142:  const themes: any = {
+10179:  const theme = themes[color] || themes.blue;
+10180:  const Icon = theme.icon;
+10251:  const [input, setInput] = useState("");
+10252:  const [response, setResponse] = useState("");
+10253:  const [loading, setLoading] = useState(false);
+10255:  const handleAsk = async () => {
+10259:      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+10260:      const response = await ai.models.generateContent({
+10323:  const usersList = uids.map(
+10393:  const [activeTool, setActiveTool] = useState<string | null>(null);
+10395:  const tools = [
+10450:            const url = `${window.location.origin}/?tab=workspace`;
+10634:  const [forms, setForms] = useState<any[]>([]);
+10635:  const [showUpload, setShowUpload] = useState(false);
+10636:  const [formName, setFormName] = useState("");
+10637:  const [formPurpose, setFormPurpose] = useState("");
+10638:  const [formUsage, setFormUsage] = useState("");
+10639:  const [submitting, setSubmitting] = useState(false);
+10642:    const unsub = onSnapshot(
+10645:        const fArr: any[] = [];
+10654:  const handleUpload = async () => {
+10810:  const [q, setQ] = useState("");
+10811:  const [distFilter, setDistFilter] = useState("");
+10812:  const [mandalFilter, setMandalFilter] = useState("");
+10814:  const districts = [
+10817:  const mandals = distFilter
+10828:  const filtered = allUsers.filter((u) => {
+10829:    const term = q.toLowerCase();
+10830:    const matchesSearch =
+10835:    const matchesDist = !distFilter || u.district === distFilter;
+10836:    const matchesMandal = !mandalFilter || u.mandal === mandalFilter;
+11092:  const [aggregatedData, setAggregatedData] = useState<
+11108:  const [allDates, setAllDates] = useState<string[]>([]);
+11109:  const [isAnalyzing, setIsAnalyzing] = useState(false);
+11110:  const [searchTerm, setSearchTerm] = useState("");
+11111:  const [mandalFilter, setMandalFilter] = useState("All");
+11112:  const [rawRows, setRawRows] = useState<any[][]>([]);
+11113:  const [parserDebug, setParserDebug] = useState<
+11126:  const [showDebug, setShowDebug] = useState(false);
+11127:  const [expandedMandals, setExpandedMandals] = useState<Set<string>>(
+11130:  const [showStats, setShowStats] = useState(true);
+11132:  const toggleMandal = (m: string) => {
+11133:    const next = new Set(expandedMandals);
+11139:  const toggleAllMandals = (expand: boolean) => {
+11141:      const mandals = Array.from(
+11150:  const onUpload = async (e: any) => {
+11151:    const files = Array.from(e.target.files) as File[];
+11156:    const newAggregated = new Map(aggregatedData);
+11157:    const datesFound = new Set(allDates);
+11158:    const updatedRawRows: any[][] = [...rawRows];
+11159:    const debugLogs: any[] = [...parserDebug];
+11163:        const dataBuffer = await file.arrayBuffer();
+11174:            const utf16Text = new window.TextDecoder("utf-16le").decode(
+11189:            const parser = new DOMParser();
+11190:            const doc = parser.parseFromString(text, "text/html");
+11191:            const trs = doc.querySelectorAll("tr");
+11192:            const rows = Array.from(trs).map((tr) =>
+11209:              const firstRow = rows[0];
+11215:                const betterRows = text
+11242:            const workbook = XLSX.read(dataBuffer, { type: "array" });
+11244:              const rows: any[][] = XLSX.utils.sheet_to_json(
+11256:              const workbook = XLSX.read(dataBuffer, { type: "array" });
+11258:                const rows: any[][] = XLSX.utils.sheet_to_json(
+11289:            const row = rows[r];
+11291:            const rStr = row.map((c) =>
+11341:          const dbgIdx = debugLogs.length;
+11375:            const row = rows[r];
+11378:            const gpNameRaw = String(row[gpCol] || "").trim();
+11398:            const pLgd =
+11400:            const key = `${curMandal.toUpperCase()}_${gpNameRaw.toUpperCase()}`;
+11415:            const entry = newAggregated.get(key)!;
+11418:            const headers = rows[headerRowIdx] || [];
+11429:              const val = String(row[c] || "").trim();
+11430:              const headerVal = String(headers[c] || "").trim();
+11432:              const dateRegex =
+11435:              const dateMatch = val.match(dateRegex);
+11437:                const dateKey = dateMatch[0]
+11448:                  const statusVal = String(row[c - 1] || "").trim();
+11460:                const hMatch = headerVal.match(dateRegex);
+11462:                  const dKey = hMatch[0]
+11469:                  const prevHMatch = String(headers[c - 1] || "").match(
+11473:                    const dKey = prevHMatch[0]
+11507:  const downloadRawExcel = async () => {
+11510:    const ws = XLSX.utils.aoa_to_sheet(rawRows);
+11511:    const wb = XLSX.utils.book_new();
+11520:  const downloadRawPdf = async () => {
+11523:    const doc = new jsPDF("l", "mm", "a4");
+11532:  const downloadMandalSummary = async () => {
+11535:    const mandalSummary = new Map<string, { total: number; present: number }>();
+11537:      const m = info.mandal;
+11539:      const s = mandalSummary.get(m)!;
+11542:        const attStr = String(info.attendance[d] || "").toLowerCase();
+11551:    const exportData = Array.from(mandalSummary.entries()).map(([m, s]) => ({
+11558:    const ws = XLSX.utils.json_to_sheet(exportData);
+11559:    const wb = XLSX.utils.book_new();
+11568:  const downloadGPSummary = async () => {
+11571:    const aoa: any[][] = [];
+11574:    const row1 = ["Telangana State"];
+11579:    const reportDate = allDates[0]
+11585:    const row2 = [`Report On Attendance Status & DSR Raw Data ${reportDate}`];
+11590:    const row3 = ["", "", "", ""];
+11596:    const row4 = ["S.No", "District Name", "Mandal Name", "Panchayat Name"];
+11604:      const row = [idx + 1, info.district, info.mandal, info.gp];
+11606:        const s = info.attendance[d] || "-";
+11613:    const statuses = [
+11645:      const row: (string | number)[] = ["", "", "", st.label];
+11649:          const s = String(info.attendance[d] || "").toLowerCase();
+11657:    const ws = XLSX.utils.aoa_to_sheet(aoa);
+11660:    const totalCols = allDates.length + 4;
+11667:    const wb = XLSX.utils.book_new();
+11676:  const downloadMultiPdf = async () => {
+11679:    const doc = new jsPDF("l", "mm", "a4");
+11680:    const head = [
+11689:    const body = filteredData.map((info, idx) => [
+11705:  const mandals = Array.from(
+11708:  const filteredData = Array.from(aggregatedData.values())
+11710:      const target =
+11712:      const matchesSearch = target.includes(searchTerm.toUpperCase());
+11713:      const matchesMandal =
+11718:      const mIdA = (a.mandal || "").toUpperCase();
+11719:      const mIdB = (b.mandal || "").toUpperCase();
+11726:  const totalGPCount = filteredData.length;
+11727:  const groupedByMandal: Record<string, typeof filteredData> = {};
+11729:    const mKey = (item.mandal || "UNKNOWN").toUpperCase();
+11733:  const mandalList = Object.keys(groupedByMandal).sort();
+11735:  const gpIndexMap = new Map<string, number>();
+11743:  const sortedDates = [...allDates].sort((a, b) => {
+11744:    const parse = (s: string) => {
+11745:      const parts = s.split("-");
+11980:                      const isEx = expandedMandals.has(mName);
+11981:                      const items = groupedByMandal[mName];
+12026:                                  const status = info.attendance[d] || "-";
+12027:                                  const time = info.times[d] || "-";
+12028:                                  const statusLower = status.toLowerCase();
+12118:                            const s = String(
+12199:  const [data, setData] = useState<any[]>([]);
+12200:  const [filteredData, setFilteredData] = useState<any[]>([]);
+12201:  const [rawJson, setRawJson] = useState<any[]>([]);
+12202:  const [stats, setStats] = useState({
+12213:  const [mandalSummaries, setMandalSummaries] = useState<Record<string, any>>(
+12216:  const [searchTerm, setSearchTerm] = useState("");
+12217:  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+12218:  const [isProcessing, setIsProcessing] = useState(false);
+12219:  const [uploadProgress, setUploadProgress] = useState(0);
+12220:  const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
+12222:  const [currentTime, setCurrentTime] = useState(
+12227:    const timer = setInterval(() => {
+12233:  const onUpload = (e: any) => {
+12234:    const file = e.target.files[0];
+12240:    const reader = new FileReader();
+12246:        const dataBuffer = evt.target?.result as ArrayBuffer;
+12250:          const text = new window.TextDecoder("utf-8").decode(dataBuffer);
+12256:            const parser = new DOMParser();
+12257:            const doc = parser.parseFromString(text, "text/html");
+12258:            const trs = doc.querySelectorAll("tr");
+12274:            const workbook = XLSX.read(dataBuffer, { type: "array" });
+12275:            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+12298:        const mandalKeys = ["mandal", "block", "tehsil"];
+12299:        const gpKeys = [
+12308:          const rowStrings = (allRows[i] || []).map((c) =>
+12333:          const row4 =
+12358:          const nextRow = allRows[bestHeaderIdx + 1].map((h) =>
+12369:        const getIdx = (keys: string[]) =>
+12372:        const mandalIdx = getIdx(mandalKeys);
+12373:        const gpIdx = getIdx(gpKeys);
+12374:        const attStatusIdx = getIdx([
+12379:        const attTimeIdx = getIdx([
+12384:        const dsrStatusIdx = getIdx([
+12389:        const dsrTimeIdx = getIdx([
+12396:        const finalMandalIdx = mandalIdx !== -1 ? mandalIdx : 3;
+12397:        const finalGpIdx = gpIdx !== -1 ? gpIdx : 5;
+12399:        const processed: any[] = [];
+12408:        const mandalStats = new Map<
+12423:          const gpRaw = String(r[finalGpIdx] || "").trim();
+12424:          const mandalRaw = String(r[finalMandalIdx] || "UNKNOWN")
+12437:          const attStatusRaw = String(r[attStatusIdx] || "").toLowerCase();
+12438:          const dsrStatusRaw = String(r[dsrStatusIdx] || "").toLowerCase();
+12439:          const dsrTimeStr = String(r[dsrTimeIdx] || "");
+12441:          const isP =
+12447:          const isM =
+12451:          const isT =
+12455:          const isL =
+12459:          const isD =
+12466:          const attTimeStr = String(r[attTimeIdx] || "");
+12472:            const timeMatch = dsrTimeStr.match(/(\d{1,2}):(\d{2})/);
+12475:              const min = parseInt(timeMatch[2]);
+12476:              const isPM = dsrTimeStr.toLowerCase().includes("pm");
+12480:              const totalMinutes = hour * 60 + min;
+12489:            const attTimeMatch = attTimeStr.match(/(\d{1,2}):(\d{2})/);
+12492:              const min = parseInt(attTimeMatch[2]);
+12493:              const isPM = attTimeStr.toLowerCase().includes("pm");
+12497:              const totalMinutes = hour * 60 + min;
+12518:          const currentM = mandalStats.get(mandalRaw) || {
+12640:  const downloadMandalReport = async () => {
+12644:    const exportData = Object.entries(mandalSummaries).map(
+12660:    const ws = XLSX.utils.json_to_sheet(exportData);
+12661:    const wb = XLSX.utils.book_new();
+12670:  const downloadFullReport = async () => {
+12674:    const exportData = data.map((r) => ({
+12693:    const ws = XLSX.utils.json_to_sheet(exportData);
+12694:    const wb = XLSX.utils.book_new();
+12703:  const downloadRawExcel = async () => {
+12706:    const ws = XLSX.utils.aoa_to_sheet(rawJson);
+12707:    const wb = XLSX.utils.book_new();
+12716:  const downloadRawPdf = async () => {
+12719:    const doc = new jsPDF("l", "mm", "a4");
+12736:    const body = rawJson.slice(headerIdx);
+12749:    const term = searchTerm.toLowerCase();
+13323:  const [searchParams, setSearchParams] = useSearchParams();
+13324:  const isOwner = Boolean(
+13328:  const postTime = getValidTime(post);
+13330:  const [showComments, setShowComments] = useState(false);
+13331:  const [showViewsModal, setShowViewsModal] = useState(false);
+13332:  const [showLikesModal, setShowLikesModal] = useState(false);
+13333:  const [comments, setComments] = useState<any[]>([]);
+13334:  const [commentsLoaded, setCommentsLoaded] = useState(false);
+13335:  const [newComment, setNewComment] = useState("");
+13336:  const [submittingComment, setSubmittingComment] = useState(false);
+13340:      const q = query(
+13344:      const unsub = onSnapshot(
+13347:          const fetchedComments = snap.docs.map((d) => ({
+13450:                  const res = await Swal.fire({
+13511:                       const text = String(children);
+13672:                          const attToDownload = post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0] || post.attachments[0];
+13729:                    const text = String(children);
+13778:                       const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image");
+13931:                const userId = auth.currentUser?.uid;
+13933:                const likedBy = post.likedBy || [];
+14013:            const url = `${window.location.origin}/?postId=${post.id}`;
+14014:            const plainContent = post.content ? post.content.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').substring(0, 100) + '...' : "";
+14015:            const shareText = plainContent ? `${plainContent}\n\nRead more on E-Vedhika:` : "Check out this post on E-Vedhika:";
+14060:                  const authorName = auth.currentUser!.displayName || auth.currentUser!.email?.split("@")[0] || "User";
+14121:  const [loading, setLoading] = useState(false);
+14122:  const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
+14123:  const [title, setTitle] = useState(editingPost?.title || "");
+14124:  const [content, setContent] = useState(editingPost?.content || "");
+14125:  const [version, setVersion] = useState(editingPost?.version || "");
+14126:  const [attachments, setAttachments] = useState<{ name: string; url: string }[]>(
+14129:  const [downloadStyle, setDownloadStyle] = useState<"classic" | "techspot">(
+14132:  const [uploadingFile, setUploadingFile] = useState(false);
+14133:  const [uploadProgress, setUploadProgress] = useState(0);
+14134:  const fileInputRef = useRef<HTMLInputElement>(null);
+14136:  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+14137:    const files = e.target.files;
+14145:    const paramsFiles = Array.from(files);
+14150:    const uploadFile = async (currentFile: File) => {
+14155:             const options = {
+14161:             const compressedBlob = await imageCompression(file, options);
+14178:          const formData = new FormData();
+14181:          const xhr = new XMLHttpRequest();
+14186:              const progress = (event.loaded / event.total) * 100;
+14194:                 const response = JSON.parse(xhr.responseText);
+14205:                     const response = JSON.parse(xhr.responseText);
+14225:        const file = paramsFiles[i];
+14227:        const result = await uploadFile(file);
+14254:  const [selectedCategories, setSelectedCategories] = useState<string[]>(() => {
+14255:    const raw = editingPost?.categories
+14261:    const mapping: Record<string, string> = {
+14279:  const [tags, setTags] = useState(editingPost?.tags?.join(", ") || "");
+14280:  const [websiteName, setWebsiteName] = useState(
+14283:  const [media, setMedia] = useState<{
+14298:  const textareaRef = useRef<HTMLTextAreaElement>(null);
+14300:  const wrapText = (prefix: string, suffix: string = "") => {
+14301:    const textarea = textareaRef.current;
+14303:    const start = textarea.selectionStart;
+14304:    const end = textarea.selectionEnd;
+14305:    const text = content;
+14306:    const before = text.substring(0, start);
+14307:    const selection = text.substring(start, end);
+14308:    const after = text.substring(end);
+14309:    const newContent = before + prefix + (selection || "text") + suffix + after;
+14317:  const CATEGORIES = [
+14332:  const toggleCategory = (cat: string) => {
+14344:  const onSubmit = async (e: any) => {
+14353:      const extractedHashtags =
+14355:      const manualTags = tags
+14359:      const finalTags = Array.from(
+14363:      const postData = {
+14379:      const estimatedSize = JSON.stringify(postData).length;
+14393:        const docRef = await addDoc(collection(db, "posts"), {
+14415:        const hasUpdateTag = finalTags.some((tag) =>
+14633:                        const name = (document.getElementById('swal-file-name') as HTMLInputElement).value;
+14634:                        const url = (document.getElementById('swal-file-url') as HTMLInputElement).value;
+14740:                        const text = String(children);
+14933:                            const name = (document.getElementById('swal-file-name') as HTMLInputElement).value;
+14934:                            const url = (document.getElementById('swal-file-url') as HTMLInputElement).value;
+15160:  const [msg, setMsg] = useState("");
+15161:  const scrollRef = useRef<HTMLDivElement>(null);
+15167:  const send = async () => {
+15245:  const [searchTerm, setSearchTerm] = useState("");
+15246:  const [isolatedSection, setIsolatedSection] = useState<PRSection | null>(
+15251:  const getFilteredData = () => {
+15254:    const term = searchTerm.toLowerCase().trim();
+15257:    const isExactNumber = /^\d+$/.test(term);
+15259:      const exactMatch = PR_ACT_DB.filter(
+15267:    const normalize = (str: string) =>
+15271:    const isTelugu = /[\u0C00-\u0C7F]/.test(term);
+15286:        const normTerm = normalize(term);
+15288:          const normTitle = normalize(c.title);
+15289:          const normContent = normalize(c.content);
+15299:  const filteredData = getFilteredData();
+15534:  const [post, setPost] = useState<Post | null>(null);
+15535:  const [loading, setLoading] = useState(true);
+15536:  const [showLikesModal, setShowLikesModal] = useState(false);
+15537:  const [showViewsModal, setShowViewsModal] = useState(false);
+15538:  const isOwner = Boolean(
+15545:    const docRef = doc(db, "posts", postId);
+15546:    const unsub = onSnapshot(
+15553:            const data = snapshot.data();
+15554:            const uid = auth.currentUser?.uid;
+15556:              const updateData: any = {
+15799:                       const text = String(children);
+15874:                          const attToDownload = post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0] || post.attachments[0];
+15929:                    const text = String(children);
+15978:                       const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image");
+16044:                const userId = auth.currentUser?.uid;
+16049:                const likedBy = post.likedBy || [];
+16108:              const url = `${window.location.origin}/?postId=${post.id}`;
+16109:              const plainContent = post.content ? post.content.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').substring(0, 100) + '...' : "";
+16110:              const shareText = plainContent ? `${plainContent}\n\nRead more on E-Vedhika:` : "Check out this post on E-Vedhika:";
+16172:  const [comments, setComments] = useState<any[]>([]);
+16173:  const [commentsLoaded, setCommentsLoaded] = useState(false);
+16174:  const [newComment, setNewComment] = useState("");
+16175:  const [submittingComment, setSubmittingComment] = useState(false);
+16176:  const [showLikesModalFor, setShowLikesModalFor] = useState<{
+16182:    const q = query(
+16186:    const unsub = onSnapshot(
+16189:        const fetchedComments = snap.docs.map((d) => ({
+16211:  const handleAddComment = async () => {
+16217:      const authorName = isAdmin
+16366:                    const likes = c.likes || [];
+16367:                    const uid = auth.currentUser!.uid;
+16430:  const [isSignup, setIsSignup] = useState(false);
+16431:  const [loading, setLoading] = useState(false);
+16434:  const [surname, setSurname] = useState("");
+16435:  const [name, setName] = useState("");
+16436:  const [username, setUsername] = useState("");
+16437:  const [gender, setGender] = useState("");
+16438:  const [state, setState] = useState("Telangana");
+16439:  const [district, setDistrict] = useState("");
+16440:  const [mandal, setMandal] = useState("");
+16441:  const [village, setVillage] = useState("");
+16442:  const [mobile, setMobile] = useState("");
+16443:  const [email, setEmail] = useState("");
+16444:  const [password, setPassword] = useState("");
+16445:  const [confirmPassword, setConfirmPassword] = useState("");
+16446:  const [designation, setDesignation] = useState("");
+16448:  const mandals = district ? districtsData[district] || [] : [];
+16450:  const handleSubmit = async (e: React.FormEvent) => {
+16485:        const lowerUsername = username.toLowerCase().trim();
+16486:        const usernameDoc = await getDoc(doc(db, "usernames", lowerUsername));
+16493:        const cred = await createUserWithEmailAndPassword(
+16498:        const user = cred.user;
+16869:  const [polls, setPolls] = useState<any[]>([]);
+16870:  const [newPollQuestion, setNewPollQuestion] = useState("");
+16871:  const [newPollOptions, setNewPollOptions] = useState(["", ""]);
+16872:  const [loading, setLoading] = useState(true);
+16875:    const unsub = onSnapshot(
+16889:  const handleCreatePoll = async (e: React.FormEvent) => {
+16911:  const handleVote = async (
+16921:      const pollRef = doc(db, "polls", pollId);
+16922:      const newOptions = [...currentPoll.options];
+16973:                    const newOpts = [...newPollOptions];
+17024:            const totalVotes = poll.options.reduce(
+17028:            const userVotedIndex = user ? poll.votedBy[user.uid] : undefined;
+17043:                    const percent =
+17047:                    const isSelected = userVotedIndex === i;
+17084:                      const shareText = `దయచేసి ఈ పోల్ లో పాల్గొనండి:\n*${poll.question}*\n\nమా గ్రామం యాప్ లో ఓటు వేయడానికి కింది లింక్ ద్వారా వెళ్ళండి:\n${window.location.origin}`;
+17117:  const [name, setName] = useState("");
+17118:  const [village, setVillage] = useState("");
+17119:  const [mobile, setMobile] = useState("");
+17120:  const [category, setCategory] = useState("General Suggestion");
+17121:  const [suggestion, setSuggestion] = useState("");
+17122:  const [isSubmitting, setIsSubmitting] = useState(false);
+17123:  const [submitted, setSubmitted] = useState(false);
+17125:  const handleSubmit = async () => {

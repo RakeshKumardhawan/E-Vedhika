@@ -3,22 +3,20 @@ import path from "path";
 import multer from "multer";
 import fs from "fs";
 import cors from "cors";
+import { Readable } from 'stream';
 import { createServer as createViteServer } from "vite";
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Use CORS in case of cross-origin requests
   app.use(cors());
 
-  // Ensure uploads directory exists
   const uploadsDir = path.join(process.cwd(), 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir);
   }
 
-  // Configure multer
   const storage = multer.diskStorage({
     destination: function (req, file, cb) {
       cb(null, uploadsDir)
@@ -35,7 +33,6 @@ async function startServer() {
     limits: { fileSize: 1024 * 1024 * 1024 } // 1GB limit
   });
 
-  // API Routes MUST be before vite middleware
   app.post("/api/upload", (req, res, next) => {
     upload.single('file')(req, res, (err) => {
       if (err) {
@@ -48,21 +45,122 @@ async function startServer() {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
-    // Return the public URL for the file
+
     res.json({ url: `/uploads/${req.file.filename}` });
   });
 
-  // Serve static files from uploads directory
+  
+  app.get('/api/download', async (req, res) => {
+    try {
+      const url = req.query.url as string;
+      const filename = (typeof req.query.filename === "string" ? req.query.filename : null) || "download";
+
+      if (!url || typeof url !== 'string') {
+        return res.status(400).send("No URL provided");
+      }
+
+      if (url.startsWith('/uploads/')) {
+        const localPath = path.join(process.cwd(), url);
+        if (fs.existsSync(localPath)) {
+          let downloadName = filename as string;
+          const extMatch = localPath.match(/\.[a-zA-Z0-9]+$/);
+          if (extMatch && !downloadName.includes('.')) {
+            const lowerName = downloadName.toLowerCase();
+            if (lowerName === "download" || lowerName === "document" || lowerName === "attachment" || lowerName === "download.zip" || lowerName.startsWith("download")) {
+              downloadName += extMatch[0];
+            } else {
+              downloadName += extMatch[0];
+            }
+          }
+          return res.download(localPath, downloadName);
+        }
+        return res.status(404).send("Local file not found");
+      }
+
+      const fetchUrl = url;
+
+      const fetchResp = await fetch(fetchUrl);
+      if (!fetchResp.ok) throw new Error("Failed to fetch remote URL <" + fetchUrl + ">: " + fetchResp.statusText + " (" + fetchResp.status + ")");
+
+      let extractedFilename = filename as string;
+      const remoteDisposition = fetchResp.headers.get('content-disposition');
+      if (remoteDisposition) {
+
+        const filenameStarMatch = remoteDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+        const filenameMatch = remoteDisposition.match(/filename="?([^";]+)"?/i);
+        if (filenameStarMatch && filenameStarMatch[1]) {
+          extractedFilename = decodeURIComponent(filenameStarMatch[1]);
+        } else if (filenameMatch && filenameMatch[1]) {
+          extractedFilename = filenameMatch[1];
+        }
+      }
+
+      if (!extractedFilename) extractedFilename = "download";
+      
+      const lowerName = extractedFilename.toLowerCase();
+      if (lowerName === "download" || lowerName === "document" || lowerName === "attachment" || lowerName === "download.zip" || lowerName.startsWith("download") || !extractedFilename.includes('.')) {
+        try {
+          const urlObj = new URL(url);
+          const decodedPath = decodeURIComponent(urlObj.pathname);
+          const parts = decodedPath.split('/');
+          const lastPart = parts[parts.length - 1];
+          if (lastPart && lastPart.includes('.')) {
+            extractedFilename = lastPart;
+          }
+        } catch (e) {}
+      }
+
+      let safeFilename = (extractedFilename || "download").replace(/["\\/]/g, "");
+
+      const contentType = fetchResp.headers.get('content-type') || '';
+      if (!safeFilename.includes('.') && contentType) {
+        const mimeToExt: Record<string, string> = {
+          'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
+          'application/pdf': 'pdf', 'application/msword': 'doc', 'text/plain': 'txt',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+          'application/vnd.ms-excel': 'xls', 'application/csv': 'csv', 'text/csv': 'csv',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+          'video/mp4': 'mp4', 'audio/mpeg': 'mp3', 'application/zip': 'zip',
+          'application/x-zip-compressed': 'zip', 'application/vnd.rar': 'rar',
+          'application/x-rar-compressed': 'rar', 'application/octet-stream': 'bin',
+          'application/vnd.android.package-archive': 'apk'
+        };
+        const ext = mimeToExt[contentType.split(';')[0].toLowerCase() as any];
+        if (ext) {
+          safeFilename += '.' + ext;
+        }
+      }
+
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodeURIComponent(safeFilename)}`);
+      res.setHeader('Content-Type', fetchResp.headers.get('content-type') || 'application/octet-stream');
+      
+      const contentLength = fetchResp.headers.get('content-length');
+      if (contentLength) {
+        res.setHeader('Content-Length', contentLength);
+      }
+      
+      if (fetchResp.body) {
+        const readableNodeStream = Readable.fromWeb(fetchResp.body as any);
+        readableNodeStream.pipe(res);
+      } else {
+        res.end();
+      }
+
+    } catch (e: any) {
+      console.error("Proxy download error:", e);
+      res.status(500).send("Download failed: " + (e.message || String(e)));
+    }
+  });
+
   app.use('/uploads', express.static(uploadsDir));
 
-  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     
-    // Pass other requests to Vite
+
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
@@ -73,7 +171,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Custom Server running on http://localhost:${PORT}`);
+
   });
 }
 

@@ -270,5 +270,4 @@ export function GosAndFormatsPublic({ user, addToast, isAdmin }: { user: any, ad
   );
 }
 
-// Export Admin as same component since both have same functionality based on auth user
 export const GosAndFormatsAdmin = GosAndFormatsPublic;

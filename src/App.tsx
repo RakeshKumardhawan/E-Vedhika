@@ -101,6 +101,9 @@ import {
   Target,
   HardDrive,
   ArrowDown,
+  GripVertical,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import Swal from "sweetalert2";
 import imageCompression from "browser-image-compression";
@@ -108,9 +111,9 @@ import { motion, AnimatePresence, Reorder } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import rehypeRaw from "rehype-raw";
-// Joyride removed
+
 import { GosAndFormatsPublic, GosAndFormatsAdmin } from "./GosAndFormats";
-// Lazy loaded modules
+
 let XLSX: any = null;
 let jsPDF: any = null;
 let autoTable: any = null;
@@ -171,6 +174,7 @@ import {
 import {
   ref,
   uploadBytes,
+  uploadBytesResumable,
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
@@ -228,7 +232,6 @@ function handleFirestoreError(
 
   const lowerErr = errInfo.error.toLowerCase();
 
-  // Show the error in the console
   console.error("Firestore Error: ", JSON.stringify(errInfo));
 
   if (lowerErr.includes("permission") || lowerErr.includes("insufficient")) {
@@ -237,7 +240,6 @@ function handleFirestoreError(
     );
   }
 
-  // We MUST throw or handle this so it shows up in the UI (we'll let the user know directly)
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -247,7 +249,7 @@ export function getFriendlyError(err: any): string {
     const parsed = JSON.parse(msg);
     if (parsed.error) msg = parsed.error;
   } catch (e) {
-    // Not a JSON string
+
   }
 
   if (msg.includes("Missing or insufficient permissions")) {
@@ -278,7 +280,7 @@ export async function sendCommentNotifications(
   try {
     const time = Date.now();
     
-    // 1. Mentions
+
     const mentionRegex = /@([a-zA-Z0-9_]+)/g;
     const mentions = [...commentText.matchAll(mentionRegex)].map((m) => m[1].toLowerCase());
     const uniqueMentions = [...new Set(mentions)];
@@ -302,7 +304,6 @@ export async function sendCommentNotifications(
        } catch (err) { console.error(err); }
     }
 
-    // 2. Notify other commenters
     const commentsSnap = await getDocs(collection(db, "posts", postId, "comments"));
     const uids = new Set<string>();
     commentsSnap.forEach((d) => {
@@ -310,7 +311,7 @@ export async function sendCommentNotifications(
        if (data.uid) uids.add(data.uid);
     });
     
-    // Remove the author
+
     uids.delete(authorUid);
     
     for (const targetUid of Array.from(uids)) {
@@ -424,7 +425,6 @@ function formatDistanceToNow(timestamp: number): string {
   return `${seconds}s`;
 }
 
-// --- TYPES ---
 interface Post {
   id: string;
   title: string;
@@ -451,7 +451,7 @@ interface Post {
   pinned?: boolean;
   isAdminPost?: boolean;
   version?: string;
-  attachments?: { name: string; url: string }[];
+  attachments?: { name: string; url: string; version?: string }[];
   downloadStyle?: "classic" | "techspot";
 }
 
@@ -1201,7 +1201,6 @@ interface Notification {
   link?: string;
 }
 
-// --- STYLES ---
 const APP_STYLES = `
 :root {
   --primary: #0d3b66;
@@ -1516,17 +1515,6 @@ const formatPostTitle = (title: string | undefined | null) => {
 };
 
 export const SYSTEM_UPDATES = [
-  {
-    id: `update-v1.5.4`,
-    isSystemElement: true,
-    version: "v1.5.4",
-    title: "16/05/2026: సిస్టమ్ అప్‌డేట్ వెరిఫికేషన్",
-    badge: "LATEST",
-    text: "1. ✅ **అప్‌డేట్ వెరిఫికేషన్**: వెబ్‌సైట్ అప్‌డేట్ అయిన ప్రతిసారీ మీకు తెలియజేయడానికి 'Last Updated' స్టేటస్ జోడించబడింది.\n2. 🕒 **లైవ్ అప్‌డేట్స్**: అడ్మిన్ ప్యానెల్ మరియు సైడ్‌బార్‌లో ఇప్పుడు మీరు అప్లికేషన్ యొక్క తాజా వెర్షన్ మరియు సమయాన్ని చూడవచ్చు.\n3. 🛠️ **బగ్ ఫిక్సెస్**: పోస్ట్ ఫార్మ్ మరియు రిపోర్ట్స్ ఫిల్టర్లలో ఉన్న చిన్న సమస్యలను పరిష్కరించాము.",
-    time: Date.now(),
-    type: "changelog",
-    status: "Approved",
-  },
   {
     id: `update-v1.5.3`,
     isSystemElement: true,
@@ -1903,6 +1891,79 @@ export const handleShare = async (
   }
 };
 
+export const handleForceDownload = async (e: React.MouseEvent, url: string, fileName: string) => {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  if (!url) return;
+
+  try {
+    let extractedFilename = fileName || "download";
+    
+
+    const lowerName = extractedFilename.toLowerCase();
+    const isGenericInfo = (lowerName === "download" || lowerName === "document" || lowerName === "attachment" || lowerName === "download.zip" || lowerName.startsWith("download") || !extractedFilename.includes('.'));
+    
+    if (isGenericInfo) {
+      if (url.startsWith("data:")) {
+        const mimeMatch = url.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);/);
+        if (mimeMatch) {
+          const mime = mimeMatch[1];
+          const mimeToExt: Record<string, string> = {
+            'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
+            'application/pdf': 'pdf', 'application/msword': 'doc', 'text/plain': 'txt',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+            'application/vnd.ms-excel': 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+            'video/mp4': 'mp4', 'audio/mpeg': 'mp3'
+          };
+          const ext = mimeToExt[mime.toLowerCase()];
+          if (ext) extractedFilename += '.' + ext;
+        }
+      } else {
+        try {
+          const urlObj = new URL(url, window.location.origin);
+          const decodedPath = decodeURIComponent(urlObj.pathname);
+          const parts = decodedPath.split('/');
+          const lastPart = parts[parts.length - 1];
+          if (lastPart && lastPart.includes('.')) {
+            extractedFilename = lastPart;
+          }
+        } catch (err) {}
+      }
+    }
+
+    const link = document.createElement("a");
+
+    if (url.startsWith("data:")) {
+        link.href = url;
+        link.download = extractedFilename;
+    } else {
+        const proxyUrl = `/api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(extractedFilename)}`;
+        link.href = proxyUrl;
+        
+
+        const finalLower = extractedFilename.toLowerCase();
+        if (finalLower !== "download" && finalLower !== "document" && finalLower !== "attachment" && finalLower !== "download.zip" && !finalLower.startsWith("download")) {
+          link.download = extractedFilename;
+        }
+    }
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error("Download failed:", error);
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -1962,7 +2023,7 @@ export default function App() {
   }, [userProfile?.theme]);
 
   useEffect(() => {
-    // Suppress benign Vite WebSocket error logs that confuse the user
+
     const originalError = console.error;
     const originalWarn = console.warn;
 
@@ -1978,7 +2039,6 @@ export default function App() {
           msg.includes("@firebase/firestore") ||
           msg.includes("WebChannelConnection"));
 
-      // Check for error objects as well
       const isBenignErrorObject =
         msg instanceof Error &&
         (msg.message.includes("WebSocket") ||
@@ -2007,7 +2067,6 @@ export default function App() {
       originalWarn.apply(console, args);
     };
 
-    // Also suppress unhandled rejections related to the websocket
     const handleRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
       const isBenign =
@@ -2060,7 +2119,6 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Sync tab with URL query parameter
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab && tab !== currentTab) {
@@ -2074,7 +2132,6 @@ export default function App() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [ads, setAds] = useState<Advertisement[]>([]);
 
-  // Correct sticky header height coordination
   const headerHeight = "72px";
   const tickerHeight = "44px";
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -2111,16 +2168,16 @@ export default function App() {
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
-      // Prevent the mini-infobar from appearing on mobile
+
       e.preventDefault();
-      // Stash the event so it can be triggered later.
+
       setDeferredPrompt(e);
-      // Update UI notify the user they can install the PWA
+
       setShowInstallButton(true);
     };
 
     const handleAppInstalled = () => {
-      console.log("App was installed");
+
       setShowInstallButton(false);
       addToast("యాప్ విజయవంతంగా ఇన్‌స్టాల్ చేయబడింది!");
     };
@@ -2139,13 +2196,11 @@ export default function App() {
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
-    // Show the install prompt
+
     deferredPrompt.prompt();
-    // Wait for the user to respond to the prompt
+
     const { outcome } = await deferredPrompt.userChoice;
-    // Optionally, send analytics event with outcome of user choice
-    console.log(`User response to the install prompt: ${outcome}`);
-    // We've used the prompt, and can't use it again, throw it away
+
     setDeferredPrompt(null);
     setShowInstallButton(false);
   };
@@ -2207,12 +2262,10 @@ export default function App() {
         const box = suggestionsScrollRef.current;
         if (!box) return;
 
-        // Only scroll if there is overflow
         if (box.scrollHeight <= box.clientHeight + 1) return;
 
         box.scrollTop += 1;
 
-        // When we reach near the bottom, reset with a loop
         if (box.scrollTop >= box.scrollHeight - box.clientHeight - 1) {
           box.scrollTop = 0;
         }
@@ -2275,7 +2328,6 @@ export default function App() {
     }
   }, [currentTab, postIdFromUrl]);
 
-  // Outside click listener for sidebar
   useEffect(() => {
     function handleClickOutside(event: MouseEvent | TouchEvent) {
       if (
@@ -2283,8 +2335,7 @@ export default function App() {
         sidebarRef.current &&
         !sidebarRef.current.contains(event.target as Node)
       ) {
-        // If clicking on the menu toggle button, don't close it immediately
-        // to avoid toggling states conflicting (often handled via stopPropagation, but good to be safe)
+
         const target = event.target as Element;
         if (!target.closest(".menu-toggle")) {
           setSidebarOpen(false);
@@ -2299,7 +2350,6 @@ export default function App() {
     };
   }, [sidebarOpen]);
 
-  // Body scroll lock for sidebar
   useEffect(() => {
     if (sidebarOpen && window.innerWidth < 1024) {
       document.body.style.overflow = "hidden";
@@ -2311,7 +2361,6 @@ export default function App() {
     };
   }, [sidebarOpen]);
 
-  // Styles Injection
   useEffect(() => {
     const styleEl = document.createElement("style");
     styleEl.innerHTML = APP_STYLES;
@@ -2321,7 +2370,6 @@ export default function App() {
     };
   }, []);
 
-  // Auth Listener
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (u) => {
       setUser(u);
@@ -2334,9 +2382,8 @@ export default function App() {
     return () => unsubAuth();
   }, []);
 
-  // Public Listeners
   useEffect(() => {
-    // Visitor Count logic
+
     const unsubVisits = onSnapshot(
       doc(db, "settings", "site_stats"),
       (snap) => {
@@ -2408,7 +2455,7 @@ export default function App() {
           const data = d.data() as any;
           pArr.push({ id: d.id, ...data } as Post);
         });
-        // We store all posts and filter 'Deleted' out in render if not editor
+
         setPosts(
           pArr.sort((a, b) => {
             const pinSort = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
@@ -2443,7 +2490,6 @@ export default function App() {
     };
   }, []);
 
-  // Authenticated-Only Listeners
   useEffect(() => {
     if (!user) return;
 
@@ -2454,12 +2500,11 @@ export default function App() {
           const p = { id: snap.id, ...snap.data() } as UserProfile;
           setUserProfile(p);
 
-          // Force profile setup only if basic details are missing to avoid annoying existing users
           if (!p.name && !p.username) {
             setShowForcedProfileSetup(true);
           } else {
             setShowForcedProfileSetup(false);
-            // Show greeting on first load
+
             if (p.status === "Approved" && !hasGreetedRef.current) {
               hasGreetedRef.current = true;
               const honorific = p.gender === "Female" ? "Madam" : "Sir";
@@ -2509,7 +2554,7 @@ export default function App() {
           cArr.push({ id: d.id, ...(d.data() as any) } as ChatMessage),
         );
         setChatMessages(
-          cArr.sort((a, b) => (a.time || 0) - (b.time || 0)).slice(-50),
+          cArr.sort((a, b) => (a.time || 0) - (b.time || 0))
         );
       },
       (err) => handleFirestoreError(err, OperationType.LIST, "chat"),
@@ -2534,7 +2579,6 @@ export default function App() {
       },
     );
 
-    // Requests visibility: Admins see all, users see their own
     const requestsQuery =
       userRole === "admin" || userRole === "editor"
         ? collection(db, "requests")
@@ -2565,7 +2609,7 @@ export default function App() {
         snap.forEach((d) =>
           nArr.push({ id: d.id, ...(d.data() as any) } as Notification),
         );
-        setNotifications(nArr.sort((a, b) => b.time - a.time).slice(0, 50));
+        setNotifications(nArr.sort((a, b) => b.time - a.time));
         setUnreadCount(
           nArr.filter((n) =>
             n.uid === "all" ? !(n as any).readBy?.includes(user?.uid) : !n.read,
@@ -2600,20 +2644,22 @@ export default function App() {
     };
   }, [user, userRole]);
 
-  // Removing automatic Profile Modal trigger based on user request to not force signup flows
-
   const addToast = (msg: string) => {
-    const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev, { id, msg }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
+    setToasts((prev) => {
+
+      if (prev.some(t => t.msg === msg)) return prev;
+      
+      const id = Date.now() + Math.random();
+      setTimeout(() => {
+        setToasts((curr) => curr.filter((t) => t.id !== id));
+      }, 3000);
+      return [...prev, { id, msg }];
+    });
   };
 
   const handleGoogleLogin = async () => {
     addToast("Google లాగిన్ కోసం పాపప్ ఓపెన్ అవుతోంది...");
 
-    // Warning timeout if it takes too long
     const slowLoginWarning = setTimeout(() => {
       addToast(
         "ఇక్కడ లాగిన్ ఆలస్యం అవుతుంది. దయచేసి యాప్‌ను కొత్త ట్యాబ్‌లో ఓపెన్ చేసి లాగిన్ అవ్వండి (పైన కుడివైపు బాణం గుర్తు ↗). అప్పుడు త్వరగా అవుతుంది.",
@@ -2640,7 +2686,7 @@ export default function App() {
           });
         }
       } catch (e) {
-        // Silent fail
+
       }
 
       setShowAuthModal(false);
@@ -2656,10 +2702,9 @@ export default function App() {
           time: Date.now(),
         });
       } catch (e) {
-        // Silent fail for logging
+
       }
 
-      // dynamic greeting handled via profile listener
     } catch (err: any) {
       clearTimeout(slowLoginWarning);
       if (
@@ -2707,7 +2752,6 @@ export default function App() {
   const filteredPosts = posts.filter((p) => {
     if (p.status === "Deleted") return false;
 
-    // Normal users shouldn't see unapproved posts (unless it's their own)
     const pStatus = (p.status || "").toLowerCase();
     if (
       !isAdmin &&
@@ -3836,45 +3880,53 @@ export default function App() {
                   exit={{ opacity: 0, x: -20 }}
                   className="space-y-4 sm:space-y-6"
                 >
-                  <div className="space-y-12 pb-20">
+                  <div className="space-y-8 pb-12">
                     {(siteConfig?.elements && siteConfig.elements.length > 0 ? siteConfig.elements : DEFAULT_HOME_ELEMENTS).filter((el: any) => !el.hidden).map((el: any) => {
                       let sizeClass = "w-full";
-                      if (el.size === "small") sizeClass = "max-w-2xl w-full mx-auto";
-                      else if (el.size === "medium") sizeClass = "max-w-4xl w-full mx-auto";
-                      else if (el.size === "large") sizeClass = "max-w-6xl w-full mx-auto";
+                      if (el.size === "small") sizeClass = "max-w-xl w-full mx-auto";
+                      else if (el.size === "medium") sizeClass = "max-w-3xl w-full mx-auto";
+                      else if (el.size === "large") sizeClass = "max-w-5xl w-full mx-auto";
 
                       return (
                       <motion.section
                         key={el.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
                         viewport={{ once: true }}
                         className={sizeClass}
                       >
                         {el.type === "Hero Section" && (
                           <div 
-                            className={`bg-gradient-to-br from-${el.color || "blue"}-600 to-${el.color || "blue"}-800 rounded-[24px] sm:rounded-[48px] p-8 sm:p-16 text-white relative overflow-hidden shadow-2xl w-full min-h-[300px] flex flex-col justify-center`}
+                            className="rounded-[24px] text-white relative overflow-hidden shadow-lg mx-auto flex flex-col justify-center px-8 sm:px-12"
+                            style={{ 
+                              backgroundColor: '#772424', 
+                              height: '214.667px', 
+                              width: '1302.67px', 
+                              maxWidth: '100%',
+                              paddingTop: '10px', 
+                              paddingBottom: '10px' 
+                            }}
                           >
-                            <div className="absolute top-0 right-0 p-12 opacity-10 rotate-12">
-                              <Zap size={240} />
+                            <div className="absolute -top-10 -right-10 p-6 opacity-10 rotate-12">
+                              <Zap size={180} />
                             </div>
-                            <div className="relative z-10 max-w-2xl space-y-6">
-                              <h1 className="text-4xl sm:text-6xl font-black tracking-tighter leading-tight drop-shadow-lg">
+                            <div className="relative z-10 max-w-xl space-y-4">
+                              <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
                                 {el.title || "Welcome to E-Vedhika"}
                               </h1>
-                              <p className="text-lg sm:text-xl text-white/80 font-medium leading-relaxed">
+                              <p className="text-sm sm:text-base text-white/90 font-medium leading-relaxed">
                                 {el.content || "Empowering citizens through digital transparency and direct access to government services."}
                               </p>
-                              <div className="flex flex-wrap gap-4 pt-4">
+                              <div className="flex flex-wrap gap-3 pt-2">
                                 <button
-                                  onClick={() => window.scrollTo({ top: window.innerHeight * 0.8, behavior: "smooth" })}
-                                  className="px-8 py-4 bg-white text-blue-600 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:scale-105 transition-all"
+                                  onClick={() => window.scrollTo({ top: 500, behavior: "smooth" })}
+                                  className="px-6 py-2.5 bg-white text-blue-600 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg hover:scale-105 transition-all"
                                 >
-                                  Learn More
+                                  Explore
                                 </button>
                                 <button
                                   onClick={() => setCurrentTab("suggestions")}
-                                  className="px-8 py-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl font-black uppercase tracking-widest hover:bg-white/20 transition-all"
+                                  className="px-6 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white/20 transition-all"
                                 >
                                   Contact Us
                                 </button>
@@ -3884,19 +3936,19 @@ export default function App() {
                         )}
 
                         {el.type === "Post Grid" && (
-                          <div className="space-y-8">
+                          <div className="space-y-6">
                             <div className="flex items-center justify-between px-2">
                               <div>
-                                <h2 className="text-3xl font-black tracking-tighter text-slate-800">
+                                <h2 className="text-xl font-black tracking-tight text-slate-800">
                                   {el.title || "Recent Updates"}
                                 </h2>
-                                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.3em] mt-1">
-                                  Official Broadcasts & News
+                                <p className="text-slate-500 font-bold uppercase text-[9px] tracking-[0.2em] mt-0.5">
+                                  Official News
                                 </p>
                               </div>
-                              <Link to="?tab=reports" className="text-blue-600 font-black text-sm hover:underline">View All</Link>
+                              <Link to="?tab=reports" className="text-blue-600 font-black text-xs hover:underline">View All</Link>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               {filteredPosts.slice(0, 4).map((post: any) => (
                                   <PostCard
                                     key={post.id}
@@ -3917,15 +3969,15 @@ export default function App() {
                         )}
 
                         {el.type === "Feature Cards" && (
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {[1, 2, 3].map((i) => (
-                              <div key={i} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
-                                <div className={`w-14 h-14 bg-${el.color || "blue"}-50 rounded-2xl flex items-center justify-center text-${el.color || "blue"}-600 mb-6 group-hover:scale-110 transition-transform`}>
-                                  {i === 1 ? <Shield size={28} /> : i === 2 ? <Zap size={28} /> : <Users size={28} />}
+                              <div key={i} className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                                <div className={`w-10 h-10 bg-${el.color || "blue"}-50 rounded-xl flex items-center justify-center text-${el.color || "blue"}-600 mb-4 group-hover:scale-110 transition-transform`}>
+                                  {i === 1 ? <Shield size={20} /> : i === 2 ? <Zap size={20} /> : <Users size={20} />}
                                 </div>
-                                <h3 className="text-xl font-black text-slate-800 mb-3">Feature {i}</h3>
-                                <p className="text-slate-500 font-medium leading-relaxed text-sm">
-                                  Detailed description for this amazing feature that helps the community thrive through digital connectivity.
+                                <h3 className="text-lg font-black text-slate-800 mb-2">Feature {i}</h3>
+                                <p className="text-slate-500 font-medium leading-relaxed text-[13px]">
+                                  Description for community thrive through digital connectivity.
                                 </p>
                               </div>
                             ))}
@@ -3933,13 +3985,16 @@ export default function App() {
                         )}
 
                         {el.type === "Contact Banner" && (
-                          <div className={`bg-slate-900 p-12 rounded-[48px] text-white flex flex-col md:flex-row items-center justify-between gap-8 border border-white/5`}>
-                            <div className="space-y-3 text-center md:text-left">
-                              <h2 className="text-3xl font-black tracking-tight">{el.title || "Have a suggestion?"}</h2>
-                              <p className="text-slate-400 font-medium max-w-md">{el.content || "Your feedback helps us build a better digital ecosystem for everyone."}</p>
+                          <div className={`bg-slate-900/90 backdrop-blur-sm p-8 rounded-[32px] text-white flex flex-col md:flex-row items-center justify-between gap-6 border border-white/5`}>
+                            <div className="text-center md:text-left">
+                              <h3 className="text-xl font-black mb-2">{el.title || "Have a suggestion?"}</h3>
+                              <p className="text-white/70 text-sm font-medium">{el.content || "Your feedback helps us build better."}</p>
                             </div>
-                            <button onClick={() => setCurrentTab("suggestions")} className="px-10 py-5 bg-blue-600 rounded-[20px] font-black uppercase tracking-widest hover:scale-105 shadow-2xl shadow-blue-600/30 transition-all">
-                              Submit Feedback
+                            <button 
+                              onClick={() => setCurrentTab("suggestions")}
+                              className="px-6 py-3 bg-white text-slate-900 rounded-xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all whitespace-nowrap shadow-lg shadow-white/10"
+                            >
+                              Get in Touch
                             </button>
                           </div>
                         )}
@@ -4252,51 +4307,57 @@ export default function App() {
                       );
                     })}
 
-                    {(!siteConfig || !siteConfig.elements || siteConfig.elements.length === 0) && (
+                    {/* Remove confusing empty message if siteConfig is not set but defaults are used */}
+                    {(!siteConfig || !siteConfig.elements || siteConfig.elements.length === 0) && !DEFAULT_HOME_ELEMENTS.length && (
                       <div className="text-center py-20 text-slate-400 font-bold">
                         Home page layout is empty.
                       </div>
                     )}
 
-                    {/* Footer Links Section */}
-                    <div className="pt-16 pb-12 mt-12 border-t border-slate-100 flex flex-col items-center gap-8">
-                       <div className="flex flex-wrap justify-center gap-6 sm:gap-12">
-                          <button 
-                            onClick={() => setShowFooterModal("privacy")}
-                            className="text-slate-500 hover:text-primary transition-colors flex flex-col items-center gap-2 group"
-                          >
-                            <span className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-primary/5 transition-colors">
-                              <ShieldCheck size={20} className="group-hover:scale-110 transition-transform" />
-                            </span>
-                            <span className="text-xs font-black uppercase tracking-widest">Privacy Policy</span>
-                          </button>
-
-                          <button 
-                            onClick={() => setShowFooterModal("about")}
-                            className="text-slate-500 hover:text-primary transition-colors flex flex-col items-center gap-2 group"
-                          >
-                            <span className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-primary/5 transition-colors">
-                              <Info size={20} className="group-hover:scale-110 transition-transform" />
-                            </span>
-                            <span className="text-xs font-black uppercase tracking-widest">About Us</span>
-                          </button>
-
-                          <button 
-                            onClick={() => setShowFooterModal("contact")}
-                            className="text-slate-500 hover:text-primary transition-colors flex flex-col items-center gap-2 group"
-                          >
-                            <span className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-primary/5 transition-colors">
-                              <Mail size={20} className="group-hover:scale-110 transition-transform" />
-                            </span>
-                            <span className="text-xs font-black uppercase tracking-widest">Contact Us</span>
-                          </button>
+                    {/* Footer Links Section - Compact & Cute Edition */}
+                    <footer className="pt-8 pb-8 mt-6 -mx-4 sm:-mx-8 px-4 sm:px-8 border-t border-slate-50">
+                       <div className="max-w-xl mx-auto flex flex-col items-center gap-6">
+                          <div className="flex flex-wrap justify-center gap-3">
+                             <button 
+                               onClick={() => setShowFooterModal("privacy")}
+                               className="px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100 hover:bg-primary/5 hover:border-primary/20 transition-all flex items-center gap-2 group"
+                             >
+                               <ShieldCheck size={12} className="text-slate-400 group-hover:text-primary transition-colors" />
+                               <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-800">Privacy</span>
+                             </button>
+   
+                             <button 
+                               onClick={() => setShowFooterModal("about")}
+                               className="px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100 hover:bg-primary/5 hover:border-primary/20 transition-all flex items-center gap-2 group"
+                             >
+                               <Info size={12} className="text-slate-400 group-hover:text-primary transition-colors" />
+                               <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-800">About</span>
+                             </button>
+   
+                             <button 
+                               onClick={() => setShowFooterModal("contact")}
+                               className="px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100 hover:bg-primary/5 hover:border-primary/20 transition-all flex items-center gap-2 group"
+                             >
+                               <Mail size={12} className="text-slate-400 group-hover:text-primary transition-colors" />
+                               <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-800">Contact</span>
+                             </button>
+                          </div>
+                          
+                          <div className="flex flex-col items-center text-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                             <div className="flex items-center gap-1.5 scale-90">
+                               <EVAnimatedLogo size={24} />
+                               <div className="text-left">
+                                 <h4 className="text-[10px] font-black text-primary leading-none">E-VEDHIKA</h4>
+                                 <p className="text-[6px] font-bold text-slate-500 tracking-tighter">DIGITAL ECOSYSTEM</p>
+                               </div>
+                             </div>
+                             <div className="space-y-0.5">
+                               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">© 2026 E-Vedhika • All Rights Reserved</p>
+                               <p className="text-[7px] text-slate-300 font-bold uppercase tracking-[0.1em]">Empowering Citizens</p>
+                             </div>
+                          </div>
                        </div>
-                       
-                       <div className="flex flex-col items-center text-center gap-2">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">© 2026 E-Vedhika Digital Ecosystem • All Rights Reserved</p>
-                          <p className="text-[9px] text-slate-300 font-medium">Empowering Citizens Through Digital Governance</p>
-                       </div>
-                    </div>
+                    </footer>
                   </div>
                 </motion.div>
               )}
@@ -4535,6 +4596,7 @@ export default function App() {
                                                <a
                                                  key={idx}
                                                  href={att.url}
+                       onClick={(e) => handleForceDownload(e, att.url, att.name || "Attachment")}
                                                  target="_blank"
                                                  rel="noopener noreferrer"
                                                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-blue-50 border border-slate-100 rounded-lg transition-all text-[10px] font-bold text-slate-600 hover:text-blue-600"
@@ -5514,7 +5576,7 @@ function EditProfileModal({
     }
     setSaving(true);
     try {
-      // Check if username changed and is unique
+
       if (username !== userProfile?.username) {
         const lowerUsername = username.toLowerCase().trim();
         const usernameDoc = await getDoc(doc(db, "usernames", lowerUsername));
@@ -5524,14 +5586,12 @@ function EditProfileModal({
           return;
         }
 
-        // Remove old username if exists
         if (userProfile?.username) {
           await deleteDoc(
             doc(db, "usernames", userProfile.username.toLowerCase().trim()),
           );
         }
 
-        // Reserve new username
         await setDoc(doc(db, "usernames", lowerUsername), { uid: user.uid });
       }
 
@@ -6254,41 +6314,34 @@ function MyActivity({ user, userProfile, problems, suggestions, posts }: any) {
 export const DEFAULT_HOME_ELEMENTS = [
   {
     id: 1,
-    type: "E-Vedhika Core Feed",
-    title: "📝 Updates",
-    content: "Search latest news, reports or notices...",
+    type: "Hero Section",
+    title: "Welcome to E-Vedhika",
+    content: "Empowering citizens through digital transparency and direct access to government services.",
     color: "blue",
     hidden: false,
   },
   {
     id: 2,
-    type: "Hero Section",
-    title: "Welcome to E-Vedhika",
-    content: "Empowering citizens through digital transparency and direct access to government services.",
+    type: "E-Vedhika Core Feed",
+    title: "📝 Latest Updates",
+    content: "Search latest news, reports or notices...",
     color: "blue",
-    hidden: true,
+    hidden: false,
   },
   {
     id: 3,
-    type: "Post Grid",
-    title: "Recent Updates",
-    content: "Official Broadcasts & News",
-    color: "blue",
-    hidden: true,
-  },
-  {
-    id: 4,
     type: "Feature Cards",
+    title: "Key Services",
     color: "indigo",
     hidden: true,
   },
   {
-    id: 5,
+    id: 4,
     type: "Contact Banner",
     title: "Have a suggestion?",
     content: "Your feedback helps us build a better digital ecosystem for everyone.",
     color: "slate",
-    hidden: true,
+    hidden: false,
   }
 ];
 
@@ -6426,7 +6479,6 @@ function HomeAds({ ads }: { ads: Advertisement[] }) {
     </div>
   );
 }
-
 
 function AdminPanel({
   addToast,
@@ -6677,7 +6729,6 @@ function AdminPanel({
         query(
           collection(db, "security_logs"),
           orderBy("time", "desc"),
-          limit(100),
         ),
         (snap) => {
           const lList: any[] = [];
@@ -6764,7 +6815,7 @@ function AdminPanel({
               className="w-full bg-slate-900 border-2 border-slate-800 focus:border-blue-500 p-4 rounded-2xl text-center text-2xl tracking-[1em] outline-none shadow-inner"
               onKeyUp={(e) => {
                 const target = e.target as HTMLInputElement;
-                // Simple demo PIN for now, can be changed to dynamic check
+
                 if (target.value === currentAdminPin) {
                   setAdminLocked(false);
                 }
@@ -8731,7 +8782,6 @@ function AdminPanel({
           </div>
       )}
 
-
         {activeSubTab === "trash" && (
           <div className="space-y-8 pb-20">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
@@ -9033,7 +9083,6 @@ function AdminPanel({
                       status: "visible",
                     });
 
-                    // Global Broadcast
                     await addDoc(collection(db, "notifications"), {
                       uid: "all",
                       title: "🚀 New Update",
@@ -9727,7 +9776,6 @@ function AdminPanel({
                             (l.admin || l.userEmail || "").toLowerCase().includes(logSearchTerm.toLowerCase()) ||
                             (l.action || "").toLowerCase().includes(logSearchTerm.toLowerCase())
                           )
-                          .slice(0, 50)
                           .map((log: any, i: number) => (
                           <tr
                             key={log.id || i}
@@ -9788,10 +9836,10 @@ function AdminPanel({
                     </tbody>
                   </table>
                 </div>
-                {logs.length > 50 && !logSearchTerm && (
+                {logs.length > 0 && !logSearchTerm && (
                   <div className="p-8 bg-slate-50/50 border-t border-slate-100 text-center">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      Displaying latest 50 security events
+                      Displaying all security events
                     </p>
                   </div>
                 )}
@@ -11123,20 +11171,20 @@ function MultiDayAnalyzer({
                   val.includes("<th") ||
                   val.includes("<td")
                 ) {
-                  // Clean up if tags leaked into textContent
+
                   val = val.replace(/<\/?[^>]+(>|$)/g, "").trim();
                 }
                 return val;
               }),
             );
             if (rows.length > 0) {
-              // Check if it's a "one column" row that actually has tags in it (meaning querySelectorAll failed)
+
               const firstRow = rows[0];
               if (
                 firstRow.length === 1 &&
                 (firstRow[0].includes("<tr") || firstRow[0].includes("<td"))
               ) {
-                // Simple regex fallback for badly malformed HTML
+
                 const betterRows = text
                   .split(/<\/tr>/i)
                   .map((trStr) => {
@@ -11175,7 +11223,7 @@ function MultiDayAnalyzer({
           }
         } catch (e) {
           console.error("File parsing failed for", file.name, e);
-          // Fallback to basic XLSX if something threw error
+
           if (sheetsToProcess.length === 0) {
             try {
               const workbook = XLSX.read(dataBuffer, { type: "array" });
@@ -11200,7 +11248,6 @@ function MultiDayAnalyzer({
         for (const { sheetName, rows } of sheetsToProcess) {
           if (rows.length < 1) continue;
 
-          // 1. HEADER DETECTION
           let headerRowIdx = -1;
           let gpCol = -1,
             mandalCol = -1,
@@ -11249,7 +11296,6 @@ function MultiDayAnalyzer({
                 gpCol = rStr.findIndex((c) => c.includes("name"));
               if (gpCol === -1) gpCol = 0; // Fallback to first column
 
-              // Find first column likely to be attendance data
               dataStartCol =
                 Math.max(
                   gpCol,
@@ -11280,8 +11326,7 @@ function MultiDayAnalyzer({
           });
 
           if (headerRowIdx === -1) {
-            console.log("No header found in", file.name, sheetName);
-            console.log("First few rows:", rows.slice(0, 10));
+
             continue;
           }
 
@@ -11289,7 +11334,7 @@ function MultiDayAnalyzer({
             `[${file.name}] Header Row at ${headerRowIdx}:`,
             rows[headerRowIdx],
           );
-          console.log(`[${file.name}] Data Row 1:`, rows[headerRowIdx + 1]);
+
           let curDistrict = "Unknown",
             curDivision = "Unknown",
             curMandal = "Unknown",
@@ -11301,7 +11346,7 @@ function MultiDayAnalyzer({
             if (!row || !Array.isArray(row)) continue;
 
             const gpNameRaw = String(row[gpCol] || "").trim();
-            // Skip sub-headers or empty GP rows
+
             if (
               !gpNameRaw ||
               gpNameRaw.toLowerCase().includes("total") ||
@@ -11339,7 +11384,6 @@ function MultiDayAnalyzer({
             }
             const entry = newAggregated.get(key)!;
 
-            // HORIZONTAL MULTI-DAY SCAN (Government Portal Format)
             const headers = rows[headerRowIdx] || [];
             for (let c = 0; c < row.length; c++) {
               if (
@@ -11368,7 +11412,6 @@ function MultiDayAnalyzer({
                   entry.times[dateKey] = val;
                 }
 
-                // Status is usually the column immediately to the left of the time column
                 if (c > 0 && !entry.attendance[dateKey]) {
                   const statusVal = String(row[c - 1] || "").trim();
                   if (
@@ -11381,7 +11424,7 @@ function MultiDayAnalyzer({
                   }
                 }
               } else if (val && !val.includes(":") && !val.includes("202")) {
-                // Check if current or previous column header has a date (Alternative horizontal format)
+
                 const hMatch = headerVal.match(dateRegex);
                 if (hMatch) {
                   const dKey = hMatch[0]
@@ -11495,12 +11538,10 @@ function MultiDayAnalyzer({
     if (aggregatedData.size === 0) return;
     const aoa: any[][] = [];
 
-    // Row 1
     const row1 = ["Telangana State"];
     for (let i = 0; i < allDates.length * 2 + 3; i++) row1.push("");
     aoa.push(row1);
 
-    // Row 2
     const reportDate = allDates[0]
       ? new Date(allDates[0].split("-").reverse().join("-")).toLocaleDateString(
           "en-GB",
@@ -11511,20 +11552,17 @@ function MultiDayAnalyzer({
     for (let i = 0; i < allDates.length * 2 + 3; i++) row2.push("");
     aoa.push(row2);
 
-    // Row 3 (Status heading)
     const row3 = ["", "", "", ""];
     row3.push("Attendace Status");
     for (let i = 0; i < allDates.length * 2 - 1; i++) row3.push("");
     aoa.push(row3);
 
-    // Row 4 (Headers)
     const row4 = ["S.No", "District Name", "Mandal Name", "Panchayat Name"];
     allDates.forEach((d) => {
       row4.push(`First Attendance Status (${d})`);
     });
     aoa.push(row4);
 
-    // Data rows
     filteredData.forEach((info, idx) => {
       const row = [idx + 1, info.district, info.mandal, info.gp];
       allDates.forEach((d) => {
@@ -11534,7 +11572,6 @@ function MultiDayAnalyzer({
       aoa.push(row);
     });
 
-    // Summary Rows
     const statuses = [
       {
         label: "Total Present",
@@ -11581,7 +11618,6 @@ function MultiDayAnalyzer({
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-    // Merge cells for headers
     const totalCols = allDates.length + 4;
     ws["!merges"] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }, // Telangana State
@@ -12195,7 +12231,7 @@ function DSRAnalyzer({
 
         if (allRows.length === 0) {
           try {
-            // Attempt standard Excel parsing
+
             const workbook = XLSX.read(dataBuffer, { type: "array" });
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             allRows = XLSX.utils.sheet_to_json(sheet, {
@@ -12217,7 +12253,6 @@ function DSRAnalyzer({
 
         setRawJson(allRows);
 
-        // 1. ROBUST HEADER DETECTION
         let bestHeaderIdx = -1;
         let maxScore = 0;
         const mandalKeys = ["mandal", "block", "tehsil"];
@@ -12253,7 +12288,6 @@ function DSRAnalyzer({
           }
         }
 
-        // Check if user's hint for row 4 (idx 3) should be used
         if (maxScore < 4 && allRows.length > 3) {
           const row4 =
             allRows[3]?.map((c) => String(c || "").toLowerCase()) || [];
@@ -12273,7 +12307,6 @@ function DSRAnalyzer({
           return;
         }
 
-        // Normalize Headers (check current and next row for merged headers)
         let headers = allRows[bestHeaderIdx].map((h) =>
           String(h || "")
             .toLowerCase()
@@ -12317,7 +12350,6 @@ function DSRAnalyzer({
           "dsr time",
         ]);
 
-        // Final dynamic fallbacks based on common layout
         const finalMandalIdx = mandalIdx !== -1 ? mandalIdx : 3;
         const finalGpIdx = gpIdx !== -1 ? gpIdx : 5;
 
@@ -12390,7 +12422,6 @@ function DSRAnalyzer({
             (dsrTimeStr && dsrTimeStr.length > 3 && dsrTimeStr.includes(":"));
           const attTimeStr = String(r[attTimeIdx] || "");
 
-          // Time Check (10:30 AM)
           let isOnTime = false;
           let isLate = false;
           if (isD && dsrTimeStr) {
@@ -12435,11 +12466,9 @@ function DSRAnalyzer({
           else if (isT) training++;
           else if (isL) leave++;
 
-          // Count DSR vs Pending
           if (isD) dsr++;
           else if (!isM && !isT && !isL) pending++;
 
-          // Aggregate Mandal Stats
           const currentM = mandalStats.get(mandalRaw) || {
             total: 0,
             onTime: 0,
@@ -12643,7 +12672,6 @@ function DSRAnalyzer({
     if (rawJson.length === 0) return;
     const doc = new jsPDF("l", "mm", "a4");
 
-    // Simple logic to find header if it exists
     let headerIdx = 0;
     for (let i = 0; i < Math.min(rawJson.length, 10); i++) {
       if (
@@ -13224,7 +13252,7 @@ function DSRAnalyzer({
 }
 
 function AdBanner({ slotId = "5641797386" }: { slotId?: string }) {
-  // Ads hidden as requested
+
   return null;
 }
 
@@ -13402,7 +13430,7 @@ function PostCard({
 
             <h4 className="post-title !mt-0 whitespace-pre-wrap flex items-center gap-2">
               {formatPostTitle(post.title) || "Platform Update"}
-              {post.version && (
+              {isAdmin && post.version && (
                 <span className="bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-md font-black tracking-widest uppercase">
                    {post.version}
                 </span>
@@ -13471,6 +13499,7 @@ function PostCard({
                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                 <a
                                   href={att.url}
+                       onClick={(e) => handleForceDownload(e, att.url, att.name || "Attachment")}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="p-2 bg-white rounded-full text-primary hover:scale-110 transition-transform"
@@ -13485,21 +13514,105 @@ function PostCard({
                      ))}
                   </div>
                )}
+      
+      {post.websiteName && (
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between mb-4 group hover:bg-blue-100/50 transition-colors">
+          <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-wider">
+            <div className="w-6 h-6 bg-primary text-white rounded-lg flex items-center justify-center">
+              <ExternalLink size={12} strokeWidth={3} />
+            </div>
+            {post.websiteName} Issue / Problem
+          </div>
+          <Target
+            size={14}
+            className="text-primary/40 group-hover:text-primary transition-colors"
+          />
+        </div>
+      )}
+
+      {post.mediaUrl && (
+        <div className="mb-4">
+          {post.mediaType?.startsWith("video") ? (
+            <video src={post.mediaUrl} controls className="post-media" />
+          ) : post.mediaType?.startsWith("image") ? (
+            <img
+              src={post.mediaUrl}
+              alt={post.title}
+              className="post-media"
+              loading="lazy"
+            />
+          ) : post.mediaType?.startsWith("audio") ? (
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 truncate">
+                {post.mediaName || "Audio Attachment"}
+              </p>
+              <audio src={post.mediaUrl} controls className="w-full" />
+            </div>
+          ) : post.mediaType === "link" ? (
+            <a
+              href={post.mediaUrl.startsWith("http") ? post.mediaUrl : `https://${post.mediaUrl}`}
+              target="_blank"
+              rel="noreferrer"
+              
+              className="flex items-center p-4 bg-blue-50/50 border border-blue-100 rounded-2xl hover:bg-blue-50 transition-colors w-full group"
+            >
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex flex-shrink-0 items-center justify-center mr-4 group-hover:scale-110 transition-transform">
+                <Link2 size={24} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h5 className="font-bold text-slate-800 text-sm truncate">
+                  {post.mediaName || "External Link"}
+                </h5>
+                <p className="text-xs text-slate-500 truncate mt-0.5" dir="ltr">
+                  {post.mediaUrl}
+                </p>
+              </div>
+            </a>
+          ) : !(post.downloadStyle === "techspot" || (!post.downloadStyle && post.attachments && post.attachments.length >= 2)) && (
+            <a
+              href={post.mediaUrl}
+              download={post.mediaName || "Document"}
+              onClick={(e) => handleForceDownload(e, post.mediaUrl || "", post.mediaName || "Document")}
+              target="_blank"
+              rel="noreferrer"
+              
+              className="flex items-center p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:bg-slate-100 hover:border-primary/30 transition-colors w-full group"
+            >
+              <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex flex-shrink-0 items-center justify-center mr-4 group-hover:scale-110 transition-transform">
+                <FileText size={24} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h5 className="font-bold text-slate-800 text-sm truncate">
+                  {post.mediaName || "Attached Document"}
+                </h5>
+                <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mt-1">
+                  Download File
+                </p>
+              </div>
+              <Download
+                size={20}
+                className="text-slate-400 group-hover:text-primary transition-colors ml-4"
+              />
+            </a>
+          )}
+        </div>
+      )}
+
             </div>
 
             <div className="w-full md:w-[280px] lg:w-[320px] shrink-0 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-8 flex flex-col">
                <div className="mb-5">
-                    <div className="text-[#333333] text-[13px] mb-4 leading-relaxed font-sans">
-                       Fast servers and clean downloads.<br/>
-                       Serving tech enthusiasts <span className="border-b-2 border-orange-500 pb-[1px]">for over 25 years.</span><br/>
-                       Tested on TechSpot Labs.
-                    </div>
-                    <a
-                      href={post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0]?.url || post.attachments[0].url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-4 text-white rounded shadow-sm transition-colors border border-[#0d47a1] overflow-hidden group w-[900px]"
-                      style={{ background: 'linear-gradient(to bottom, #2b88d8 0%, #1565c0 100%)', paddingTop: '10px', paddingLeft: '10px', paddingRight: '0px', height: '54.6667px' }}
+                    <a 
+                       href={post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0]?.url || post.attachments[0].url}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       onClick={(e) => {
+                          const attToDownload = post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0] || post.attachments[0];
+                          handleForceDownload(e, attToDownload.url, attToDownload.name || "Download.zip");
+                       }}
+                       
+                      className="inline-flex items-center gap-4 text-white rounded shadow-sm transition-colors border border-[#0d47a1] overflow-hidden group w-full"
+                      style={{ background: "linear-gradient(to bottom, #2b88d8 0%, #1565c0 100%)", padding: "10px" }}
                     >
                       <div className="bg-black/15 p-2.5 flex items-center justify-center border-r border-black/10">
                         <ArrowDown size={28} color="white" strokeWidth={3} className="drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform" />
@@ -13508,21 +13621,58 @@ function PostCard({
                     </a>
                </div>
 
-               <div className="text-[13px] text-gray-800 mb-2 font-sans">
-                  Download options:
+               <div className="text-[13px] text-gray-800 mb-2 font-sans font-black uppercase tracking-wider">
+                  డౌన్‌లోడ్ ఆప్షన్లు (Download options):
                </div>
-               <div className="flex flex-col gap-2 w-[900px]">
-                  {post.attachments.map((att, idx) => (
+               <div className="flex flex-col gap-2 w-full">
+                  {post.mediaUrl && !post.mediaType?.startsWith('video') && !post.mediaType?.startsWith('image') && !post.mediaType?.startsWith('audio') && post.mediaType !== 'link' && (
+                     <a
+                       href={post.mediaUrl}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="flex items-center justify-between bg-white border border-[#cccccc] shadow-sm group hover:border-blue-500 transition-all overflow-hidden h-[46px] w-full"
+                     >
+                        <div className="flex items-center h-full min-w-0">
+                          <div className="w-11 h-full bg-[#f2f2f2] flex items-center justify-center shrink-0 border-r border-[#cccccc]">
+                            <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center border border-[#dddddd] shadow-sm">
+                              <ArrowDown size={12} className="text-[#666666]" strokeWidth={4} />
+                            </div>
+                          </div>
+                          <div className="flex flex-col px-3 min-w-0">
+                            <span className="text-[11px] font-bold text-[#0055aa] truncate leading-tight">
+                              {post.mediaName || "Attached Document"}
+                            </span>
+                          </div>
+                        </div>
+                     </a>
+                  )}
+                  {post.attachments?.map((att, idx) => (
                      <a
                        key={idx}
                        href={att.url}
+                       onClick={(e) => handleForceDownload(e, att.url, att.name || "Attachment")}
                        target="_blank"
                        rel="noopener noreferrer"
-                       className="flex items-center gap-2.5 px-3 py-2 bg-white border border-[#cccccc] hover:bg-[#f5f5f5] text-[#0055aa] cursor-pointer transition-colors"
-                       style={{ width: '900px', fontSize: '10px', lineHeight: '14px', height: '80.9688px' }}
+                       className="flex items-center justify-between bg-white border border-[#cccccc] shadow-sm group hover:border-blue-500 transition-all overflow-hidden h-[46px] w-full"
                      >
-                        <ArrowDown size={14} className="text-[#666666] shrink-0" strokeWidth={3} />
-                        <span className="font-sans truncate inline-block text-[10px] leading-[14px]">{att.name}</span>
+                        <div className="flex items-center h-full min-w-0">
+                          <div className="w-11 h-full bg-[#f2f2f2] flex items-center justify-center shrink-0 border-r border-[#cccccc]">
+                            <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center border border-[#dddddd] shadow-sm">
+                              <ArrowDown size={12} className="text-[#666666]" strokeWidth={4} />
+                            </div>
+                          </div>
+                          <div className="flex flex-col px-3 min-w-0">
+                            <span className="text-[11px] font-bold text-[#0055aa] truncate leading-tight">
+                              {att.name}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 pr-3">
+                           <div className="flex items-center gap-0.5 bg-blue-50/50 px-1.5 py-0.5 rounded border border-blue-100/50" title="Version Number">
+                              <span className="text-[9px] font-black text-blue-500 uppercase leading-none">v</span>
+                              <span className="text-[9px] font-bold text-blue-600 leading-none">{att.version || "1.0"}</span>
+                           </div>
+                        </div>
                      </a>
                   ))}
                </div>
@@ -13578,18 +13728,15 @@ function PostCard({
             </div>
 
             {post.attachments && post.attachments.length > 0 && (
-               <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
-                  <div className="flex items-center gap-2 mb-2 px-1">
-                     <Paperclip size={12} className="text-slate-400" />
-                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        Attached Files
-                     </span>
+               <div className="mt-6 pt-4 border-t border-slate-100">
+                  <div className="text-[14px] text-gray-800 mb-3 font-sans font-black uppercase tracking-wider">
+                     డౌన్‌లోడ్ ఆప్షన్లు (Download options)
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-2 w-full">
                      {post.attachments.map((att, idx) => {
                        const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image");
                        return (
-                         <div key={idx} className="flex flex-col gap-2">
+                         <div key={idx} className="w-full">
                            {isImage ? (
                              <div className="relative group overflow-hidden rounded-xl border border-slate-100 shadow-sm transition-all hover:border-primary/20">
                                <img
@@ -13601,6 +13748,7 @@ function PostCard({
                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                   <a
                                     href={att.url}
+                                    onClick={(e) => handleForceDownload(e, att.url, att.name || "Attachment")}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="p-2 bg-white rounded-full text-primary hover:scale-110 transition-transform"
@@ -13610,22 +13758,37 @@ function PostCard({
                                </div>
                                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
                                   <p className="text-white text-[10px] font-bold truncate px-1">{att.name}</p>
-                               </div>
+                                </div>
                              </div>
                            ) : (
                              <a
                                href={att.url}
+                               onClick={(e) => handleForceDownload(e, att.url, att.name || "Attachment")}
                                target="_blank"
                                rel="noopener noreferrer"
-                               className="flex items-center gap-3 p-2.5 bg-slate-50 hover:bg-blue-50 border border-slate-100 hover:border-blue-100 rounded-xl transition-all group"
+                               className="flex items-center justify-between bg-white border border-[#cccccc] shadow-sm group hover:border-blue-500 transition-all overflow-hidden h-[46px] w-full"
                              >
-                               <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center border border-slate-100 group-hover:border-blue-100 shrink-0 shadow-sm">
-                                  <FileText size={16} className="text-blue-500" />
-                               </div>
-                               <div className="flex flex-col min-w-0">
-                                  <span className="text-[11px] font-bold text-slate-700 truncate group-hover:text-blue-700">{att.name}</span>
-                                  <span className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Download • {att.url.split('.').pop()?.split('?')[0].toUpperCase() || 'FILE'}</span>
-                               </div>
+                                <div className="flex items-center h-full min-w-0">
+                                  <div className="w-11 h-full bg-[#f2f2f2] flex items-center justify-center shrink-0 border-r border-[#cccccc]">
+                                    <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center border border-[#dddddd] shadow-sm">
+                                      <ArrowDown size={12} className="text-[#666666]" strokeWidth={4} />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col px-3 min-w-0">
+                                    <span className="text-[11px] font-bold text-[#0055aa] truncate leading-tight">
+                                      {att.name}
+                                    </span>
+                                    <span className="text-[9px] font-medium text-slate-400 truncate max-w-[200px]">
+                                      {att.url}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 pr-3">
+                                   <div className="flex items-center gap-0.5 bg-blue-50/50 px-1.5 py-0.5 rounded border border-blue-100/50" title="Version Number">
+                                      <span className="text-[9px] font-black text-blue-500 uppercase leading-none">v</span>
+                                      <span className="text-[9px] font-bold text-blue-600 leading-none">{att.version || "1.0"}</span>
+                                   </div>
+                                </div>
                              </a>
                            )}
                          </div>
@@ -13634,19 +13797,6 @@ function PostCard({
                   </div>
                </div>
             )}
-         </>
-      )}
-
-      {post.content && post.content.length > 200 && !isExpanded && (
-        <button
-          aria-label="Read Post"
-          onClick={() => setSearchParams({ postId: post.id })}
-          className="text-xs font-black text-primary uppercase underline underline-offset-4 mb-4 block hover:text-blue-600 transition-colors"
-        >
-          Read Post
-        </button>
-      )}
-
       {post.websiteName && (
         <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between mb-4 group hover:bg-blue-100/50 transition-colors">
           <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-wider">
@@ -13685,7 +13835,7 @@ function PostCard({
               href={post.mediaUrl.startsWith("http") ? post.mediaUrl : `https://${post.mediaUrl}`}
               target="_blank"
               rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
+              
               className="flex items-center p-4 bg-blue-50/50 border border-blue-100 rounded-2xl hover:bg-blue-50 transition-colors w-full group"
             >
               <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex flex-shrink-0 items-center justify-center mr-4 group-hover:scale-110 transition-transform">
@@ -13700,13 +13850,14 @@ function PostCard({
                 </p>
               </div>
             </a>
-          ) : (
+          ) : !(post.downloadStyle === "techspot" || (!post.downloadStyle && post.attachments && post.attachments.length >= 2)) && (
             <a
               href={post.mediaUrl}
               download={post.mediaName || "Document"}
+              onClick={(e) => handleForceDownload(e, post.mediaUrl || "", post.mediaName || "Document")}
               target="_blank"
               rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
+              
               className="flex items-center p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:bg-slate-100 hover:border-primary/30 transition-colors w-full group"
             >
               <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex flex-shrink-0 items-center justify-center mr-4 group-hover:scale-110 transition-transform">
@@ -13727,6 +13878,9 @@ function PostCard({
             </a>
           )}
         </div>
+      )}
+
+         </>
       )}
 
       <div className="flex flex-wrap gap-4 justify-between items-center pt-6 border-t border-slate-100 mt-6">
@@ -13814,27 +13968,41 @@ function PostCard({
           </div>
         </div>
 
-        <button
-          aria-label="Share Post"
-          onClick={(e) => {
-            e.stopPropagation();
-            const url = `${window.location.origin}/?postId=${post.id}`;
-            const plainContent = post.content ? post.content.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').substring(0, 100) + '...' : "";
-            const shareText = plainContent ? `${plainContent}\n\nRead more on E-Vedhika:` : "Check out this post on E-Vedhika:";
-            handleShare(
-              post.title || "E-Vedhika Post",
-              shareText,
-              url,
-              () => addToast("Link Copied!"),
-              post.mediaUrl,
-              post.mediaType
-            );
-          }}
-          className="flex items-center gap-2 p-2 px-4 rounded-xl text-primary font-black text-xs uppercase bg-slate-50 hover:bg-primary hover:text-white transition-all"
-        >
-          <Share2 size={16} strokeWidth={2.5} />
-          <span>Share</span>
-        </button>
+        <div className="flex gap-4 items-center">
+          <button
+            aria-label="Share Post"
+            onClick={(e) => {
+              e.stopPropagation();
+              const url = `${window.location.origin}/?postId=${post.id}`;
+              const plainContent = post.content ? post.content.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').substring(0, 100) + '...' : "";
+              const shareText = plainContent ? `${plainContent}\n\nRead more on E-Vedhika:` : "Check out this post on E-Vedhika:";
+              handleShare(
+                post.title || "E-Vedhika Post",
+                shareText,
+                url,
+                () => addToast("Link Copied!"),
+                post.mediaUrl,
+                post.mediaType
+              );
+            }}
+            className="flex items-center gap-2 p-2 px-4 rounded-xl text-primary font-black text-xs uppercase bg-slate-50 hover:bg-primary hover:text-white transition-all"
+          >
+            <Share2 size={16} strokeWidth={2.5} />
+            <span>Share</span>
+          </button>
+
+          <button
+            aria-label="Read Post"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSearchParams({ postId: post.id });
+            }}
+            className="flex items-center gap-2 p-2 px-4 rounded-xl text-primary font-black text-xs uppercase bg-slate-50 hover:bg-primary hover:text-white transition-all"
+          >
+            <Eye size={16} strokeWidth={2.5} />
+            <span>Read post</span>
+          </button>
+        </div>
       </div>
 
       {showComments && (
@@ -13875,7 +14043,7 @@ function PostCard({
                   await updateDoc(doc(db, "posts", post.id), {
                     commentCount: increment(1),
                   });
-                  // Notifying users
+
                   sendCommentNotifications(post.id, newComment, auth.currentUser!.uid, authorName);
                   
                   setNewComment("");
@@ -13931,7 +14099,7 @@ function PostForm({
   const [title, setTitle] = useState(editingPost?.title || "");
   const [content, setContent] = useState(editingPost?.content || "");
   const [version, setVersion] = useState(editingPost?.version || "");
-  const [attachments, setAttachments] = useState<{ name: string; url: string }[]>(
+  const [attachments, setAttachments] = useState<{ name: string; url: string; version?: string }[]>(
     editingPost?.attachments || [],
   );
   const [downloadStyle, setDownloadStyle] = useState<"classic" | "techspot">(
@@ -13976,52 +14144,35 @@ function PostForm({
              console.error("Compression error:", error);
          }
       } else {
-         addToast(`సర్వర్ ద్వారా అప్‌లోడ్ అవుతోంది...`);
+         addToast(`క్లౌడ్‌కు అప్‌లోడ్ అవుతోంది...`);
       }
 
-      console.log(`Starting local server upload for ${file.name}`);
-      
-      return new Promise<{ name: string; url: string }>((resolve, reject) => {
+      return new Promise<{ name: string; url: string; version: string }>((resolve, reject) => {
         try {
-          const formData = new FormData();
-          formData.append("file", file);
-
-          const xhr = new XMLHttpRequest();
-          xhr.open("POST", "/api/upload", true);
-
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-              const progress = (event.loaded / event.total) * 100;
+          const uniqueId = Date.now() + "_" + Math.random().toString(36).substring(7);
+          const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+          const storageRef = ref(storage, `uploads/${uniqueId}_${safeName}`);
+          
+          const uploadTask = uploadBytesResumable(storageRef, file);
+          
+          uploadTask.on('state_changed', 
+            (snapshot) => {
+              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
               setUploadProgress(progress);
+            },
+            (error) => {
+              reject(error);
+            },
+            async () => {
+              try {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                setUploadProgress(100);
+                resolve({ name: file.name, url: downloadURL, version: "1.0" });
+              } catch (err) {
+                reject(err);
+              }
             }
-          };
-
-          xhr.onload = () => {
-             if (xhr.status === 200) {
-               try {
-                 const response = JSON.parse(xhr.responseText);
-                 setUploadProgress(100);
-                 resolve({ name: file.name, url: response.url });
-               } catch (e) {
-                 reject(new Error("Invalid response from server"));
-               }
-             } else if (xhr.status === 413) {
-                 reject(new Error("ఫైల్ సైజు చాలా పెద్దగా ఉంది (File too large). దయచేసి చిన్న ఫైల్ ఎంచుకోండి. (Max 1MB allowed usually)"));
-             } else {
-                 let errMsg = `Server error: ${xhr.statusText}`;
-                 try {
-                     const response = JSON.parse(xhr.responseText);
-                     if (response.error) errMsg = response.error;
-                 } catch (e) {}
-                 reject(new Error(errMsg));
-             }
-          };
-
-          xhr.onerror = () => {
-             reject(new Error("Network Error: ఫైల్ సైజు చాలా పెద్దదిగా ఉండవచ్చు లేదా నెట్‌వర్క్ సమస్య. (File size might be too large or connection dropped)"));
-          };
-
-          xhr.send(formData);
+          );
         } catch (error) {
           reject(error);
         }
@@ -14065,22 +14216,35 @@ function PostForm({
       : editingPost?.category
         ? [editingPost.category]
         : ["📌 General"];
-    // Map old names to new names for consistency in UI selection
+
     const mapping: Record<string, string> = {
-      "📌 General": "📌 General (సాధారణం)",
-      "🚀 Updates": "🚀 Updates (అప్‌డేట్స్)",
-      "🚀 Portal Update": "🚀 Updates (అప్‌డేట్స్)",
-      "📊 Daily Reports": "📊 Progress Reports (నివేదికలు)",
-      "🗳️ Election": "🗳️ Election News (ఎన్నికలు)",
-      "🗳️ TSEC Poll Issue": "🗳️ Election News (ఎన్నికలు)",
-      "🏛️ Mana Panchayath": "🏛️ Gram Panchayat (పంచాయతీ)",
-      "💡 Suggestions & Feedback": "💡 Ideas & Feedback (సూచనలు)",
-      "📑 Applications & GOs": "📑 GOs & Circulars (జీవోలు)",
-      "🔗 Useful Information": "🔗 Useful Links (ముఖ్యమైన లింకులు)",
-      "🏠 ePanchayat Issue": "🛠️ Technical Support (సహాయం)",
-      "💰 Online Tax Collection Issue": "💰 Taxes & Finance (పన్నులు)",
-      "📂 Ubd Portal Issue": "🛠️ Technical Support (సాంకేతిక సహాయం)",
-      "🛠️ eGramSwaraj doubts": "🛠️ Technical Support (సహాయం)"
+      "📌 General": "📌 General",
+      "📌 General (సాధారణం)": "📌 General",
+      "🚀 Updates": "🚀 Updates",
+      "🚀 Updates (అప్‌డేట్స్)": "🚀 Updates",
+      "🚀 Portal Update": "🚀 Updates",
+      "📊 Daily Reports": "📊 Progress Reports",
+      "📊 Progress Reports (నివేదికలు)": "📊 Progress Reports",
+      "🗳️ Election": "🗳️ Election News",
+      "🗳️ TSEC Poll Issue": "🗳️ Election News",
+      "🗳️ Election News (ఎన్నికలు)": "🗳️ Election News",
+      "🏛️ Mana Panchayath": "🏛️ Gram Panchayat",
+      "🏛️ Gram Panchayat (పంచాయతీ)": "🏛️ Gram Panchayat",
+      "💡 Suggestions & Feedback": "💡 Ideas & Feedback",
+      "💡 Ideas & Feedback (సూచనలు)": "💡 Ideas & Feedback",
+      "📑 Applications & GOs": "📑 GOs & Circulars",
+      "📑 GOs & Circulars (జీవోలు)": "📑 GOs & Circulars",
+      "🔗 Useful Information": "🔗 Useful Links",
+      "🔗 Useful Links (ముఖ్యమైన లింకులు)": "🔗 Useful Links",
+      "🏠 ePanchayat Issue": "🛠️ Technical Support",
+      "💰 Online Tax Collection Issue": "💰 Taxes & Finance",
+      "💰 Taxes & Finance (పన్నులు)": "💰 Taxes & Finance",
+      "🏠 Housing & Layouts (ఇళ్లు/లేఅవుట్లు)": "🏠 Housing & Layouts",
+      "📂 Ubd Portal Issue": "🛠️ Technical Support",
+      "🛠️ eGramSwaraj doubts": "🛠️ Technical Support",
+      "🛠️ Technical Support (సాంకేతిక సహాయం)": "🛠️ Technical Support",
+      "🛠️ Technical Support (సహాయం)": "🛠️ Technical Support",
+      "📑 Applications (దరఖాస్తులు)": "📑 Applications"
     };
     return raw.map(cat => mapping[cat] || cat);
   });
@@ -14123,18 +14287,18 @@ function PostForm({
   };
 
   const CATEGORIES = [
-    "📌 General (సాధారణం)",
-    "🚀 Updates (అప్‌డేట్స్)",
-    "📊 Progress Reports (నివేదికలు)",
-    "🗳️ Election News (ఎన్నికలు)",
-    "🏛️ Gram Panchayat (పంచాయతీ)",
-    "📑 GOs & Circulars (జీవోలు)",
-    "💰 Taxes & Finance (పన్నులు)",
-    "🏠 Housing & Layouts (ఇళ్లు/లేఅవుట్లు)",
-    "🛠️ Technical Support (సహాయం)",
-    "💡 Ideas & Feedback (సూచనలు)",
-    "📑 Applications (దరఖాస్తులు)",
-    "🔗 Useful Links (ముఖ్యమైన లింకులు)",
+    "📌 General",
+    "🚀 Updates",
+    "📊 Progress Reports",
+    "🗳️ Election News",
+    "🏛️ Gram Panchayat",
+    "📑 GOs & Circulars",
+    "💰 Taxes & Finance",
+    "🏠 Housing & Layouts",
+    "🛠️ Technical Support",
+    "💡 Ideas & Feedback",
+    "📑 Applications",
+    "🔗 Useful Links",
   ];
 
   const toggleCategory = (cat: string) => {
@@ -14183,7 +14347,6 @@ function PostForm({
         downloadStyle: downloadStyle,
       };
 
-      // Firestore document size limit check (1MB)
       const estimatedSize = JSON.stringify(postData).length;
       if (estimatedSize > 950000) { // Safety margin
         addToast("Post content or media is too large for the portal. Please reduce image size or text content.");
@@ -14521,7 +14684,7 @@ function PostForm({
 
               <h4 className="post-title !mt-0 whitespace-pre-wrap flex items-center gap-2">
                 {formatPostTitle(title) || "Post Title Preview"}
-                {version && (
+                {isAdmin && version && (
                    <span className="bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-md font-black tracking-widest uppercase">
                       {version}
                    </span>
@@ -14668,206 +14831,37 @@ function PostForm({
           )}
         </div>
 
-        <div>
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">
-            Media Content
-          </label>
-          <div className="p-4 border-2 border-dashed rounded-2xl relative bg-slate-50 transition-all hover:bg-slate-100 hover:border-primary/20">
-            {media?.url ? (
-              <div className="space-y-3 px-4 py-4 text-center">
-                <div className="relative inline-block w-full max-w-sm">
-                  {media.type.startsWith("video") ? (
-                    <video
-                      src={media.url}
-                      className="h-32 w-full object-cover rounded-xl border shadow-sm"
-                    />
-                  ) : media.type.startsWith("image") ? (
-                    <img
-                      src={media.url}
-                      alt="Uploaded media preview"
-                      loading="lazy"
-                      className="h-32 w-full object-cover rounded-xl border shadow-sm"
-                    />
-                  ) : media.type.startsWith("audio") ? (
-                    <div className="h-32 w-full bg-slate-50 flex flex-col items-center justify-center rounded-xl border shadow-sm p-4">
-                      <span className="text-xs font-bold text-slate-600 truncate w-full px-4 mb-2">
-                        {media.name || "audio file"}
-                      </span>
-                      <audio src={media.url} controls className="w-full max-w-xs" />
-                    </div>
-                  ) : (
-                    <div className="h-32 w-full bg-slate-100 flex flex-col items-center justify-center rounded-xl border shadow-sm p-4">
-                      <FileText size={32} className="text-slate-400 mb-2" />
-                      <span className="text-xs font-bold text-slate-600 truncate w-full px-4">
-                        {media.name || "document"}
-                      </span>
-                    </div>
-                  )}
-                  <button
-                    aria-label="Remove media"
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMedia(null);
-                    }}
-                    className="absolute -top-2 -right-2 bg-danger text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform z-10"
-                  >
-                    <Trash2 size={16} strokeWidth={2.5} />
-                  </button>
-                </div>
-                <p className="text-[11px] font-black text-success uppercase">
-                  ✓ Media Attached
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center py-4">
-                <div className="text-[11px] sm:text-xs font-black text-slate-400 uppercase tracking-widest text-center mb-6">
-                  Upload Attachment From
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full px-2 max-w-lg">
-                  {/* Local Device */}
-                  <div className="relative group/btn cursor-pointer bg-white border-2 border-slate-200 rounded-xl p-4 hover:border-primary/50 transition-all flex flex-col items-center gap-2">
-                    <HardDrive size={24} className="text-slate-400 group-hover/btn:text-primary transition-colors" />
-                    <span className="text-[10px] font-bold text-slate-500 group-hover/btn:text-primary text-center uppercase tracking-wider">Local Device</span>
-                    <input
-                      type="file"
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                      accept="*/*"
-                      onChange={async (e) => {
-                        const f = e.target.files?.[0];
-                        if (f) {
-                          if (f.type.startsWith("image/")) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              const img = new Image();
-                              img.onload = () => {
-                                const canvas = document.createElement("canvas");
-                                let width = img.width;
-                                let height = img.height;
-                                const MAX_SIZE = 800; // Reduced max dimension
-                                if (width > height && width > MAX_SIZE) {
-                                  height *= MAX_SIZE / width;
-                                  width = MAX_SIZE;
-                                } else if (height > MAX_SIZE) {
-                                  width *= MAX_SIZE / height;
-                                  height = MAX_SIZE;
-                                }
-                                canvas.width = width;
-                                canvas.height = height;
-                                const ctx = canvas.getContext("2d");
-                                ctx?.drawImage(img, 0, 0, width, height);
-                                // Lowered quality to 0.5 to stay well under Firestore limits
-                                const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.5);
-                                
-                                if (compressedDataUrl.length > 800000) {
-                                  addToast("Image is still too large after compression. Please use a smaller photo.");
-                                  return;
-                                }
-
-                                setMedia({
-                                  url: compressedDataUrl,
-                                  type: "image/jpeg",
-                                  name: f.name,
-                                });
-                              };
-                              img.src = ev.target?.result as string;
-                            };
-                            reader.readAsDataURL(f);
-                          } else {
-                            // Non-image files (videos, docs, etc)
-                            if (f.size > 700 * 1024) {
-                              addToast("Non-image files must be under 700KB for direct portal storage.");
-                              return;
-                            }
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              const dataUrl = ev.target?.result as string;
-                              if (dataUrl.length > 900000) {
-                                addToast("Encoded file is too large for the portal.");
-                                return;
-                              }
-                              setMedia({
-                                url: dataUrl,
-                                type: f.type || "application/octet-stream",
-                                name: f.name,
-                              });
-                            };
-                            reader.readAsDataURL(f);
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                  
-                  {/* Links */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const url = prompt("Enter link/URL:");
-                      if (url) {
-                        try {
-                          const u = new URL(url);
-                          const host = u.hostname.toLowerCase();
-                          let linkName = 'External Link';
-                          if (host.includes('youtube.com') || host.includes('youtu.be')) linkName = 'YouTube Video';
-                          else if (host.includes('drive.google.com')) linkName = 'Google Drive File';
-                          else if (host.includes('facebook.com')) linkName = 'Facebook Link';
-                          else if (host.includes('twitter.com') || host.includes('x.com')) linkName = 'X/Twitter Link';
-                          else if (host.includes('instagram.com')) linkName = 'Instagram Link';
-                          else if (host.includes('tsec.gov.in')) linkName = 'TSEC Portal Link';
-                          else if (host.includes('epanchayat.telangana.gov.in')) linkName = 'ePanchayat Link';
-                          else if (host.includes('ubd.telangana.gov.in')) linkName = 'UBD Portal Link';
-                          else if (host.includes('egramswaraj.gov.in')) linkName = 'eGramSwaraj Link';
-                          else linkName = host;
-                          setMedia({ url, type: "link", name: linkName });
-                        } catch(e) {
-                          setMedia({ url, type: "link", name: "External Link" });
-                        }
-                      }
-                    }}
-                    className="group/btn cursor-pointer bg-white border-2 border-slate-200 rounded-xl p-4 hover:border-blue-500/50 transition-all flex flex-col items-center gap-2"
-                  >
-                    <Link2 size={24} className="text-slate-400 group-hover/btn:text-blue-500 transition-colors" />
-                    <span className="text-[10px] font-bold text-slate-500 group-hover/btn:text-blue-500 text-center uppercase tracking-wider">Links</span>
-                  </button>
-                </div>
-                <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold text-center mt-6">
-                  Autosized for optimized upload. All formats supported.
-                </p>
-              </div>
-            )}
-          </div>
-
           {/* VERSION & ATTACHMENTS SECTION */}
-          <div className="mt-6 pt-4 border-t-2 border-dashed border-slate-100 space-y-5">
-             <div className="flex items-center gap-2 mb-2">
-                <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
-                <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">రిలీజ్ వివరాలు & ఫైల్స్ (Release details)</h3>
-             </div>
+          {isAdmin && (
+            <>
+            <div className="mt-6 pt-4 border-t-2 border-dashed border-slate-100 space-y-6">
+                 <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                       <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                       <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">రిలీజ్ వివరాలు & ఫైల్స్ (RELEASE DETAILS)</h3>
+                    </div>
+                 </div>
 
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-               {/* Version Number Input */}
-               <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                    వెర్షన్ నెంబర్ (Version)
-                  </label>
-                  <div className="relative group">
-                    <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
-                    <input
-                      type="text"
-                      value={version}
-                      onChange={(e) => setVersion(e.target.value)}
-                      placeholder="e.g. V1.5.0"
-                      className="w-full bg-white border-2 border-slate-100 rounded-xl py-2.5 pl-10 pr-4 text-sm font-bold text-slate-700 outline-none focus:border-primary/30 focus:shadow-sm transition-all shadow-sm"
-                    />
-                  </div>
-               </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                   {/* Version Number Input */}
+                   <div className="space-y-1.5">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                        వెర్షన్ నెంబర్ (VERSION)
+                      </label>
+                      <div className="relative group">
+                        <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
+                        <input
+                          type="text"
+                          value={version}
+                          onChange={(e) => setVersion(e.target.value)}
+                          placeholder="e.g. V1.5.0"
+                          className="w-full bg-white border-2 border-slate-100 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-slate-700 outline-none focus:border-primary/30 focus:shadow-sm transition-all shadow-sm"
+                        />
+                      </div>
+                   </div>
 
                {/* File Upload Section */}
                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 text-right">
-                    రిలీజ్ ఫైల్స్ అప్‌లోడ్ (Upload Files)
-                  </label>
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -14881,7 +14875,7 @@ function PostForm({
                       type="button"
                       disabled={uploadingFile}
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 transition-all uppercase tracking-wider shadow-md shadow-blue-200 active:scale-95 disabled:opacity-50"
+                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#1D61FF] text-white rounded-xl text-xs font-black hover:bg-blue-700 transition-all uppercase tracking-wider shadow-md shadow-blue-200 active:scale-95 disabled:opacity-50"
                     >
                       {uploadingFile ? (
                         <Loader2 size={16} className="animate-spin" />
@@ -14927,116 +14921,161 @@ function PostForm({
                       <Plus size={18} />
                     </button>
                   </div>
-                  {uploadingFile && (
-                    <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                       <div 
-                         className="h-full bg-blue-500 transition-all duration-300" 
-                         style={{ width: `${uploadProgress}%` }}
-                       />
-                    </div>
-                  )}
-                  <p className="text-[9px] text-slate-400 font-bold px-1 mt-1 animate-pulse">
-                    గమనిక: నెట్ స్లోగా ఉంటే లేదా ఫైల్ పెద్దగా ఉంటే అప్‌లోడ్ అవ్వడానికి సమయం పడుతుంది.
-                  </p>
                </div>
              </div>
+             {uploadingFile && (
+               <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-500 transition-all duration-300" 
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+               </div>
+             )}
+             <p className="text-[9px] text-slate-400 font-bold px-1 animate-pulse text-right">
+               గమనిక: నెట్ స్లోగా ఉంటే లేదా ఫైల్ పెద్దగా ఉంటే అప్‌లోడ్ అవ్వడానికి సమయం పడుతుంది.
+             </p>
+            </div>
 
              {/* Attachment List Preview (The "Box" below) */}
              {attachments.length > 0 && (
-                <div className="bg-slate-50/50 border-2 border-slate-100 rounded-2xl p-4 space-y-3">
+                <div className="bg-slate-50/50 border-2 border-slate-100 rounded-3xl p-6 space-y-4 shadow-sm">
                   <div className="flex items-center justify-between px-1">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-blue-600">
-                      అటాచ్ చేసిన ఫైల్స్ (Attached Files - {attachments.length})
+                    <span className="text-[12px] font-black text-gray-800 uppercase tracking-widest font-sans">
+                      డౌన్‌లోడ్ ఆప్షన్లు (Download options - {attachments.length})
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Reorder.Group 
+                    axis="y" 
+                    values={attachments} 
+                    onReorder={setAttachments}
+                    className="flex flex-col gap-2"
+                  >
                     {attachments.map((att, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between p-3 bg-white border-2 border-slate-100 rounded-xl shadow-sm group hover:border-blue-200 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300"
+                      <Reorder.Item
+                        key={att.url}
+                        value={att}
+                        className="flex items-center justify-between bg-white border border-[#cccccc] shadow-sm group hover:border-blue-500 transition-all overflow-hidden h-[46px] cursor-grab active:cursor-grabbing"
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
-                            <FileText size={18} className="text-blue-500" />
+                        <div className="flex items-center h-full min-w-0">
+                          {/* Drag Handle */}
+                          <div className="px-1 text-slate-300 group-hover:text-slate-400">
+                             <GripVertical size={14} />
                           </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[11px] font-bold text-slate-800 truncate">
+                          
+                          <div className="w-11 h-full bg-[#f2f2f2] flex items-center justify-center shrink-0 border-r border-[#cccccc]">
+                            <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center border border-[#dddddd] shadow-sm">
+                              <ArrowDown size={12} className="text-[#666666]" strokeWidth={4} />
+                            </div>
+                          </div>
+                          <div className="flex flex-col px-3 min-w-0">
+                            <span className="text-[11px] font-bold text-[#0055aa] truncate leading-tight">
                               {att.name}
                             </span>
-                            <span className="text-[9px] font-medium text-slate-400 truncate max-w-[150px]">
+                            <span className="text-[9px] font-medium text-slate-400 truncate max-w-[200px]">
                               {att.url}
                             </span>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                          className="hover:bg-rose-50 text-slate-300 hover:text-danger p-1.5 rounded-lg transition-all"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
+                        <div className="flex items-center gap-2 pr-3">
+                           {/* Version Label / Dropdown */}
+                           <div className="flex items-center gap-0.5 bg-blue-50/50 px-1 py-0.5 rounded border border-blue-100/50" title="Change Version">
+                              <span className="text-[9px] font-black text-blue-500 uppercase leading-none pl-1">v</span>
+                              <select 
+                                value={att.version || "1.0"}
+                                onChange={(e) => {
+                                  const newVer = e.target.value;
+                                  setAttachments(prev => prev.map((a, i) => i === idx ? { ...a, version: newVer } : a));
+                                }}
+                                className="text-[9px] font-bold text-blue-600 leading-none bg-transparent border-none p-0 focus:ring-0 cursor-pointer appearance-none min-w-[18px] text-center"
+                              >
+                                {["1.0", "2.0", "3.0", "4.0", "5.0", "6.0", "7.0", "8.0", "9.0", "10.0"].map(v => (
+                                  <option key={v} value={v}>{v}</option>
+                                ))}
+                              </select>
+                              <ChevronDown size={8} className="text-blue-400 mr-1" strokeWidth={4} />
+                           </div>
+                           
+                           <button
+                             type="button"
+                             onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                             className="text-slate-300 hover:text-red-500 p-1 transition-colors"
+                             title="Remove file"
+                           >
+                             <X size={14} />
+                           </button>
+                        </div>
+                      </Reorder.Item>
                     ))}
-                  </div>
+                  </Reorder.Group>
                 </div>
               )}
 
             {/* Download Style Setup */}
             {attachments.length > 0 && (
-              <div className="flex flex-col gap-2 mt-4 p-4 border-2 border-indigo-100 bg-indigo-50/30 rounded-2xl">
-                 <label className="text-xs font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                   <Settings size={14} className="text-indigo-600" />
-                   డౌన్‌లోడ్ లేఅవుట్ (Download Layout)
+              <div className="flex flex-col gap-2 mt-4 p-5 border-2 border-indigo-100 bg-[#F5F8FF] rounded-3xl shadow-sm">
+                 <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2 mb-2">
+                   <div className="w-6 h-6 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">
+                    <Settings size={14} />
+                   </div>
+                   డౌన్‌లోడ్ లేఅవుట్ (DOWNLOAD LAYOUT)
                  </label>
-                 <div className="flex flex-col sm:flex-row gap-3 mt-2">
-                   <label className={`flex items-start gap-3 cursor-pointer bg-white px-4 py-3 rounded-xl border-2 transition-all flex-1 ${downloadStyle === "classic" ? "border-indigo-500 shadow-sm" : "border-slate-100 hover:border-indigo-200"}`}>
-                     <input 
-                       type="radio" 
-                       name="downloadStyle" 
-                       value="classic" 
-                       checked={downloadStyle === "classic"}
-                       onChange={() => setDownloadStyle("classic")}
-                       className="mt-0.5 w-4 h-4 text-indigo-600 focus:ring-indigo-500"
-                     />
-                     <div className="flex flex-col">
-                       <span className="text-sm font-bold text-slate-800">Classic (Grid)</span>
-                       <span className="text-[11px] text-slate-500 font-medium leading-tight mt-1">Standard grid with small cards.</span>
+                 <div className="flex flex-col sm:flex-row gap-4">
+                   <label className={`flex items-start gap-4 cursor-pointer bg-white px-5 py-4 rounded-2xl border-2 transition-all flex-1 ${downloadStyle === "classic" ? "border-indigo-500 shadow-md ring-4 ring-indigo-50" : "border-slate-100 hover:border-indigo-200"}`}>
+                     <div className="mt-1">
+                       <input 
+                         type="radio" 
+                         name="downloadStyle" 
+                         value="classic" 
+                         checked={downloadStyle === "classic"}
+                         onChange={() => setDownloadStyle("classic")}
+                         className="w-5 h-5 text-indigo-600 border-2 border-slate-200 focus:ring-indigo-500"
+                       />
+                     </div>
+                     <div className="flex flex-col min-w-0">
+                       <span className="text-sm font-black text-slate-800">Classic (Grid)</span>
+                       <span className="text-[11px] text-slate-500 font-bold leading-tight mt-1">Standard grid layout with small cards.</span>
                      </div>
                    </label>
-                   <label className={`flex items-start gap-3 cursor-pointer bg-white px-4 py-3 rounded-xl border-2 transition-all flex-1 ${downloadStyle === "techspot" ? "border-indigo-500 shadow-sm" : "border-slate-100 hover:border-indigo-200"}`}>
-                     <input 
-                       type="radio" 
-                       name="downloadStyle" 
-                       value="techspot" 
-                       checked={downloadStyle === "techspot"}
-                       onChange={() => setDownloadStyle("techspot")}
-                       className="mt-0.5 w-4 h-4 text-indigo-600 focus:ring-indigo-500"
-                     />
-                     <div className="flex flex-col">
-                       <span className="text-sm font-bold text-slate-800">Advanced (TechSpot)</span>
-                       <span className="text-[11px] text-slate-500 font-medium leading-tight mt-1">Large format with highlighted "Download Now" box. Minimum 2 attachments expected.</span>
+                   <label className={`flex items-start gap-4 cursor-pointer bg-white px-5 py-4 rounded-2xl border-2 transition-all flex-1 ${downloadStyle === "techspot" ? "border-indigo-500 shadow-md ring-4 ring-indigo-50" : "border-slate-100 hover:border-indigo-200"}`}>
+                     <div className="mt-1">
+                       <input 
+                         type="radio" 
+                         name="downloadStyle" 
+                         value="techspot" 
+                         checked={downloadStyle === "techspot"}
+                         onChange={() => setDownloadStyle("techspot")}
+                         className="w-5 h-5 text-indigo-600 border-2 border-slate-200 focus:ring-indigo-500"
+                       />
+                     </div>
+                     <div className="flex flex-col min-w-0">
+                       <span className="text-sm font-black text-slate-800 tracking-tight">Advanced (TechSpot)</span>
+                       <span className="text-[11px] text-slate-500 font-bold leading-tight mt-1">Large display format with a highlighted "Download Now" card action. Recommended for single releases.</span>
                      </div>
                    </label>
                  </div>
               </div>
             )}
+            </>
+           )}
 
              {/* Content Helper Buttons */}
-             <div className="space-y-1.5">
+             <div className="space-y-3 mt-8">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                  Quick Content Templates (Insert)
+                  QUICK CONTENT TEMPLATES (INSERT)
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <button
                     type="button"
                     onClick={() => {
                       wrapText("### 🚀 What's New\n- ", "\n");
                       addToast("Section added to Content editor");
                     }}
-                    className="flex flex-col items-center justify-center p-3 bg-blue-50 border-2 border-blue-100 rounded-xl hover:bg-blue-100 transition-all text-blue-600 gap-1.5 group"
+                    className="flex flex-col items-center justify-center p-6 bg-[#EDF3FF] border-2 border-blue-100 rounded-3xl hover:border-blue-300 transition-all text-blue-600 shadow-sm group active:scale-95"
                   >
-                    <Rocket size={18} className="group-hover:scale-110 transition-transform" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Update Fixes</span>
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-3 group-hover:scale-110 transition-transform">
+                      <RefreshCw size={24} className="text-blue-500" />
+                    </div>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-center">UPDATE FIXES</span>
                   </button>
                   <button
                     type="button"
@@ -15044,10 +15083,12 @@ function PostForm({
                       wrapText("### 🛠️ Bug Fixes\n- ", "\n");
                       addToast("Section added to Content editor");
                     }}
-                    className="flex flex-col items-center justify-center p-3 bg-rose-50 border-2 border-rose-100 rounded-xl hover:bg-rose-100 transition-all text-rose-600 gap-1.5 group"
+                    className="flex flex-col items-center justify-center p-6 bg-[#FFF2F2] border-2 border-rose-100 rounded-3xl hover:border-rose-300 transition-all text-rose-600 shadow-sm group active:scale-95"
                   >
-                    <Wrench size={18} className="group-hover:scale-110 transition-transform" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Add BugFix</span>
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-3 group-hover:scale-110 transition-transform">
+                      <Wrench size={24} className="text-rose-500" />
+                    </div>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-center">ADD BUGFIX</span>
                   </button>
                   <button
                     type="button"
@@ -15055,17 +15096,16 @@ function PostForm({
                       wrapText("### ⚡ Improvements\n- ", "\n");
                       addToast("Section added to Content editor");
                     }}
-                    className="flex flex-col items-center justify-center p-3 bg-amber-50 border-2 border-amber-100 rounded-xl hover:bg-amber-100 transition-all text-amber-600 gap-1.5 group"
+                    className="flex flex-col items-center justify-center p-6 bg-[#FFFAF0] border-2 border-amber-100 rounded-3xl hover:border-amber-300 transition-all text-amber-600 shadow-sm group active:scale-95"
                   >
-                    <Zap size={18} className="group-hover:scale-110 transition-transform" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-center">Add Improv</span>
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mb-3 group-hover:scale-110 transition-transform">
+                      <Zap size={24} className="text-amber-500" />
+                    </div>
+                    <span className="text-[11px] font-black uppercase tracking-widest text-center">ADD IMPROV</span>
                   </button>
                 </div>
              </div>
           </div>
-
-        </div>
-      </div>
 
       <button
         aria-label={editingPost ? "Save Changes" : "Publish Now"}
@@ -15225,13 +15265,11 @@ function KnowledgeHubSection() {
     null,
   );
 
-  // Advanced NLP Search Logic
   const getFilteredData = () => {
     if (!searchTerm.trim()) return PR_ACT_DB;
 
     const term = searchTerm.toLowerCase().trim();
 
-    // Exact Number Catch: If user typed only a number (e.g., "114", "37")
     const isExactNumber = /^\d+$/.test(term);
     if (isExactNumber) {
       const exactMatch = PR_ACT_DB.filter(
@@ -15240,8 +15278,6 @@ function KnowledgeHubSection() {
       if (exactMatch.length > 0) return exactMatch;
     }
 
-    // Fuzzy NLP Search
-    // Remove vowels, spaces and special chars for a forgiving "sound/root" search
     const normalize = (str: string) =>
       str
         .toLowerCase()
@@ -15249,7 +15285,7 @@ function KnowledgeHubSection() {
     const isTelugu = /[\u0C00-\u0C7F]/.test(term);
 
     return PR_ACT_DB.filter((c: PRSection) => {
-      // 1. Direct includes match
+
       if (
         c.title.toLowerCase().includes(term) ||
         c.content.toLowerCase().includes(term) ||
@@ -15259,7 +15295,6 @@ function KnowledgeHubSection() {
         return true;
       }
 
-      // 2. Advanced: If it's telugu, try stripped matching (forgiving typos)
       if (isTelugu) {
         const normTerm = normalize(term);
         if (normTerm.length > 2) {
@@ -15490,8 +15525,6 @@ function PRActHub({ user }: { user: any }) {
   return <KnowledgeHubSection />;
 }
 
-// --- POST DETAIL MODULE ---
-
 function PostDetail({
   postId,
   onBack,
@@ -15655,7 +15688,7 @@ function PostDetail({
 
         <h1 className="text-3xl md:text-5xl font-black text-primary leading-tight tracking-tight whitespace-pre-wrap flex items-center gap-3">
           {formatPostTitle(post.title)}
-          {post.version && (
+          {isAdmin && post.version && (
              <span className="bg-slate-800 text-white text-[11px] px-3 py-1 rounded-lg font-black tracking-widest uppercase">
                 {post.version}
              </span>
@@ -15721,7 +15754,7 @@ function PostDetail({
                 href={post.mediaUrl.startsWith("http") ? post.mediaUrl : `https://${post.mediaUrl}`}
                 target="_blank"
                 rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
+                
                 className="flex items-center p-6 bg-blue-50/50 hover:bg-blue-50 transition-colors w-full group"
               >
                 <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex flex-shrink-0 items-center justify-center mr-6 group-hover:scale-110 transition-transform">
@@ -15736,13 +15769,14 @@ function PostDetail({
                   </p>
                 </div>
               </a>
-            ) : (
+            ) : !(post.downloadStyle === "techspot" || (!post.downloadStyle && post.attachments && post.attachments.length >= 2)) && (
               <a
                 href={post.mediaUrl}
                 download={post.mediaName || "Document"}
+              onClick={(e) => handleForceDownload(e, post.mediaUrl || "", post.mediaName || "Document")}
                 target="_blank"
                 rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
+                
                 className="flex items-center p-6 bg-slate-50 hover:bg-slate-100 transition-colors w-full group"
               >
                 <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex flex-shrink-0 items-center justify-center mr-6 group-hover:scale-110 transition-transform">
@@ -15811,6 +15845,7 @@ function PostDetail({
                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                                 <a
                                   href={att.url}
+                       onClick={(e) => handleForceDownload(e, att.url, att.name || "Attachment")}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="p-3 bg-white rounded-full text-blue-600 hover:scale-110 transition-transform shadow-lg"
@@ -15819,6 +15854,7 @@ function PostDetail({
                                 </a>
                                 <a
                                   href={att.url}
+                       onClick={(e) => handleForceDownload(e, att.url, att.name || "Attachment")}
                                   download={att.name}
                                   className="p-3 bg-white rounded-full text-green-600 hover:scale-110 transition-transform shadow-lg"
                                 >
@@ -15836,17 +15872,17 @@ function PostDetail({
 
             <div className="w-full md:w-[320px] lg:w-[360px] shrink-0 border-t md:border-t-0 md:border-l border-gray-100 pt-6 md:pt-0 md:pl-10 flex flex-col">
                <div className="mb-5">
-                    <div className="text-[#333333] text-[13px] mb-4 leading-relaxed font-sans">
-                       Fast servers and clean downloads.<br/>
-                       Serving tech enthusiasts <span className="border-b-2 border-orange-500 pb-[1px]">for over 25 years.</span><br/>
-                       Tested on TechSpot Labs.
-                    </div>
-                    <a
-                      href={post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0]?.url || post.attachments[0].url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-4 text-white rounded shadow-sm transition-colors border border-[#0d47a1] overflow-hidden group w-[900px]"
-                      style={{ background: 'linear-gradient(to bottom, #2b88d8 0%, #1565c0 100%)', paddingTop: '10px', paddingLeft: '10px', paddingRight: '0px', height: '54.6667px' }}
+                    <a 
+                       href={post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0]?.url || post.attachments[0].url}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       onClick={(e) => {
+                          const attToDownload = post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0] || post.attachments[0];
+                          handleForceDownload(e, attToDownload.url, attToDownload.name || "Download.zip");
+                       }}
+                       
+                      className="inline-flex items-center gap-4 text-white rounded shadow-sm transition-colors border border-[#0d47a1] overflow-hidden group w-full"
+                      style={{ background: "linear-gradient(to bottom, #2b88d8 0%, #1565c0 100%)", padding: "10px" }}
                     >
                       <div className="bg-black/15 p-2.5 flex items-center justify-center border-r border-black/10">
                         <ArrowDown size={28} color="white" strokeWidth={3} className="drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform" />
@@ -15855,21 +15891,58 @@ function PostDetail({
                     </a>
                </div>
 
-               <div className="text-[13px] text-gray-800 mb-2 font-sans">
-                  Download options:
+               <div className="text-[13px] text-gray-800 mb-2 font-sans font-black uppercase tracking-wider">
+                  డౌన్‌లోడ్ ఆప్షన్లు (Download options):
                </div>
-               <div className="flex flex-col gap-2 w-[900px]">
-                  {post.attachments.map((att, idx) => (
+               <div className="flex flex-col gap-2 w-full">
+                  {post.mediaUrl && !post.mediaType?.startsWith('video') && !post.mediaType?.startsWith('image') && !post.mediaType?.startsWith('audio') && post.mediaType !== 'link' && (
+                     <a
+                       href={post.mediaUrl}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="flex items-center justify-between bg-white border border-[#cccccc] shadow-sm group hover:border-blue-500 transition-all overflow-hidden h-[46px] w-full"
+                     >
+                        <div className="flex items-center h-full min-w-0">
+                          <div className="w-11 h-full bg-[#f2f2f2] flex items-center justify-center shrink-0 border-r border-[#cccccc]">
+                            <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center border border-[#dddddd] shadow-sm">
+                              <ArrowDown size={12} className="text-[#666666]" strokeWidth={4} />
+                            </div>
+                          </div>
+                          <div className="flex flex-col px-3 min-w-0">
+                            <span className="text-[11px] font-bold text-[#0055aa] truncate leading-tight">
+                              {post.mediaName || "Attached Document"}
+                            </span>
+                          </div>
+                        </div>
+                     </a>
+                  )}
+                  {post.attachments?.map((att, idx) => (
                      <a
                        key={idx}
                        href={att.url}
+                       onClick={(e) => handleForceDownload(e, att.url, att.name || "Attachment")}
                        target="_blank"
                        rel="noopener noreferrer"
-                       className="flex items-center gap-2.5 px-3 py-2 bg-white border border-[#cccccc] hover:bg-[#f5f5f5] text-[#0055aa] cursor-pointer transition-colors"
-                       style={{ width: '900px', fontSize: '10px', lineHeight: '14px', height: '80.9688px' }}
+                       className="flex items-center justify-between bg-white border border-[#cccccc] shadow-sm group hover:border-blue-500 transition-all overflow-hidden h-[46px] w-full"
                      >
-                        <ArrowDown size={14} className="text-[#666666] shrink-0" strokeWidth={3} />
-                        <span className="font-sans truncate inline-block text-[10px] leading-[14px]">{att.name}</span>
+                        <div className="flex items-center h-full min-w-0">
+                          <div className="w-11 h-full bg-[#f2f2f2] flex items-center justify-center shrink-0 border-r border-[#cccccc]">
+                            <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center border border-[#dddddd] shadow-sm">
+                              <ArrowDown size={12} className="text-[#666666]" strokeWidth={4} />
+                            </div>
+                          </div>
+                          <div className="flex flex-col px-3 min-w-0">
+                            <span className="text-[11px] font-bold text-[#0055aa] truncate leading-tight">
+                              {att.name}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 pr-3">
+                           <div className="flex items-center gap-0.5 bg-blue-50/50 px-1.5 py-0.5 rounded border border-blue-100/50" title="Version Number">
+                              <span className="text-[9px] font-black text-blue-500 uppercase leading-none">v</span>
+                              <span className="text-[9px] font-bold text-blue-600 leading-none">{att.version || "1.0"}</span>
+                           </div>
+                        </div>
                      </a>
                   ))}
                </div>
@@ -15945,6 +16018,7 @@ function PostDetail({
                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                                   <a
                                     href={att.url}
+                       onClick={(e) => handleForceDownload(e, att.url, att.name || "Attachment")}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="p-3 bg-white rounded-full text-blue-600 hover:scale-110 transition-transform shadow-lg"
@@ -15954,6 +16028,7 @@ function PostDetail({
                                   </a>
                                   <a
                                     href={att.url}
+                       onClick={(e) => handleForceDownload(e, att.url, att.name || "Attachment")}
                                     download={att.name}
                                     className="p-3 bg-white rounded-full text-green-600 hover:scale-110 transition-transform shadow-lg"
                                     title="Download Image"
@@ -15969,6 +16044,7 @@ function PostDetail({
                            ) : (
                              <a
                                href={att.url}
+                       onClick={(e) => handleForceDownload(e, att.url, att.name || "Attachment")}
                                target="_blank"
                                rel="noopener noreferrer"
                                className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-blue-50 border-2 border-slate-100 hover:border-blue-200 rounded-2xl transition-all group h-full"
@@ -16056,28 +16132,30 @@ function PostDetail({
             </button>
           </div>
 
-          <button
-            aria-label="Share Post"
-            onClick={() => {
-              const url = `${window.location.origin}/?postId=${post.id}`;
-              const plainContent = post.content ? post.content.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').substring(0, 100) + '...' : "";
-              const shareText = plainContent ? `${plainContent}\n\nRead more on E-Vedhika:` : "Check out this post on E-Vedhika:";
-              handleShare(
-                post.title || "E-Vedhika Post",
-                shareText,
-                url,
-                () => addToast("Link Copied!"),
-                post.mediaUrl,
-                post.mediaType
-              );
-            }}
-            className="flex items-center gap-2 text-slate-500 hover:text-primary hover:bg-slate-50 px-4 py-2 rounded-xl transition-all"
-          >
-            <Share2 size={18} />
-            <span className="text-xs font-black uppercase tracking-wider hidden sm:inline">
-              Share
-            </span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              aria-label="Share Post"
+              onClick={() => {
+                const url = `${window.location.origin}/?postId=${post.id}`;
+                const plainContent = post.content ? post.content.replace(/<[^>]*>?/gm, '').replace(/[#*`]/g, '').substring(0, 100) + '...' : "";
+                const shareText = plainContent ? `${plainContent}\n\nRead more on E-Vedhika:` : "Check out this post on E-Vedhika:";
+                handleShare(
+                  post.title || "E-Vedhika Post",
+                  shareText,
+                  url,
+                  () => addToast("Link Copied!"),
+                  post.mediaUrl,
+                  post.mediaType
+                );
+              }}
+              className="flex items-center gap-2 text-slate-500 hover:text-primary hover:bg-slate-50 px-4 py-2 rounded-xl transition-all"
+            >
+              <Share2 size={18} />
+              <span className="text-xs font-black uppercase tracking-wider hidden sm:inline">
+                Share
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -16189,7 +16267,7 @@ function PostComments({
         commentCount: increment(1),
       });
       
-      // Notify users
+
       sendCommentNotifications(post.id, newComment, auth.currentUser!.uid, authorName);
       
     } catch (e: any) {
@@ -16384,7 +16462,6 @@ function AuthModal({
   const [isSignup, setIsSignup] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Form Fields
   const [surname, setSurname] = useState("");
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
@@ -16409,7 +16486,7 @@ function AuthModal({
     try {
       if (!isSignup) {
         await signInWithEmailAndPassword(auth, email, password);
-        // dynamic greeting handled via profile listener
+
         onClose();
       } else {
         if (
@@ -16435,7 +16512,6 @@ function AuthModal({
           return;
         }
 
-        // Check username uniqueness
         const lowerUsername = username.toLowerCase().trim();
         const usernameDoc = await getDoc(doc(db, "usernames", lowerUsername));
         if (usernameDoc.exists()) {
@@ -16452,10 +16528,8 @@ function AuthModal({
         const user = cred.user;
         await updateProfile(user, { displayName: username });
 
-        // Reserve username
         await setDoc(doc(db, "usernames", lowerUsername), { uid: user.uid });
 
-        // Save Profile
         await setDoc(doc(db, "users", user.uid), {
           surname,
           name,

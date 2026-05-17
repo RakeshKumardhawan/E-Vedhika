@@ -23,7 +23,6 @@ export function ExcelPrinterTool() {
       const wsname = wb.SheetNames[0];
       const ws = wb.Sheets[wsname];
 
-      // Convert to array of arrays
       const dataArr = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
       setData(dataArr);
     };
