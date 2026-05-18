@@ -3997,9 +3997,9 @@ export default function App() {
                         )}
 
                         {el.type === "Feature Cards" && (
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
                             {[1, 2, 3].map((i) => (
-                              <div key={i} className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                              <div key={i} className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md transition-all group h-full">
                                 <div className={`w-10 h-10 bg-${el.color || "blue"}-50 rounded-xl flex items-center justify-center text-${el.color || "blue"}-600 mb-4 group-hover:scale-110 transition-transform`}>
                                   {i === 1 ? <Shield size={20} /> : i === 2 ? <Zap size={20} /> : <Users size={20} />}
                                 </div>
@@ -15273,7 +15273,7 @@ function MenuButton({
           />
         )
       )}
-      <span className="text-sm tracking-tight">{label}</span>
+      <span className="text-sm font-semibold tracking-normal">{label}</span>
     </motion.button>
   );
 }
