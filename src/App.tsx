@@ -1253,7 +1253,7 @@ body {
   white-space: nowrap;
 }
 .latest-text { flex: 1; overflow: hidden; font-weight: 700; font-size: 14px; color: var(--primary); }
-.latest-text span { display: inline-block; white-space: nowrap; animation: scrollLeft 10s linear infinite; }
+.latest-text span { display: inline-block; white-space: nowrap; animation: scrollLeft 25s linear infinite; }
 @keyframes scrollLeft { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
 
 .sidebar-card {
@@ -3976,7 +3976,7 @@ export default function App() {
                               </div>
                               <Link to="?tab=reports" className="text-blue-600 font-black text-xs hover:underline">View All</Link>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
                               {filteredPosts.slice(0, 4).map((post: any) => (
                                   <PostCard
                                     key={post.id}
