@@ -206,7 +206,7 @@ header {
   display: inline-block; 
   white-space: nowrap; 
   padding-left: 100%;
-  animation: scrollLeft 30s linear infinite; 
+  animation: scrollLeft 10s linear infinite; 
 }
 @keyframes scrollLeft { 
   0% { transform: translateX(0); } 

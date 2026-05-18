@@ -179,7 +179,6 @@ import {
   deleteObject,
 } from "firebase/storage";
 import { auth, db, storage } from "../firebase";
-import { GoogleGenAI } from "@google/genai";
 
 enum OperationType {
   CREATE = "create",
@@ -451,7 +450,8 @@ interface Post {
   pinned?: boolean;
   isAdminPost?: boolean;
   version?: string;
-  attachments?: { name: string; url: string; version?: string }[];
+  versionStatus?: "New" | "Old";
+  attachments?: { name: string; url: string; version?: string; status?: "New" | "Old" }[];
   downloadStyle?: "classic" | "techspot";
 }
 
@@ -1253,7 +1253,7 @@ body {
   white-space: nowrap;
 }
 .latest-text { flex: 1; overflow: hidden; font-weight: 700; font-size: 14px; color: var(--primary); }
-.latest-text span { display: inline-block; white-space: nowrap; animation: scrollLeft 30s linear infinite; }
+.latest-text span { display: inline-block; white-space: nowrap; animation: scrollLeft 10s linear infinite; }
 @keyframes scrollLeft { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
 
 .sidebar-card {
@@ -1962,6 +1962,34 @@ export const handleForceDownload = async (e: React.MouseEvent, url: string, file
     link.click();
     document.body.removeChild(link);
   }
+};
+
+export const getLatestAttachment = (attachments: any[]) => {
+  if (!attachments || attachments.length === 0) return null;
+  const nonImages = attachments.filter((att) => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image") || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.name || "")));
+  const candidates = nonImages.length > 0 ? nonImages : attachments;
+
+  const extractV = (str: string, fallbackV?: string) => {
+    const match = str.match(/v\s*(\d+(?:\.\d+)*)/i);
+    return match ? match[1] : fallbackV || "0";
+  };
+
+  return [...candidates].sort((a, b) => {
+    if (a.status === "New" && b.status !== "New") return -1;
+    if (b.status === "New" && a.status !== "New") return 1;
+
+    const vA = extractV(a.name || "", a.version);
+    const vB = extractV(b.name || "", b.version);
+
+    const pA = vA.split(".").map((n) => parseInt(n) || 0);
+    const pB = vB.split(".").map((n) => parseInt(n) || 0);
+    for (let i = 0; i < Math.max(pA.length, pB.length); i++) {
+      const nA = pA[i] || 0;
+      const nB = pB[i] || 0;
+      if (nA !== nB) return nB - nA; // descending
+    }
+    return 0;
+  })[0];
 };
 
 export default function App() {
@@ -3912,7 +3940,7 @@ export default function App() {
                             </div>
                             <div className="relative z-10 max-w-xl space-y-4">
                               <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
-                                {el.title || "Welcome to E-Vedhika"}
+                                {userProfile?.name ? `Hi ${userProfile.name}, Welcome to E-Vedhika` : (el.title || "Welcome to E-Vedhika")}
                               </h1>
                               <p className="text-sm sm:text-base text-white/90 font-medium leading-relaxed">
                                 {el.content || "Empowering citizens through digital transparency and direct access to government services."}
@@ -8511,7 +8539,7 @@ function AdminPanel({
                             <div className={`bg-gradient-to-br from-${el.color || "blue"}-600 to-${el.color || "blue"}-800 p-6 sm:p-12 rounded-[24px] sm:rounded-[40px] text-white overflow-hidden shadow-xl`}>
                               <div className="relative z-10 space-y-4">
                                 <h1 className="text-2xl sm:text-4xl font-black tracking-tighter leading-tight drop-shadow-md">
-                                  {el.title || "Welcome to E-Vedhika"}
+                                  {userProfile?.name ? `Hi ${userProfile.name}, Welcome to E-Vedhika` : (el.title || "Welcome to E-Vedhika")}
                                 </h1>
                                 <p className="text-xs sm:text-sm text-white/80 font-medium leading-relaxed max-w-sm">
                                   {el.content || "Empowering citizens through digital transparency."}
@@ -10229,15 +10257,19 @@ function SmartAssistant({
     if (!input.trim()) return;
     setLoading(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: input,
-        config: {
-          systemInstruction: systemInstruction,
-        },
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: input, systemInstruction }),
       });
-      setResponse(response.text || "No response received.");
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to communicate with AI");
+      }
+
+      const data = await res.json();
+      setResponse(data.text || "No response received.");
     } catch (error) {
       console.error("AI Error:", error);
       setResponse("Sorry, I encountered an error. Please try again.");
@@ -13430,9 +13462,14 @@ function PostCard({
 
             <h4 className="post-title !mt-0 whitespace-pre-wrap flex items-center gap-2">
               {formatPostTitle(post.title) || "Platform Update"}
-              {isAdmin && post.version && (
+              {post.version && (
                 <span className="bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-md font-black tracking-widest uppercase">
                    {post.version}
+                </span>
+              )}
+              {post.versionStatus && (
+                <span className={`${post.versionStatus === 'New' ? 'bg-emerald-500' : 'bg-rose-500'} text-white text-[9px] px-2 py-0.5 rounded-md font-black tracking-widest uppercase`}>
+                  {post.versionStatus}
                 </span>
               )}
             </h4>
@@ -13603,11 +13640,11 @@ function PostCard({
             <div className="w-full md:w-[280px] lg:w-[320px] shrink-0 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-8 flex flex-col">
                <div className="mb-5">
                     <a 
-                       href={post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0]?.url || post.attachments[0].url}
+                       href={(() => { const att = getLatestAttachment(post.attachments); return att ? att.url : post.attachments[0].url; })()}
                        target="_blank"
                        rel="noopener noreferrer"
                        onClick={(e) => {
-                          const attToDownload = post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0] || post.attachments[0];
+                          const attToDownload = getLatestAttachment(post.attachments) || post.attachments[0];
                           handleForceDownload(e, attToDownload.url, attToDownload.name || "Download.zip");
                        }}
                        
@@ -13617,12 +13654,14 @@ function PostCard({
                       <div className="bg-black/15 p-2.5 flex items-center justify-center border-r border-black/10">
                         <ArrowDown size={28} color="white" strokeWidth={3} className="drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform" />
                       </div>
-                      <span className="text-[20px] font-semibold pr-6 tracking-wide drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">Download Now</span>
+                      <span className="text-[20px] font-semibold pr-6 tracking-wide drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] flex-1 truncate" title={(() => { const att = getLatestAttachment(post.attachments); return att ? `Download Now (${att.name})` : "Download Now"; })()}>
+                        {getLatestAttachment(post.attachments) ? "Download Latest Version" : "Download Now"}
+                      </span>
                     </a>
                </div>
 
                <div className="text-[13px] text-gray-800 mb-2 font-sans font-black uppercase tracking-wider">
-                  డౌన్‌లోడ్ ఆప్షన్లు (Download options):
+                  Download
                </div>
                <div className="flex flex-col gap-2 w-full">
                   {post.mediaUrl && !post.mediaType?.startsWith('video') && !post.mediaType?.startsWith('image') && !post.mediaType?.startsWith('audio') && post.mediaType !== 'link' && (
@@ -13668,9 +13707,16 @@ function PostCard({
                           </div>
                         </div>
                         <div className="flex items-center gap-2 pr-3">
-                           <div className="flex items-center gap-0.5 bg-blue-50/50 px-1.5 py-0.5 rounded border border-blue-100/50" title="Version Number">
-                              <span className="text-[9px] font-black text-blue-500 uppercase leading-none">v</span>
-                              <span className="text-[9px] font-bold text-blue-600 leading-none">{att.version || "1.0"}</span>
+                           <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-0.5 bg-blue-50/50 px-1.5 py-0.5 rounded border border-blue-100/50" title="Version Number">
+                                 <span className="text-[9px] font-black text-blue-500 uppercase leading-none">v</span>
+                                 <span className="text-[9px] font-bold text-blue-600 leading-none">{att.version || "1.0"}</span>
+                              </div>
+                              {att.status && (
+                                <span className={`${att.status === 'New' ? 'bg-emerald-500' : 'bg-rose-500'} text-white text-[8px] px-2 py-0.5 rounded font-black tracking-widest uppercase shadow-sm`}>
+                                   {att.status}
+                                </span>
+                              )}
                            </div>
                         </div>
                      </a>
@@ -13730,7 +13776,7 @@ function PostCard({
             {post.attachments && post.attachments.length > 0 && (
                <div className="mt-6 pt-4 border-t border-slate-100">
                   <div className="text-[14px] text-gray-800 mb-3 font-sans font-black uppercase tracking-wider">
-                     డౌన్‌లోడ్ ఆప్షన్లు (Download options)
+                     Download
                   </div>
                   <div className="flex flex-col gap-2 w-full">
                      {post.attachments.map((att, idx) => {
@@ -13758,6 +13804,13 @@ function PostCard({
                                </div>
                                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
                                   <p className="text-white text-[10px] font-bold truncate px-1">{att.name}</p>
+                                  {att.status && (
+                                     <div className="absolute top-2 right-2">
+                                        <span className={`${att.status === 'New' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]'} text-white text-[8px] px-2 py-0.5 rounded font-black tracking-widest uppercase`}>
+                                           {att.status}
+                                        </span>
+                                     </div>
+                                  )}
                                 </div>
                              </div>
                            ) : (
@@ -13784,9 +13837,16 @@ function PostCard({
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2 pr-3">
-                                   <div className="flex items-center gap-0.5 bg-blue-50/50 px-1.5 py-0.5 rounded border border-blue-100/50" title="Version Number">
-                                      <span className="text-[9px] font-black text-blue-500 uppercase leading-none">v</span>
-                                      <span className="text-[9px] font-bold text-blue-600 leading-none">{att.version || "1.0"}</span>
+                                   <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-0.5 bg-blue-50/50 px-1.5 py-0.5 rounded border border-blue-100/50" title="Version Number">
+                                         <span className="text-[9px] font-black text-blue-500 uppercase leading-none">v</span>
+                                         <span className="text-[9px] font-bold text-blue-600 leading-none">{att.version || "1.0"}</span>
+                                      </div>
+                                      {att.status && (
+                                        <span className={`${att.status === 'New' ? 'bg-emerald-500' : 'bg-rose-500'} text-white text-[8px] px-2 py-0.5 rounded font-black tracking-widest uppercase shadow-sm`}>
+                                           {att.status}
+                                        </span>
+                                      )}
                                    </div>
                                 </div>
                              </a>
@@ -14099,7 +14159,8 @@ function PostForm({
   const [title, setTitle] = useState(editingPost?.title || "");
   const [content, setContent] = useState(editingPost?.content || "");
   const [version, setVersion] = useState(editingPost?.version || "");
-  const [attachments, setAttachments] = useState<{ name: string; url: string; version?: string }[]>(
+  const [versionStatus, setVersionStatus] = useState<"New" | "Old" | undefined>(editingPost?.versionStatus);
+  const [attachments, setAttachments] = useState<{ name: string; url: string; version?: string; status?: "New" | "Old" }[]>(
     editingPost?.attachments || [],
   );
   const [downloadStyle, setDownloadStyle] = useState<"classic" | "techspot">(
@@ -14332,7 +14393,15 @@ function PostForm({
         new Set([...manualTags, ...extractedHashtags]),
       );
 
-      const postData = {
+      const cleanAttachments = (attachments || []).map(att => {
+        const cleaned: any = { ...att };
+        Object.keys(cleaned).forEach(key => {
+          if (cleaned[key] === undefined) delete cleaned[key];
+        });
+        return cleaned;
+      });
+
+      const postData: any = {
         title,
         content,
         category: selectedCategories[0],
@@ -14343,9 +14412,13 @@ function PostForm({
         mediaType: media?.type || "",
         mediaName: media?.name || "",
         version: version.trim(),
-        attachments: attachments,
+        attachments: cleanAttachments,
         downloadStyle: downloadStyle,
       };
+
+      if (versionStatus) {
+        postData.versionStatus = versionStatus;
+      }
 
       const estimatedSize = JSON.stringify(postData).length;
       if (estimatedSize > 950000) { // Safety margin
@@ -14684,9 +14757,14 @@ function PostForm({
 
               <h4 className="post-title !mt-0 whitespace-pre-wrap flex items-center gap-2">
                 {formatPostTitle(title) || "Post Title Preview"}
-                {isAdmin && version && (
+                {version && (
                    <span className="bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-md font-black tracking-widest uppercase">
                       {version}
+                   </span>
+                )}
+                {versionStatus && (
+                   <span className={`${versionStatus === 'New' ? 'bg-emerald-500' : 'bg-rose-500'} text-white text-[9px] px-2 py-0.5 rounded-md font-black tracking-widest uppercase`}>
+                      {versionStatus}
                    </span>
                 )}
               </h4>
@@ -14848,15 +14926,33 @@ function PostForm({
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                         వెర్షన్ నెంబర్ (VERSION)
                       </label>
-                      <div className="relative group">
-                        <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
-                        <input
-                          type="text"
-                          value={version}
-                          onChange={(e) => setVersion(e.target.value)}
-                          placeholder="e.g. V1.5.0"
-                          className="w-full bg-white border-2 border-slate-100 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-slate-700 outline-none focus:border-primary/30 focus:shadow-sm transition-all shadow-sm"
-                        />
+                      <div className="flex gap-2">
+                        <div className="relative group flex-1">
+                          <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
+                          <input
+                            type="text"
+                            value={version}
+                            onChange={(e) => setVersion(e.target.value)}
+                            placeholder="e.g. V1.5.0"
+                            className="w-full bg-white border-2 border-slate-100 rounded-xl py-3 pl-10 pr-4 text-sm font-bold text-slate-700 outline-none focus:border-primary/30 focus:shadow-sm transition-all shadow-sm"
+                          />
+                        </div>
+                        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => setVersionStatus(versionStatus === "New" ? undefined : "New")}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${versionStatus === "New" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+                          >
+                            NEW
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setVersionStatus(versionStatus === "Old" ? undefined : "Old")}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${versionStatus === "Old" ? "bg-rose-500 text-white shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+                          >
+                            OLD
+                          </button>
+                        </div>
                       </div>
                    </div>
 
@@ -14977,6 +15073,24 @@ function PostForm({
                           </div>
                         </div>
                         <div className="flex items-center gap-2 pr-3">
+                           {/* Status Toggle (New/Old) */}
+                           <div className="flex bg-slate-100 p-0.5 rounded border border-slate-200">
+                              <button
+                                type="button"
+                                onClick={() => setAttachments(prev => prev.map((a, i) => i === idx ? { ...a, status: a.status === "New" ? undefined : "New" } : a))}
+                                className={`px-1.5 py-0.5 rounded text-[8px] font-black transition-all ${att.status === "New" ? "bg-emerald-500 text-white shadow-sm" : "text-slate-400 hover:text-emerald-500"}`}
+                              >
+                                NEW
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setAttachments(prev => prev.map((a, i) => i === idx ? { ...a, status: a.status === "Old" ? undefined : "Old" } : a))}
+                                className={`px-1.5 py-0.5 rounded text-[8px] font-black transition-all ${att.status === "Old" ? "bg-rose-500 text-white shadow-sm" : "text-slate-400 hover:text-rose-500"}`}
+                              >
+                                OLD
+                              </button>
+                           </div>
+
                            {/* Version Label / Dropdown */}
                            <div className="flex items-center gap-0.5 bg-blue-50/50 px-1 py-0.5 rounded border border-blue-100/50" title="Change Version">
                               <span className="text-[9px] font-black text-blue-500 uppercase leading-none pl-1">v</span>
@@ -15688,9 +15802,14 @@ function PostDetail({
 
         <h1 className="text-3xl md:text-5xl font-black text-primary leading-tight tracking-tight whitespace-pre-wrap flex items-center gap-3">
           {formatPostTitle(post.title)}
-          {isAdmin && post.version && (
+          {post.version && (
              <span className="bg-slate-800 text-white text-[11px] px-3 py-1 rounded-lg font-black tracking-widest uppercase">
                 {post.version}
+             </span>
+          )}
+          {post.versionStatus && (
+             <span className={`${post.versionStatus === 'New' ? 'bg-emerald-500' : 'bg-rose-500'} text-white text-[11px] px-3 py-1 rounded-lg font-black tracking-widest uppercase`}>
+                {post.versionStatus}
              </span>
           )}
         </h1>
@@ -15863,6 +15982,13 @@ function PostDetail({
                              </div>
                              <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
                                 <p className="text-white text-[12px] font-bold truncate px-1">{att.name}</p>
+                                {att.status && (
+                                  <div className="absolute top-3 right-3">
+                                     <span className={`${att.status === 'New' ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)]'} text-white text-[9px] px-2.5 py-1 rounded-md font-black tracking-widest uppercase`}>
+                                        {att.status}
+                                     </span>
+                                  </div>
+                                )}
                              </div>
                            </div>
                      ))}
@@ -15873,11 +15999,11 @@ function PostDetail({
             <div className="w-full md:w-[320px] lg:w-[360px] shrink-0 border-t md:border-t-0 md:border-l border-gray-100 pt-6 md:pt-0 md:pl-10 flex flex-col">
                <div className="mb-5">
                     <a 
-                       href={post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0]?.url || post.attachments[0].url}
+                       href={(() => { const att = getLatestAttachment(post.attachments); return att ? att.url : post.attachments[0].url; })()}
                        target="_blank"
                        rel="noopener noreferrer"
                        onClick={(e) => {
-                          const attToDownload = post.attachments.filter(att => !(/\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(att.url) || att.url.includes("image")))[0] || post.attachments[0];
+                          const attToDownload = getLatestAttachment(post.attachments) || post.attachments[0];
                           handleForceDownload(e, attToDownload.url, attToDownload.name || "Download.zip");
                        }}
                        
@@ -15887,12 +16013,14 @@ function PostDetail({
                       <div className="bg-black/15 p-2.5 flex items-center justify-center border-r border-black/10">
                         <ArrowDown size={28} color="white" strokeWidth={3} className="drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform" />
                       </div>
-                      <span className="text-[20px] font-semibold pr-6 tracking-wide drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">Download Now</span>
+                      <span className="text-[20px] font-semibold pr-6 tracking-wide drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] flex-1 truncate" title={(() => { const att = getLatestAttachment(post.attachments); return att ? `Download Now (${att.name})` : "Download Now"; })()}>
+                        {getLatestAttachment(post.attachments) ? "Download Latest Version" : "Download Now"}
+                      </span>
                     </a>
                </div>
 
                <div className="text-[13px] text-gray-800 mb-2 font-sans font-black uppercase tracking-wider">
-                  డౌన్‌లోడ్ ఆప్షన్లు (Download options):
+                  Download
                </div>
                <div className="flex flex-col gap-2 w-full">
                   {post.mediaUrl && !post.mediaType?.startsWith('video') && !post.mediaType?.startsWith('image') && !post.mediaType?.startsWith('audio') && post.mediaType !== 'link' && (
@@ -15938,9 +16066,16 @@ function PostDetail({
                           </div>
                         </div>
                         <div className="flex items-center gap-2 pr-3">
-                           <div className="flex items-center gap-0.5 bg-blue-50/50 px-1.5 py-0.5 rounded border border-blue-100/50" title="Version Number">
-                              <span className="text-[9px] font-black text-blue-500 uppercase leading-none">v</span>
-                              <span className="text-[9px] font-bold text-blue-600 leading-none">{att.version || "1.0"}</span>
+                           <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-0.5 bg-blue-50/50 px-1.5 py-0.5 rounded border border-blue-100/50" title="Version Number">
+                                 <span className="text-[9px] font-black text-blue-500 uppercase leading-none">v</span>
+                                 <span className="text-[9px] font-bold text-blue-600 leading-none">{att.version || "1.0"}</span>
+                              </div>
+                              {att.status && (
+                                <span className={`${att.status === 'New' ? 'bg-emerald-500' : 'bg-rose-500'} text-white text-[8px] px-2 py-0.5 rounded font-black tracking-widest uppercase shadow-sm`}>
+                                   {att.status}
+                                </span>
+                              )}
                            </div>
                         </div>
                      </a>
@@ -16038,6 +16173,13 @@ function PostDetail({
                                </div>
                                <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
                                   <p className="text-white text-xs font-black truncate">{att.name}</p>
+                                   {att.status && (
+                                     <div className="absolute top-3 right-3 scale-110">
+                                        <span className={`${att.status === 'New' ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)]'} text-white text-[9px] px-2 py-1 rounded font-black tracking-widest uppercase`}>
+                                           {att.status}
+                                        </span>
+                                     </div>
+                                   )}
                                   <p className="text-white/60 text-[9px] font-bold uppercase tracking-widest">Image File</p>
                                </div>
                              </div>
@@ -16053,7 +16195,17 @@ function PostDetail({
                                   <FileText size={20} className="text-blue-500" />
                                </div>
                                <div className="flex flex-col min-w-0">
-                                  <span className="text-sm font-black text-slate-800 truncate group-hover:text-blue-800">{att.name}</span>
+                                  <div className="flex items-center gap-2">
+                                     <span className="text-sm font-black text-slate-800 truncate group-hover:text-blue-800">{att.name}</span>
+                                     {att.version && (
+                                        <span className="bg-blue-50 text-blue-600 text-[8px] px-1.5 py-0.5 rounded font-bold border border-blue-100">v{att.version}</span>
+                                     )}
+                                     {att.status && (
+                                        <span className={`${att.status === 'New' ? 'bg-emerald-500' : 'bg-rose-500'} text-white text-[8px] px-2 py-0.5 rounded font-black tracking-widest uppercase shadow-sm`}>
+                                           {att.status}
+                                        </span>
+                                     )}
+                                  </div>
                                   <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Download File • {att.url.split('.').pop()?.split('?')[0].toUpperCase() || 'FILE'}</span>
                                </div>
                              </a>
